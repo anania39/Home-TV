@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200" width="100%" height="100%">
+  <defs>
+    <linearGradient id="khit_bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#2563eb"/>
+      <stop offset="100%" stop-color="#1e3a8a"/>
+    </linearGradient>
+  </defs>
+  <rect width="200" height="200" rx="36" fill="url(#khit_bg)"/>
+  <polygon points="100,38 110,64 138,64 116,80 124,106 100,90 76,106 84,80 62,64 90,64" fill="#38bdf8"/>
+  <text x="100" y="146" font-family="-apple-system, Arial, sans-serif" font-size="24" font-weight="900" fill="#ffffff" text-anchor="middle" letter-spacing="1">КИНОХИТ</text>
+  <text x="100" y="172" font-family="-apple-system, Arial, sans-serif" font-size="14" font-weight="800" fill="#93c5fd" text-anchor="middle">МИРОВЫЕ ХИТЫ</text>
+</svg>

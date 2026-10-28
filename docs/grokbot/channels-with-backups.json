@@ -1,0 +1,1038 @@
+[
+  {
+    "id": "ge-formula",
+    "name": "Formula HD",
+    "group": "Georgian",
+    "language": "Georgian",
+    "logo": "https://i.imgur.com/fsqBn8G.png",
+    "tvg_id": "Formula.ge",
+    "sources": [
+      {
+        "url": "https://c4635.cdn.xsg.ge/c4635/TVFormula/index.m3u8",
+        "type": "hls",
+        "max_res": "1080p",
+        "headers": {}
+      },
+      {
+        "url": "https://tv.cdn.xsg.ge/c4635/TVFormula/playlist.m3u8",
+        "type": "hls",
+        "max_res": "1080p",
+        "headers": {}
+      },
+      {
+        "url": "https://tv.cdn.xsg.ge/c4635/TVFormula/index.m3u8",
+        "type": "hls",
+        "max_res": "1080p",
+        "headers": {}
+      }
+    ],
+    "primary_res": "1080p",
+    "source_count": 3,
+    "legitimacy": "official",
+    "notes": "Formula CDN"
+  },
+  {
+    "id": "ge-imedi",
+    "name": "Imedi TV HD",
+    "group": "Georgian",
+    "language": "Georgian",
+    "logo": "https://i.imgur.com/94hNyxZ.png",
+    "tvg_id": "ImediTV.ge",
+    "sources": [
+      {
+        "url": "https://tv.cdn.xsg.ge/imedihd/index.m3u8",
+        "type": "hls",
+        "max_res": "1080p",
+        "headers": {}
+      },
+      {
+        "url": "https://geo-tv.cdn.xsg.ge/imedihd/tracks-v1a1/index.m3u8",
+        "type": "hls",
+        "max_res": "1080p",
+        "headers": {}
+      },
+      {
+        "url": "https://tv.cdn.xsg.ge/imedihd/tracks-v1a1/index.m3u8",
+        "type": "hls",
+        "max_res": "1080p",
+        "headers": {}
+      }
+    ],
+    "primary_res": "1080p",
+    "source_count": 3,
+    "legitimacy": "official",
+    "notes": "Imedi via xsg.ge CDN used by site"
+  },
+  {
+    "id": "ge-1tv",
+    "name": "1TV (პირველი არხი)",
+    "group": "Georgian",
+    "language": "Georgian",
+    "logo": "https://i.imgur.com/FSkYLPK.png",
+    "tvg_id": "1TV.ge",
+    "sources": [
+      {
+        "url": "https://tv.cdn.xsg.ge/gpb-1tv/index.m3u8",
+        "type": "hls",
+        "max_res": "720p",
+        "headers": {}
+      },
+      {
+        "url": "https://tv.cdn.xsg.ge/gpb-1tv/tracks-v1a1/index.m3u8",
+        "type": "hls",
+        "max_res": "720p",
+        "headers": {}
+      }
+    ],
+    "primary_res": "720p",
+    "source_count": 2,
+    "legitimacy": "official",
+    "notes": "GPB official CDN"
+  },
+  {
+    "id": "ge-2tv",
+    "name": "2 TV (მეორე არხი)",
+    "group": "Georgian",
+    "language": "Georgian",
+    "logo": "https://i.imgur.com/FJBL6zI.png",
+    "tvg_id": "2TV.ge",
+    "sources": [
+      {
+        "url": "https://tv.cdn.xsg.ge/gpb-2tv/index.m3u8",
+        "type": "hls",
+        "max_res": "720p",
+        "headers": {}
+      },
+      {
+        "url": "https://tv.cdn.xsg.ge/gpb-2tv/tracks-v1a1/index.m3u8",
+        "type": "hls",
+        "max_res": "720p",
+        "headers": {}
+      }
+    ],
+    "primary_res": "720p",
+    "source_count": 2,
+    "legitimacy": "official",
+    "notes": "GPB second channel CDN"
+  },
+  {
+    "id": "ge-ertsulovneba",
+    "name": "Ertsulovneba",
+    "group": "Georgian",
+    "language": "Georgian",
+    "logo": "https://i.imgur.com/KuuODMM.png",
+    "tvg_id": "Ertsulovneba.ge",
+    "sources": [
+      {
+        "url": "https://stream.sstv.ge/live/sstv/playlist.m3u8",
+        "type": "hls",
+        "max_res": "720p",
+        "headers": {}
+      }
+    ],
+    "primary_res": "720p",
+    "source_count": 1,
+    "legitimacy": "official",
+    "notes": "Church channel own domain"
+  },
+  {
+    "id": "ge-palitra",
+    "name": "Palitra News",
+    "group": "Georgian",
+    "language": "Georgian",
+    "logo": "https://i.imgur.com/BW95PMF.png",
+    "tvg_id": "PalitraNews.ge",
+    "sources": [
+      {
+        "url": "https://live.palitranews.ge/hls/palitratv/index.m3u8",
+        "type": "hls",
+        "max_res": "480p",
+        "headers": {}
+      }
+    ],
+    "primary_res": "480p",
+    "source_count": 1,
+    "legitimacy": "official",
+    "notes": "Own domain; may not be 24/7"
+  },
+  {
+    "id": "ru-abaza",
+    "name": "Abaza TV",
+    "group": "Russian",
+    "language": "Russian",
+    "logo": "https://i.imgur.com/7Jo7UAf.png",
+    "tvg_id": "ru-abaza",
+    "sources": [
+      {
+        "url": "https://public.apsny.camera/tv_abaza_tv_to_site/index.m3u8",
+        "type": "hls",
+        "max_res": "1080p",
+        "headers": {}
+      }
+    ],
+    "primary_res": "1080p",
+    "source_count": 1,
+    "legitimacy": "iptv-org",
+    "notes": "Public camera stream"
+  },
+  {
+    "id": "ru-dw",
+    "name": "DW Russian",
+    "group": "Russian",
+    "language": "Russian",
+    "logo": "https://upload.wikimedia.org/wikipedia/commons/thumb/7/75/Deutsche_Welle_symbol_2012.svg/512px-Deutsche_Welle_symbol_2012.svg.png",
+    "tvg_id": "DWRussian.de",
+    "sources": [
+      {
+        "url": "https://dwamdstream110.akamaized.net/hls/live/2017971/dwstream110/master.m3u8",
+        "type": "hls",
+        "max_res": "1080p",
+        "headers": {}
+      },
+      {
+        "url": "https://dwamdstream111.akamaized.net/hls/live/2017972/dwstream111/master.m3u8",
+        "type": "hls",
+        "max_res": "1080p",
+        "headers": {}
+      }
+    ],
+    "primary_res": "1080p",
+    "source_count": 2,
+    "legitimacy": "official",
+    "notes": "DW Russian official"
+  },
+  {
+    "id": "ru-rtdoc",
+    "name": "RT Documentary",
+    "group": "Russian",
+    "language": "Russian",
+    "logo": "https://upload.wikimedia.org/wikipedia/commons/thumb/3/3a/RT_Documentary_logo.svg/512px-RT_Documentary_logo.svg.png",
+    "tvg_id": "RTDocumentary.ru",
+    "sources": [
+      {
+        "url": "https://rt-rtd.rttv.com/live/rtdoc/playlist.m3u8",
+        "type": "hls",
+        "max_res": "1080p",
+        "headers": {}
+      }
+    ],
+    "primary_res": "1080p",
+    "source_count": 1,
+    "legitimacy": "official",
+    "notes": "RT Doc official"
+  },
+  {
+    "id": "ru-rt",
+    "name": "RT News",
+    "group": "Russian",
+    "language": "Russian",
+    "logo": "https://upload.wikimedia.org/wikipedia/commons/thumb/a/a0/Russia_Today_logo.svg/512px-Russia_Today_logo.svg.png",
+    "tvg_id": "RT.ru",
+    "sources": [
+      {
+        "url": "https://rt-glb.rttv.com/live/rtnews/playlist.m3u8",
+        "type": "hls",
+        "max_res": "1080p",
+        "headers": {}
+      }
+    ],
+    "primary_res": "1080p",
+    "source_count": 1,
+    "legitimacy": "official",
+    "notes": "RT official CDN"
+  },
+  {
+    "id": "ru-currenttime",
+    "name": "Настоящее Время (Current Time)",
+    "group": "Russian",
+    "language": "Russian",
+    "logo": "https://upload.wikimedia.org/wikipedia/commons/thumb/8/8a/Current_Time_TV_logo.svg/512px-Current_Time_TV_logo.svg.png",
+    "tvg_id": "CurrentTimeTV.ru",
+    "sources": [
+      {
+        "url": "https://rfe-ingest.akamaized.net/hls/live/2033043/tvmc05/master.m3u8",
+        "type": "hls",
+        "max_res": "1080p",
+        "headers": {}
+      },
+      {
+        "url": "https://rfe-ingest.akamaized.net/hls/live/2033043-b/tvmc05/playlist.m3u8",
+        "type": "hls",
+        "max_res": "1080p",
+        "headers": {}
+      }
+    ],
+    "primary_res": "1080p",
+    "source_count": 2,
+    "legitimacy": "official",
+    "notes": "RFE/RL official free Russian news"
+  },
+  {
+    "id": "ru-smotrim-kids",
+    "name": "Смотрим: Детское",
+    "group": "Russian",
+    "language": "Russian",
+    "logo": "https://upload.wikimedia.org/wikipedia/commons/thumb/8/81/Smotrim_logo.svg/512px-Smotrim_logo.svg.png",
+    "tvg_id": "ru-smotrim-kids",
+    "sources": [
+      {
+        "url": "https://stream.smotrim.ru/hls/fasttv05/playlist_3.m3u8",
+        "type": "hls",
+        "max_res": "1080p",
+        "headers": {}
+      },
+      {
+        "url": "https://stream.smotrim.ru/hls/fasttv05/playlist_2.m3u8",
+        "type": "hls",
+        "max_res": "1080p",
+        "headers": {}
+      }
+    ],
+    "primary_res": "1080p",
+    "source_count": 2,
+    "legitimacy": "official",
+    "notes": "VGTRK FAST"
+  },
+  {
+    "id": "ru-smotrim-classic",
+    "name": "Смотрим: Классика",
+    "group": "Russian",
+    "language": "Russian",
+    "logo": "https://upload.wikimedia.org/wikipedia/commons/thumb/8/81/Smotrim_logo.svg/512px-Smotrim_logo.svg.png",
+    "tvg_id": "ru-smotrim-classic",
+    "sources": [
+      {
+        "url": "https://stream.smotrim.ru/hls/fasttv03/playlist_3.m3u8",
+        "type": "hls",
+        "max_res": "1080p",
+        "headers": {}
+      },
+      {
+        "url": "https://stream.smotrim.ru/hls/fasttv03/playlist_2.m3u8",
+        "type": "hls",
+        "max_res": "1080p",
+        "headers": {}
+      }
+    ],
+    "primary_res": "1080p",
+    "source_count": 2,
+    "legitimacy": "official",
+    "notes": "VGTRK FAST"
+  },
+  {
+    "id": "ru-smotrim-men",
+    "name": "Смотрим: Мужское",
+    "group": "Russian",
+    "language": "Russian",
+    "logo": "https://upload.wikimedia.org/wikipedia/commons/thumb/8/81/Smotrim_logo.svg/512px-Smotrim_logo.svg.png",
+    "tvg_id": "ru-smotrim-men",
+    "sources": [
+      {
+        "url": "https://stream.smotrim.ru/hls/fasttv02/playlist_3.m3u8",
+        "type": "hls",
+        "max_res": "1080p",
+        "headers": {}
+      },
+      {
+        "url": "https://stream.smotrim.ru/hls/fasttv02/playlist_2.m3u8",
+        "type": "hls",
+        "max_res": "1080p",
+        "headers": {}
+      }
+    ],
+    "primary_res": "1080p",
+    "source_count": 2,
+    "legitimacy": "official",
+    "notes": "VGTRK FAST"
+  },
+  {
+    "id": "ru-smotrim-holiday",
+    "name": "Смотрим: Праздник",
+    "group": "Russian",
+    "language": "Russian",
+    "logo": "https://upload.wikimedia.org/wikipedia/commons/thumb/8/81/Smotrim_logo.svg/512px-Smotrim_logo.svg.png",
+    "tvg_id": "ru-smotrim-holiday",
+    "sources": [
+      {
+        "url": "https://stream.smotrim.ru/hls/fasttv04/playlist_3.m3u8",
+        "type": "hls",
+        "max_res": "1080p",
+        "headers": {}
+      },
+      {
+        "url": "https://stream.smotrim.ru/hls/fasttv04/playlist_2.m3u8",
+        "type": "hls",
+        "max_res": "1080p",
+        "headers": {}
+      }
+    ],
+    "primary_res": "1080p",
+    "source_count": 2,
+    "legitimacy": "official",
+    "notes": "VGTRK FAST"
+  },
+  {
+    "id": "ru-smotrim-facts",
+    "name": "Смотрим: Факты",
+    "group": "Russian",
+    "language": "Russian",
+    "logo": "https://upload.wikimedia.org/wikipedia/commons/thumb/8/81/Smotrim_logo.svg/512px-Smotrim_logo.svg.png",
+    "tvg_id": "ru-smotrim-facts",
+    "sources": [
+      {
+        "url": "https://stream.smotrim.ru/hls/fasttv06/playlist_3.m3u8",
+        "type": "hls",
+        "max_res": "1080p",
+        "headers": {}
+      },
+      {
+        "url": "https://stream.smotrim.ru/hls/fasttv06/playlist_2.m3u8",
+        "type": "hls",
+        "max_res": "1080p",
+        "headers": {}
+      }
+    ],
+    "primary_res": "1080p",
+    "source_count": 2,
+    "legitimacy": "official",
+    "notes": "VGTRK Smotrim free FAST"
+  },
+  {
+    "id": "ru-euronews",
+    "name": "Euronews Russian",
+    "group": "Russian",
+    "language": "Russian",
+    "logo": "https://upload.wikimedia.org/wikipedia/commons/thumb/9/9c/Euronews_2016_logo.svg/512px-Euronews_2016_logo.svg.png",
+    "tvg_id": "EuronewsRussian.fr",
+    "sources": [
+      {
+        "url": "https://cdn-euronews.akamaized.net/live/eds/euronews-ru/25071/index.m3u8",
+        "type": "hls",
+        "max_res": "720p",
+        "headers": {}
+      }
+    ],
+    "primary_res": "720p",
+    "source_count": 1,
+    "legitimacy": "official",
+    "notes": "Euronews RU official Akamai"
+  },
+  {
+    "id": "ru-rtdoc-ru",
+    "name": "RT Doc (Russian)",
+    "group": "Russian",
+    "language": "Russian",
+    "logo": "",
+    "tvg_id": "ru-rtdoc-ru",
+    "sources": [
+      {
+        "url": "https://rt-doc.rttv.com/dvr/rtdru/playlist.m3u8",
+        "type": "hls",
+        "max_res": "1080p",
+        "headers": {}
+      }
+    ],
+    "primary_res": "1080p",
+    "source_count": 1,
+    "legitimacy": "official",
+    "notes": "RT Doc Russian"
+  },
+  {
+    "id": "ru-smotrim-love",
+    "name": "Смотрим: Любовь",
+    "group": "Russian",
+    "language": "Russian",
+    "logo": "https://upload.wikimedia.org/wikipedia/commons/thumb/8/81/Smotrim_logo.svg/512px-Smotrim_logo.svg.png",
+    "tvg_id": "ru-smotrim-love",
+    "sources": [
+      {
+        "url": "https://stream.smotrim.ru/hls/fasttv01/playlist_2.m3u8",
+        "type": "hls",
+        "max_res": "720p",
+        "headers": {}
+      }
+    ],
+    "primary_res": "720p",
+    "source_count": 1,
+    "legitimacy": "official",
+    "notes": "VGTRK FAST"
+  },
+  {
+    "id": "en-trt",
+    "name": "TRT World",
+    "group": "English-News",
+    "language": "English",
+    "logo": "https://upload.wikimedia.org/wikipedia/commons/thumb/4/4d/TRT_World_logo.svg/512px-TRT_World_logo.svg.png",
+    "tvg_id": "TRTWorld.tr",
+    "sources": [
+      {
+        "url": "https://tv-trtworld.medya.trt.com.tr/master.m3u8",
+        "type": "hls",
+        "max_res": "1440p",
+        "headers": {}
+      },
+      {
+        "url": "https://tv-trtworld.medya.trt.com.tr/master_1080.m3u8",
+        "type": "hls",
+        "max_res": "1440p",
+        "headers": {}
+      }
+    ],
+    "primary_res": "1440p",
+    "source_count": 2,
+    "legitimacy": "official",
+    "notes": "TRT master"
+  },
+  {
+    "id": "en-aje",
+    "name": "Al Jazeera English",
+    "group": "English-News",
+    "language": "English",
+    "logo": "https://upload.wikimedia.org/wikipedia/en/thumb/f/f2/Aljazeera_english.svg/512px-Aljazeera_english.svg.png",
+    "tvg_id": "AlJazeeraEnglish.qa",
+    "sources": [
+      {
+        "url": "https://live-hls-apps-aje-fa.getaj.net/AJE/index.m3u8",
+        "type": "hls",
+        "max_res": "1080p",
+        "headers": {}
+      },
+      {
+        "url": "https://live-hls-aje-ak.getaj.net/AJE/01.m3u8",
+        "type": "hls",
+        "max_res": "1080p",
+        "headers": {}
+      }
+    ],
+    "primary_res": "1080p",
+    "source_count": 2,
+    "legitimacy": "official",
+    "notes": "AJ apps CDN 1080p"
+  },
+  {
+    "id": "en-cbc-news",
+    "name": "CBC News 24/7",
+    "group": "English-News",
+    "language": "English",
+    "logo": "",
+    "tvg_id": "en-cbc-news",
+    "sources": [
+      {
+        "url": "https://amagi-streams.akamaized.net/hls/live/2110960/cbcnewsbc/master.m3u8",
+        "type": "hls",
+        "max_res": "1080p",
+        "headers": {}
+      }
+    ],
+    "primary_res": "1080p",
+    "source_count": 1,
+    "legitimacy": "FAST",
+    "notes": "Official CBC FAST; master playlist 1080p OK from box, ffprobe timed out — already in app"
+  },
+  {
+    "id": "en-cgtn",
+    "name": "CGTN English",
+    "group": "English-News",
+    "language": "English",
+    "logo": "https://upload.wikimedia.org/wikipedia/commons/thumb/8/82/CGTN_logo.svg/512px-CGTN_logo.svg.png",
+    "tvg_id": "CGTN.cn",
+    "sources": [
+      {
+        "url": "https://amg00405-rakutentv-cgtn-rakuten-i9tar.amagi.tv/master.m3u8",
+        "type": "hls",
+        "max_res": "1080p",
+        "headers": {}
+      }
+    ],
+    "primary_res": "1080p",
+    "source_count": 1,
+    "legitimacy": "FAST",
+    "notes": "CGTN via Rakuten FAST"
+  },
+  {
+    "id": "en-cna",
+    "name": "CNA (Channel NewsAsia)",
+    "group": "English-News",
+    "language": "English",
+    "logo": "https://upload.wikimedia.org/wikipedia/commons/thumb/8/84/CNA_new_logo.svg/512px-CNA_new_logo.svg.png",
+    "tvg_id": "CNA.sg",
+    "sources": [
+      {
+        "url": "https://d2e1asnsl7br7b.cloudfront.net/7782e205e72f43aeb4a48ec97f66ebbe/index.m3u8",
+        "type": "hls",
+        "max_res": "1080p",
+        "headers": {}
+      }
+    ],
+    "primary_res": "1080p",
+    "source_count": 1,
+    "legitimacy": "official",
+    "notes": "Channel NewsAsia"
+  },
+  {
+    "id": "en-cheddar",
+    "name": "Cheddar News",
+    "group": "English-News",
+    "language": "English",
+    "logo": "https://upload.wikimedia.org/wikipedia/commons/thumb/5/5a/Cheddar_%28TV_channel%29_logo.svg/512px-Cheddar_%28TV_channel%29_logo.svg.png",
+    "tvg_id": "en-cheddar",
+    "sources": [
+      {
+        "url": "https://hls.livecdn.io/cheddar.com/cheddar/playlist.m3u8",
+        "type": "hls",
+        "max_res": "1080p",
+        "headers": {}
+      }
+    ],
+    "primary_res": "1080p",
+    "source_count": 1,
+    "legitimacy": "FAST",
+    "notes": "Cheddar free"
+  },
+  {
+    "id": "en-dw",
+    "name": "DW English",
+    "group": "English-News",
+    "language": "English",
+    "logo": "https://i.imgur.com/MNKkgfa.png",
+    "tvg_id": "DWEnglish.de",
+    "sources": [
+      {
+        "url": "https://dwamdstream102.akamaized.net/hls/live/2015525/dwstream102/index.m3u8",
+        "type": "hls",
+        "max_res": "1080p",
+        "headers": {}
+      },
+      {
+        "url": "https://dwamdstream103.akamaized.net/hls/live/2015526/dwstream103/master.m3u8",
+        "type": "hls",
+        "max_res": "1080p",
+        "headers": {}
+      }
+    ],
+    "primary_res": "1080p",
+    "source_count": 2,
+    "legitimacy": "official",
+    "notes": "Deutsche Welle official"
+  },
+  {
+    "id": "en-france24",
+    "name": "France 24 English",
+    "group": "English-News",
+    "language": "English",
+    "logo": "https://upload.wikimedia.org/wikipedia/commons/thumb/8/8a/France24.png/512px-France24.png",
+    "tvg_id": "France24English.fr",
+    "sources": [
+      {
+        "url": "https://live.france24.com/hls/live/2037218-b/F24_EN_HI_HLS/master_5000.m3u8",
+        "type": "hls",
+        "max_res": "1080p",
+        "headers": {}
+      }
+    ],
+    "primary_res": "1080p",
+    "source_count": 1,
+    "legitimacy": "official",
+    "notes": "France24 official HI"
+  },
+  {
+    "id": "en-nbcnow",
+    "name": "NBC News NOW",
+    "group": "English-News",
+    "language": "English",
+    "logo": "https://upload.wikimedia.org/wikipedia/commons/thumb/3/3f/NBC_logo.svg/512px-NBC_logo.svg.png",
+    "tvg_id": "NBCNewsNOW.us",
+    "sources": [
+      {
+        "url": "https://d1si3n1st4nkgb.cloudfront.net/10502/88896001/hls/master.m3u8?ads.xumo_channelId=88896001",
+        "type": "hls",
+        "max_res": "1080p",
+        "headers": {}
+      }
+    ],
+    "primary_res": "1080p",
+    "source_count": 1,
+    "legitimacy": "FAST",
+    "notes": "NBC News NOW via Xumo FAST"
+  },
+  {
+    "id": "en-nhk",
+    "name": "NHK World-Japan",
+    "group": "English-News",
+    "language": "English",
+    "logo": "https://upload.wikimedia.org/wikipedia/commons/thumb/7/7b/NHK_World-Japan_TV.svg/512px-NHK_World-Japan_TV.svg.png",
+    "tvg_id": "NHKWorldJapan.jp",
+    "sources": [
+      {
+        "url": "https://masterpl.hls.nhkworld.jp/hls/w/live/smarttv.m3u8",
+        "type": "hls",
+        "max_res": "1080p",
+        "headers": {}
+      }
+    ],
+    "primary_res": "1080p",
+    "source_count": 1,
+    "legitimacy": "official",
+    "notes": "NHK World official"
+  },
+  {
+    "id": "en-i24",
+    "name": "i24NEWS English",
+    "group": "English-News",
+    "language": "English",
+    "logo": "https://upload.wikimedia.org/wikipedia/commons/thumb/3/3e/I24NEWS_logo.svg/512px-I24NEWS_logo.svg.png",
+    "tvg_id": "i24NEWSEnglishWorld.il",
+    "sources": [
+      {
+        "url": "https://i24newsenglish-cdn.encoders.immergo.tv/master.m3u8",
+        "type": "hls",
+        "max_res": "1080p",
+        "headers": {}
+      }
+    ],
+    "primary_res": "1080p",
+    "source_count": 1,
+    "legitimacy": "official",
+    "notes": "i24 English"
+  },
+  {
+    "id": "en-abc",
+    "name": "ABC News",
+    "group": "English-News",
+    "language": "English",
+    "logo": "https://upload.wikimedia.org/wikipedia/commons/thumb/2/2f/ABC-2021-LOGO.svg/512px-ABC-2021-LOGO.svg.png",
+    "tvg_id": "ABCNews.us",
+    "sources": [
+      {
+        "url": "https://abc-news-dmd-streams-1.akamaized.net/out/v1/701126012d044971b3fa89406a440133/index.m3u8",
+        "type": "hls",
+        "max_res": "720p",
+        "headers": {}
+      }
+    ],
+    "primary_res": "720p",
+    "source_count": 1,
+    "legitimacy": "official",
+    "notes": "ABC News main"
+  },
+  {
+    "id": "en-africanews",
+    "name": "Africanews English",
+    "group": "English-News",
+    "language": "English",
+    "logo": "https://upload.wikimedia.org/wikipedia/commons/thumb/2/28/Africanews_logo.svg/512px-Africanews_logo.svg.png",
+    "tvg_id": "en-africanews",
+    "sources": [
+      {
+        "url": "https://cdn-euronews.akamaized.net/live/eds/africanews-en/25049/index.m3u8",
+        "type": "hls",
+        "max_res": "720p",
+        "headers": {}
+      }
+    ],
+    "primary_res": "720p",
+    "source_count": 1,
+    "legitimacy": "official",
+    "notes": "Africanews via Euronews CDN"
+  },
+  {
+    "id": "en-bloomberg-asia",
+    "name": "Bloomberg TV Asia",
+    "group": "English-News",
+    "language": "English",
+    "logo": "",
+    "tvg_id": "en-bloomberg-asia",
+    "sources": [
+      {
+        "url": "https://bloomberg.com/media-manifest/streams/asia.m3u8",
+        "type": "hls",
+        "max_res": "720p",
+        "headers": {}
+      }
+    ],
+    "primary_res": "720p",
+    "source_count": 1,
+    "legitimacy": "official",
+    "notes": "Bloomberg Asia"
+  },
+  {
+    "id": "en-bloomberg-eu",
+    "name": "Bloomberg TV Europe",
+    "group": "English-News",
+    "language": "English",
+    "logo": "",
+    "tvg_id": "en-bloomberg-eu",
+    "sources": [
+      {
+        "url": "https://bloomberg.com/media-manifest/streams/eu.m3u8",
+        "type": "hls",
+        "max_res": "720p",
+        "headers": {}
+      }
+    ],
+    "primary_res": "720p",
+    "source_count": 1,
+    "legitimacy": "official",
+    "notes": "Bloomberg Europe"
+  },
+  {
+    "id": "en-bloomberg",
+    "name": "Bloomberg TV US",
+    "group": "English-News",
+    "language": "English",
+    "logo": "https://upload.wikimedia.org/wikipedia/commons/thumb/5/5d/New_Bloomberg_Logo.svg/960px-New_Bloomberg_Logo.svg.png",
+    "tvg_id": "BloombergTV.us",
+    "sources": [
+      {
+        "url": "https://bloomberg.com/media-manifest/streams/us.m3u8",
+        "type": "hls",
+        "max_res": "720p",
+        "headers": {}
+      }
+    ],
+    "primary_res": "720p",
+    "source_count": 1,
+    "legitimacy": "official",
+    "notes": "Bloomberg official free web"
+  },
+  {
+    "id": "en-cbs247",
+    "name": "CBS News 24/7",
+    "group": "English-News",
+    "language": "English",
+    "logo": "https://upload.wikimedia.org/wikipedia/commons/thumb/4/4e/CBS_News.svg/512px-CBS_News.svg.png",
+    "tvg_id": "CBSNews247.us",
+    "sources": [
+      {
+        "url": "https://jmp2.uk/plu-6350fdd266e9ea0007bedec5.m3u8",
+        "type": "hls",
+        "max_res": "720p",
+        "headers": {}
+      }
+    ],
+    "primary_res": "720p",
+    "source_count": 1,
+    "legitimacy": "FAST",
+    "notes": "CBS News 24/7 Pluto"
+  },
+  {
+    "id": "en-skynews",
+    "name": "Sky News",
+    "group": "English-News",
+    "language": "English",
+    "logo": "https://upload.wikimedia.org/wikipedia/en/thumb/5/52/Sky_News_logo.svg/512px-Sky_News_logo.svg.png",
+    "tvg_id": "SkyNews.uk",
+    "sources": [
+      {
+        "url": "https://d39chvnxm26pgp.cloudfront.net/v1/master/72588bff830dec7b26d7cbbf5f3c24928aec5c03/cc-sthen6ms4vxgv-stage/WNSFO/ABR.m3u8",
+        "type": "hls",
+        "max_res": "720p",
+        "headers": {}
+      }
+    ],
+    "primary_res": "720p",
+    "source_count": 1,
+    "legitimacy": "iptv-org",
+    "notes": "Sky News CloudFront"
+  },
+  {
+    "id": "en-euronews",
+    "name": "Euronews English",
+    "group": "English-News",
+    "language": "English",
+    "logo": "https://upload.wikimedia.org/wikipedia/commons/thumb/9/9c/Euronews_2016_logo.svg/512px-Euronews_2016_logo.svg.png",
+    "tvg_id": "EuronewsEnglish.fr",
+    "sources": [
+      {
+        "url": "https://jmp2.uk/plu-61de96114757070008d33cae.m3u8",
+        "type": "hls",
+        "max_res": "684p",
+        "headers": {}
+      }
+    ],
+    "primary_res": "684p",
+    "source_count": 1,
+    "legitimacy": "FAST",
+    "notes": "Euronews EN via Pluto redirect"
+  },
+  {
+    "id": "en-sky-au1",
+    "name": "Sky News Extra 1 (AU)",
+    "group": "English-News",
+    "language": "English",
+    "logo": "",
+    "tvg_id": "en-sky-au1",
+    "sources": [
+      {
+        "url": "https://skynewsau-live.akamaized.net/hls/live/2002689/skynewsau-extra1/master.m3u8",
+        "type": "hls",
+        "max_res": "576p",
+        "headers": {}
+      }
+    ],
+    "primary_res": "576p",
+    "source_count": 1,
+    "legitimacy": "official",
+    "notes": "Sky News Australia free extra"
+  },
+  {
+    "id": "en-sky-au3",
+    "name": "Sky News Extra 3 (AU)",
+    "group": "English-News",
+    "language": "English",
+    "logo": "",
+    "tvg_id": "en-sky-au3",
+    "sources": [
+      {
+        "url": "https://skynewsau-live.akamaized.net/hls/live/2002691/skynewsau-extra3/master.m3u8",
+        "type": "hls",
+        "max_res": "576p",
+        "headers": {}
+      }
+    ],
+    "primary_res": "576p",
+    "source_count": 1,
+    "legitimacy": "official",
+    "notes": "Sky News AU Extra 3"
+  },
+  {
+    "id": "en-cbc-comedy",
+    "name": "CBC Comedy",
+    "group": "English-Entertainment",
+    "language": "English",
+    "logo": "",
+    "tvg_id": "en-cbc-comedy",
+    "sources": [
+      {
+        "url": "https://amagi-streams.akamaized.net/hls/live/2110963/cbccomedy/master.m3u8",
+        "type": "hls",
+        "max_res": "1080p",
+        "headers": {}
+      }
+    ],
+    "primary_res": "1080p",
+    "source_count": 1,
+    "legitimacy": "FAST",
+    "notes": "Official CBC FAST; playlist OK, ffprobe timed out — already in app"
+  },
+  {
+    "id": "en-cbc-explore",
+    "name": "CBC Explore",
+    "group": "English-Entertainment",
+    "language": "English",
+    "logo": "",
+    "tvg_id": "en-cbc-explore",
+    "sources": [
+      {
+        "url": "https://amagi-streams.akamaized.net/hls/live/2110962/cbcexplore/master.m3u8",
+        "type": "hls",
+        "max_res": "1080p",
+        "headers": {}
+      }
+    ],
+    "primary_res": "1080p",
+    "source_count": 1,
+    "legitimacy": "FAST",
+    "notes": "Official CBC FAST; playlist OK from box"
+  },
+  {
+    "id": "en-cbc-kids",
+    "name": "CBC Kids",
+    "group": "English-Entertainment",
+    "language": "English",
+    "logo": "",
+    "tvg_id": "en-cbc-kids",
+    "sources": [
+      {
+        "url": "https://amagi-streams.akamaized.net/hls/live/2120483/cbckids/master.m3u8",
+        "type": "hls",
+        "max_res": "1080p",
+        "headers": {}
+      }
+    ],
+    "primary_res": "1080p",
+    "source_count": 1,
+    "legitimacy": "FAST",
+    "notes": "Official CBC FAST; playlist OK, ffprobe timed out — already in app"
+  },
+  {
+    "id": "en-cbc-heartland",
+    "name": "Heartland",
+    "group": "English-Entertainment",
+    "language": "English",
+    "logo": "",
+    "tvg_id": "en-cbc-heartland",
+    "sources": [
+      {
+        "url": "https://amagi-streams.akamaized.net/hls/live/2113391/cbcheartland/master.m3u8",
+        "type": "hls",
+        "max_res": "1080p",
+        "headers": {}
+      }
+    ],
+    "primary_res": "1080p",
+    "source_count": 1,
+    "legitimacy": "FAST",
+    "notes": "Official CBC FAST; playlist OK from box"
+  },
+  {
+    "id": "en-cbc-murdoch",
+    "name": "Murdoch Mysteries",
+    "group": "English-Entertainment",
+    "language": "English",
+    "logo": "",
+    "tvg_id": "en-cbc-murdoch",
+    "sources": [
+      {
+        "url": "https://amagi-streams.akamaized.net/hls/live/2113390/cbcmurdoch/master.m3u8",
+        "type": "hls",
+        "max_res": "1080p",
+        "headers": {}
+      }
+    ],
+    "primary_res": "1080p",
+    "source_count": 1,
+    "legitimacy": "FAST",
+    "notes": "Official CBC FAST; playlist OK from box"
+  },
+  {
+    "id": "en-redbull",
+    "name": "Red Bull TV",
+    "group": "English-Entertainment",
+    "language": "English",
+    "logo": "https://i.postimg.cc/8c78JM28/image.png",
+    "tvg_id": "RedBullTV.at",
+    "sources": [
+      {
+        "url": "https://rbmn-live.akamaized.net/hls/live/590964/BoRB-AT/master.m3u8",
+        "type": "hls",
+        "max_res": "1080p",
+        "headers": {}
+      }
+    ],
+    "primary_res": "1080p",
+    "source_count": 1,
+    "legitimacy": "official",
+    "notes": "Red Bull Media official"
+  },
+  {
+    "id": "en-cbc-schitt",
+    "name": "Schitt's Creek",
+    "group": "English-Entertainment",
+    "language": "English",
+    "logo": "",
+    "tvg_id": "en-cbc-schitt",
+    "sources": [
+      {
+        "url": "https://amagi-streams.akamaized.net/hls/live/2120484/schittscreek/master.m3u8",
+        "type": "hls",
+        "max_res": "1080p",
+        "headers": {}
+      }
+    ],
+    "primary_res": "1080p",
+    "source_count": 1,
+    "legitimacy": "FAST",
+    "notes": "Official CBC FAST; playlist OK from box"
+  }
+]

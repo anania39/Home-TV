@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200" width="100%" height="100%">
+  <defs>
+    <linearGradient id="mf_bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#15803d"/>
+      <stop offset="100%" stop-color="#14532d"/>
+    </linearGradient>
+  </defs>
+  <rect width="200" height="200" rx="36" fill="url(#mf_bg)"/>
+  <circle cx="100" cy="74" r="34" fill="none" stroke="#ffffff" stroke-width="6"/>
+  <polygon points="100,54 116,66 110,84 90,84 84,66" fill="#ffffff"/>
+  <text x="100" y="140" font-family="-apple-system, Arial, sans-serif" font-size="24" font-weight="900" fill="#ffffff" text-anchor="middle" letter-spacing="1">МАТЧ!</text>
+  <text x="100" y="168" font-family="-apple-system, Arial, sans-serif" font-size="15" font-weight="900" fill="#86efac" text-anchor="middle" letter-spacing="1.5">ФУТБОЛ HD</text>
+</svg>

@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200" width="100%" height="100%">
+  <defs>
+    <linearGradient id="dr_bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#0369a1"/>
+      <stop offset="100%" stop-color="#082f49"/>
+    </linearGradient>
+  </defs>
+  <rect width="200" height="200" rx="36" fill="url(#dr_bg)"/>
+  <path d="M70 70 Q100 45 130 70 Q110 95 70 70 Z" fill="#38bdf8"/>
+  <polygon points="128,70 145,55 145,85" fill="#38bdf8"/>
+  <text x="100" y="146" font-family="-apple-system, Arial, sans-serif" font-size="18" font-weight="900" fill="#ffffff" text-anchor="middle">ДИКАЯ РЫБАЛКА</text>
+  <text x="100" y="172" font-family="-apple-system, Arial, sans-serif" font-size="13" font-weight="700" fill="#7dd3fc" text-anchor="middle">ТЕЛЕКАНАЛ HD</text>
+</svg>

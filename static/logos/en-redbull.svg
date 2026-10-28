@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200" width="100%" height="100%">
+  <rect width="200" height="200" rx="36" fill="#080811"/>
+  <!-- Sun -->
+  <circle cx="100" cy="74" r="34" fill="#fbbf24"/>
+  <!-- Charging Bulls silhouette -->
+  <path d="M75 75 Q85 62 100 75 Q85 88 75 75 Z" fill="#dc2626"/>
+  <path d="M125 75 Q115 62 100 75 Q115 88 125 75 Z" fill="#dc2626"/>
+  <text x="100" y="144" font-family="-apple-system, Arial, sans-serif" font-size="24" font-weight="900" fill="#ffffff" text-anchor="middle" letter-spacing="1">Red Bull</text>
+  <text x="100" y="170" font-family="-apple-system, Arial, sans-serif" font-size="15" font-weight="900" fill="#ef4444" text-anchor="middle" letter-spacing="2">TV SPORTS</text>
+</svg>

@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200" width="100%" height="100%">
+  <defs>
+    <linearGradient id="postv_bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#dc2626"/>
+      <stop offset="100%" stop-color="#18181b"/>
+    </linearGradient>
+  </defs>
+  <rect width="200" height="200" rx="36" fill="url(#postv_bg)"/>
+  <polygon points="100,40 155,62 145,115 100,135 55,115 45,62" fill="none" stroke="#ffffff" stroke-width="6"/>
+  <text x="100" y="98" font-family="-apple-system, Arial, sans-serif" font-size="26" font-weight="900" fill="#ffffff" text-anchor="middle">POS</text>
+  <text x="100" y="160" font-family="-apple-system, Arial, sans-serif" font-size="22" font-weight="900" fill="#ffffff" text-anchor="middle" letter-spacing="2">POSTV</text>
+  <text x="100" y="182" font-family="-apple-system, Arial, sans-serif" font-size="13" font-weight="700" fill="#fca5a5" text-anchor="middle">პოსტვ HD</text>
+</svg>

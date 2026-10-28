@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200" width="100%" height="100%">
+  <defs>
+    <linearGradient id="khl_bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#1e3a8a"/>
+      <stop offset="100%" stop-color="#0f172a"/>
+    </linearGradient>
+  </defs>
+  <rect width="200" height="200" rx="36" fill="url(#khl_bg)"/>
+  <path d="M60 48 L140 48 L130 110 L100 130 L70 110 Z" fill="#0284c7" stroke="#ffffff" stroke-width="4"/>
+  <text x="100" y="92" font-family="-apple-system, Arial, sans-serif" font-size="26" font-weight="900" fill="#ffffff" text-anchor="middle">КХЛ</text>
+  <text x="100" y="112" font-family="-apple-system, Arial, sans-serif" font-size="12" font-weight="800" fill="#facc15" text-anchor="middle">PRIME</text>
+  <text x="100" y="166" font-family="-apple-system, Arial, sans-serif" font-size="18" font-weight="900" fill="#ffffff" text-anchor="middle" letter-spacing="1">ХОККЕЙ HD</text>
+</svg>

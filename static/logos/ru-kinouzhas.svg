@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200" width="100%" height="100%">
+  <defs>
+    <linearGradient id="kuzh_bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#7f1d1d"/>
+      <stop offset="100%" stop-color="#450a0a"/>
+    </linearGradient>
+  </defs>
+  <rect width="200" height="200" rx="36" fill="url(#kuzh_bg)"/>
+  <circle cx="84" cy="70" r="10" fill="#ffffff"/>
+  <circle cx="116" cy="70" r="10" fill="#ffffff"/>
+  <circle cx="84" cy="70" r="4" fill="#000000"/>
+  <circle cx="116" cy="70" r="4" fill="#000000"/>
+  <path d="M80 96 C90 108, 110 108, 120 96" stroke="#ffffff" stroke-width="6" fill="none" stroke-linecap="round"/>
+  <text x="100" y="146" font-family="-apple-system, Arial, sans-serif" font-size="20" font-weight="900" fill="#ffffff" text-anchor="middle" letter-spacing="1">КИНОУЖАС</text>
+  <text x="100" y="172" font-family="-apple-system, Arial, sans-serif" font-size="14" font-weight="800" fill="#fca5a5" text-anchor="middle">ТРИЛЛЕРЫ &amp; УЖАСЫ</text>
+</svg>

@@ -1,0 +1,26 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Caches and runtime state
+backend/.tunnel_cache.json
+backend/.stream_health.json
+.stream_health.json
+.tunnel_cache.json
+*.log
+
+# Large binaries (auto-downloaded on demand)
+tools/cloudflared.exe
+tools/*.exe
+
+# Virtual environments
+env/
+venv/
+.venv/
+
+# Environment and sensitive tokens
+.env
+*.token
+.github_token
+*.local

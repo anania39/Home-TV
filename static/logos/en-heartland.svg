@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200" width="100%" height="100%">
+  <defs>
+    <linearGradient id="hl_bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#d97706"/>
+      <stop offset="100%" stop-color="#78350f"/>
+    </linearGradient>
+  </defs>
+  <rect width="200" height="200" rx="36" fill="url(#hl_bg)"/>
+  <!-- Sunset & Mountain -->
+  <polygon points="100,45 145,100 55,100" fill="#fef3c7" opacity="0.9"/>
+  <circle cx="100" cy="65" r="14" fill="#f59e0b"/>
+  <text x="100" y="146" font-family="-apple-system, Arial, sans-serif" font-size="20" font-weight="900" fill="#ffffff" text-anchor="middle" letter-spacing="1">HEARTLAND</text>
+  <text x="100" y="172" font-family="-apple-system, Arial, sans-serif" font-size="13" font-weight="800" fill="#fed7aa" text-anchor="middle">SERIES 24/7</text>
+</svg>

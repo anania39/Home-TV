@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200" width="100%" height="100%">
+  <defs>
+    <linearGradient id="domash_bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#be123c"/>
+      <stop offset="100%" stop-color="#881337"/>
+    </linearGradient>
+  </defs>
+  <rect width="200" height="200" rx="36" fill="url(#domash_bg)"/>
+  <path d="M100 85 C95 70, 75 70, 75 88 C75 105, 100 118, 100 118 C100 118, 125 105, 125 88 C125 70, 105 70, 100 85 Z" fill="#ffffff"/>
+  <text x="100" y="150" font-family="-apple-system, Arial, sans-serif" font-size="20" font-weight="900" fill="#ffffff" text-anchor="middle" letter-spacing="1">ДОМАШНИЙ</text>
+  <text x="100" y="174" font-family="-apple-system, Arial, sans-serif" font-size="13" font-weight="700" fill="#fecdd3" text-anchor="middle">ТЕЛЕКАНАЛ HD</text>
+</svg>

@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200" width="100%" height="100%">
+  <defs>
+    <linearGradient id="rugby_bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#0f172a"/>
+      <stop offset="100%" stop-color="#020617"/>
+    </linearGradient>
+  </defs>
+  <rect width="200" height="200" rx="36" fill="url(#rugby_bg)"/>
+  <ellipse cx="100" cy="76" rx="46" ry="28" fill="#dc2626" transform="rotate(-28 100 76)"/>
+  <ellipse cx="100" cy="76" rx="40" ry="23" fill="#ef4444" transform="rotate(-28 100 76)"/>
+  <path d="M84 54 C94 70, 106 82, 116 98" stroke="#ffffff" stroke-width="5" fill="none" stroke-linecap="round"/>
+  <path d="M92 68 L98 66 M96 74 L102 72 M100 80 L106 78" stroke="#ffffff" stroke-width="3" stroke-linecap="round"/>
+  <rect x="80" y="130" width="40" height="20" rx="4" fill="#dc2626"/>
+  <text x="100" y="145" font-family="-apple-system, Arial, sans-serif" font-size="14" font-weight="900" fill="#ffffff" text-anchor="middle">TV</text>
+  <text x="100" y="174" font-family="-apple-system, Arial, sans-serif" font-size="18" font-weight="900" fill="#ffffff" text-anchor="middle" letter-spacing="1">რაგბი TV</text>
+</svg>

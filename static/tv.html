@@ -1,0 +1,838 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>TV Hub - Receiver Screen</title>
+
+  <!-- Preconnect & DNS-Prefetch for major stream CDNs & libraries -->
+  <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
+  <link rel="preconnect" href="https://upload.wikimedia.org" crossorigin>
+  <link rel="preconnect" href="https://i.imgur.com" crossorigin>
+  <link rel="dns-prefetch" href="https://tv.cdn.xsg.ge">
+  <link rel="dns-prefetch" href="https://c4635.cdn.xsg.ge">
+  <link rel="dns-prefetch" href="https://streaming-hls3.televiziebi.org">
+  <link rel="dns-prefetch" href="https://streaming-hls3.televizia.org">
+  <link rel="dns-prefetch" href="https://amagi-streams.akamaized.net">
+  <link rel="dns-prefetch" href="https://rbmn-live.akamaized.net">
+  <link rel="dns-prefetch" href="https://dwamdstream102.akamaized.net">
+  <link rel="dns-prefetch" href="https://bloomberg.com">
+
+  <!-- Pinned Hls.js version (1.5.17) for stable IPTV playback -->
+  <script src="https://cdn.jsdelivr.net/npm/hls.js@1.5.17"></script>
+  <!-- Pinned mpegts.js version (1.7.3) for raw MPEG-TS transmuxing -->
+  <script src="https://cdn.jsdelivr.net/npm/mpegts.js@1.7.3/dist/mpegts.js"></script>
+
+  <style>
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      user-select: none;
+    }
+    body, html {
+      width: 100%;
+      height: 100%;
+      background: #000;
+      color: #fff;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      overflow: hidden;
+    }
+    #video-player {
+      width: 100%;
+      height: 100%;
+      object-fit: contain;
+      background: #000;
+      display: none;
+    }
+    /* Standby Screen */
+    #standby-screen {
+      position: absolute;
+      inset: 0;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      background: radial-gradient(circle at center, #111827 0%, #030712 100%);
+      text-align: center;
+    }
+    .clock {
+      font-size: 84px;
+      font-weight: 200;
+      letter-spacing: 2px;
+      color: #f3f4f6;
+      margin-bottom: 12px;
+      font-variant-numeric: tabular-nums;
+    }
+    .date {
+      font-size: 24px;
+      color: #9ca3af;
+      margin-bottom: 40px;
+    }
+    .hub-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 12px;
+      padding: 14px 28px;
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      border-radius: 40px;
+      font-size: 20px;
+      color: #38bdf8;
+      backdrop-filter: blur(10px);
+    }
+    .instructions {
+      margin-top: 24px;
+      font-size: 18px;
+      color: #6b7280;
+    }
+    .instructions strong {
+      color: #f3f4f6;
+    }
+    /* OSD Banner (Channel info overlay) */
+    #osd-banner {
+      position: absolute;
+      top: 40px;
+      left: 60px;
+      right: 60px;
+      background: rgba(15, 23, 42, 0.92);
+      backdrop-filter: blur(16px);
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      border-radius: 20px;
+      padding: 20px 30px;
+      display: flex;
+      align-items: center;
+      gap: 24px;
+      box-shadow: 0 20px 50px rgba(0, 0, 0, 0.7);
+      transition: opacity 0.5s ease, transform 0.5s ease;
+      opacity: 0;
+      transform: translateY(-20px);
+      pointer-events: none;
+      z-index: 100;
+    }
+    #osd-banner.visible {
+      opacity: 1;
+      transform: translateY(0);
+    }
+    .osd-logo {
+      width: 64px;
+      height: 64px;
+      border-radius: 14px;
+      background: rgba(255, 255, 255, 0.1);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 28px;
+      font-weight: 700;
+      overflow: hidden;
+      flex-shrink: 0;
+    }
+    .osd-logo img {
+      width: 100%;
+      height: 100%;
+      object-fit: contain;
+      border-radius: 12px;
+    }
+    .osd-details h2 {
+      font-size: 28px;
+      font-weight: 700;
+      margin-bottom: 4px;
+    }
+    .osd-details p {
+      font-size: 17px;
+      color: #38bdf8;
+    }
+    /* Volume Overlay */
+    #volume-indicator {
+      position: absolute;
+      bottom: 50px;
+      right: 60px;
+      background: rgba(15, 23, 42, 0.9);
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      border-radius: 16px;
+      padding: 16px 24px;
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      opacity: 0;
+      transition: opacity 0.3s ease;
+      z-index: 100;
+    }
+    #volume-indicator.visible {
+      opacity: 1;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Video Player -->
+  <video id="video-player" autoplay playsinline></video>
+
+  <!-- Standby Screen -->
+  <div id="standby-screen">
+    <div class="clock" id="clock-display">12:00</div>
+    <div class="date" id="date-display">TV Hub Receiver</div>
+    <div class="hub-badge">
+      <span>📺</span>
+      <span>TV Hub Ready</span>
+    </div>
+    <div id="qr-container" style="margin-top: 22px; padding: 10px; background: #ffffff; border-radius: 16px; display: inline-block; box-shadow: 0 8px 32px rgba(0,0,0,0.5);">
+      <img id="qr-code-img" src="" alt="Scan QR to control TV" style="width: 150px; height: 150px; display: block; border-radius: 8px;">
+    </div>
+    <div class="instructions" style="margin-top: 14px;">
+      📱 Scan QR with phone camera or open: <strong id="phone-url">http://...</strong>
+    </div>
+  </div>
+
+  <!-- OSD Banner -->
+  <div id="osd-banner">
+    <div class="osd-logo" id="osd-logo">
+      <img id="osd-logo-img" src="" alt="" style="display:none;" referrerpolicy="no-referrer">
+      <span id="osd-logo-initials">📺</span>
+    </div>
+    <div class="osd-details">
+      <h2 id="osd-title">Channel Name</h2>
+      <p id="osd-status">Playing Live Stream</p>
+    </div>
+  </div>
+
+  <!-- Volume Indicator -->
+  <div id="volume-indicator">
+    <span style="font-size: 24px;" id="vol-icon">🔊</span>
+    <span style="font-size: 24px; font-weight: 700; min-width: 50px;" id="vol-text">20%</span>
+  </div>
+
+  <script>
+    const video = document.getElementById("video-player");
+    const standby = document.getElementById("standby-screen");
+    const osd = document.getElementById("osd-banner");
+    const osdTitle = document.getElementById("osd-title");
+    const osdStatus = document.getElementById("osd-status");
+    const osdLogoImg = document.getElementById("osd-logo-img");
+    const osdLogoInitials = document.getElementById("osd-logo-initials");
+    const phoneUrlEl = document.getElementById("phone-url");
+    const volIndicator = document.getElementById("volume-indicator");
+    const volText = document.getElementById("vol-text");
+    const volIcon = document.getElementById("vol-icon");
+
+    let hls = null;
+    let mpegtsPlayer = null;
+    let osdTimer = null;
+    let volTimer = null;
+    let currentPlayingUrl = "";
+    let currentTitle = "Live Stream";
+    let currentLogoUrl = "";
+    let currentChannelId = null;
+    let currentSources = [];
+    let currentSourceIndex = 0;
+    let playSessionId = 0;
+    let appliedVersion = -1;
+    let retryTimer = null;
+    let stallTimer = null;
+    let driftTimer = null;
+    let spinnerDebounceTimer = null;
+    let errorRetryCount = 0;
+    let stallCount = 0;
+    let lastCurrentTime = 0;
+    let timeNotAdvancingCount = 0;
+    let driftSampleCount = 0;
+
+    // Display Clock
+    function updateClock() {
+      const now = new Date();
+      document.getElementById("clock-display").textContent = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+      document.getElementById("date-display").textContent = now.toLocaleDateString([], { weekday: 'long', month: 'short', day: 'numeric' });
+    }
+    setInterval(updateClock, 1000);
+    updateClock();
+
+    const qrImg = document.getElementById("qr-code-img");
+    const fallbackUrl = window.location.origin;
+    phoneUrlEl.textContent = fallbackUrl;
+    if (qrImg) {
+      qrImg.src = `https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=${encodeURIComponent(fallbackUrl)}`;
+    }
+
+    fetch("/api/auth/status")
+      .then(r => r.json())
+      .then(d => {
+        const activeUrl = d.short_url || fallbackUrl;
+        if (qrImg) {
+          qrImg.src = `https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=${encodeURIComponent(activeUrl)}`;
+        }
+        if (d.short_url) {
+          phoneUrlEl.innerHTML = `${escapeHtml(d.short_url)} <span style="opacity:0.6;font-size:14px;margin-left:8px;">(LAN: ${escapeHtml(fallbackUrl)})</span>`;
+        }
+      })
+      .catch(() => {});
+
+    function escapeHtml(str) {
+      if (!str) return "";
+      return String(str).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+    }
+
+    // 2-Letter Monogram Initials Fallback
+    function getInitials(name) {
+      if (!name) return "TV";
+      const clean = name.replace(/[^\w\s\u10A0-\u10FF\u0400-\u04FF]/g, ' ').trim();
+      const words = clean.split(/\s+/).filter(Boolean);
+      if (words.length >= 2) {
+        return (words[0][0] + words[1][0]).toUpperCase();
+      } else if (words.length === 1 && words[0].length >= 2) {
+        return words[0].slice(0, 2).toUpperCase();
+      } else if (words.length === 1 && words[0].length === 1) {
+        return words[0].toUpperCase();
+      }
+      return "TV";
+    }
+
+    function showOSD(title, status = "Playing Live Stream", logoUrl = "", sourceIdx = null, totalSources = null) {
+      osdTitle.textContent = title;
+      const tot = (totalSources !== null) ? totalSources : (currentSources ? currentSources.length : 1);
+      const sBadge = (tot > 1) ? ` • S${(sourceIdx !== null ? sourceIdx : currentSourceIndex) + 1}/${tot}` : "";
+      osdStatus.textContent = `${status}${sBadge}`;
+
+      // Handle real channel logo or initials fallback
+      if (logoUrl) {
+        osdLogoImg.style.display = "block";
+        osdLogoInitials.style.display = "none";
+        osdLogoImg.onerror = () => {
+          osdLogoImg.style.display = "none";
+          osdLogoInitials.style.display = "block";
+          osdLogoInitials.textContent = getInitials(title);
+        };
+        osdLogoImg.src = logoUrl;
+      } else {
+        osdLogoImg.style.display = "none";
+        osdLogoInitials.style.display = "block";
+        osdLogoInitials.textContent = getInitials(title);
+      }
+
+      osd.classList.add("visible");
+      clearTimeout(osdTimer);
+      osdTimer = setTimeout(() => {
+        osd.classList.remove("visible");
+      }, 4200);
+    }
+
+    function showVolume(val, muted) {
+      volText.textContent = muted ? "MUTED" : val + "%";
+      volIcon.textContent = muted ? "🔇" : (val > 50 ? "🔊" : (val > 0 ? "🔉" : "🔈"));
+      volIndicator.classList.add("visible");
+      clearTimeout(volTimer);
+      volTimer = setTimeout(() => {
+        volIndicator.classList.remove("visible");
+      }, 2500);
+    }
+
+    // Wake Lock
+    let wakeLockSentinel = null;
+    async function requestWakeLock() {
+      try {
+        if ('wakeLock' in navigator) {
+          wakeLockSentinel = await navigator.wakeLock.request('screen');
+        }
+      } catch (err) {}
+    }
+    requestWakeLock();
+    document.addEventListener("visibilitychange", () => {
+      if (document.visibilityState === "visible") {
+        requestWakeLock();
+        if (currentPlayingUrl && video.paused) {
+          video.play().catch(() => {});
+        }
+      }
+    });
+
+    // Clean up active player instances & completely flush video element pipeline
+    function destroyPlayers() {
+      if (retryTimer) { clearTimeout(retryTimer); retryTimer = null; }
+      if (stallTimer) { clearInterval(stallTimer); stallTimer = null; }
+      if (driftTimer) { clearInterval(driftTimer); driftTimer = null; }
+      if (spinnerDebounceTimer) { clearTimeout(spinnerDebounceTimer); spinnerDebounceTimer = null; }
+      stallCount = 0;
+      lastCurrentTime = 0;
+      timeNotAdvancingCount = 0;
+      driftSampleCount = 0;
+
+      if (hls) {
+        try {
+          hls.stopLoad();
+          hls.detachMedia();
+          hls.destroy();
+        } catch (e) {}
+        hls = null;
+      }
+      if (mpegtsPlayer) {
+        try {
+          mpegtsPlayer.pause();
+          mpegtsPlayer.unload();
+          mpegtsPlayer.detachMediaElement();
+          mpegtsPlayer.destroy();
+        } catch (e) {}
+        mpegtsPlayer = null;
+      }
+      if (video) {
+        try {
+          video.pause();
+          video.onerror = null;
+          video.removeAttribute("src");
+          video.src = "";
+          video.load(); // Forces HTML5 media pipeline and decoder to flush completely!
+        } catch (e) {}
+      }
+    }
+
+    // Video buffering & stall debounce listeners
+    video.addEventListener("waiting", () => {
+      if (!spinnerDebounceTimer && video.readyState < 3) {
+        spinnerDebounceTimer = setTimeout(() => {
+          if (video.readyState < 3 && !video.paused) {
+            showOSD(currentTitle, "Buffering...", currentLogoUrl, currentSourceIndex, currentSources.length);
+          }
+        }, 1500);
+      }
+    });
+
+    video.addEventListener("stalled", () => {
+      if (!spinnerDebounceTimer && video.readyState < 3) {
+        spinnerDebounceTimer = setTimeout(() => {
+          if (video.readyState < 3 && !video.paused) {
+            showOSD(currentTitle, "Buffering...", currentLogoUrl, currentSourceIndex, currentSources.length);
+          }
+        }, 1500);
+      }
+    });
+
+    video.addEventListener("playing", () => {
+      if (spinnerDebounceTimer) {
+        clearTimeout(spinnerDebounceTimer);
+        spinnerDebounceTimer = null;
+      }
+    });
+
+    video.addEventListener("timeupdate", () => {
+      if (spinnerDebounceTimer) {
+        clearTimeout(spinnerDebounceTimer);
+        spinnerDebounceTimer = null;
+      }
+    });
+
+    /**
+     * Recommended Hls.js configuration tuned specifically for TV Hub and weak Wi-Fi networks:
+     * - lowLatencyMode: false (IPTV is standard live HLS, not LL-HLS; LL mode stalls on weak Wi-Fi)
+     * - enableWorker: false on Hisense VIDAA to prevent thread crashes
+     * - compact memory buffers (24/48) for TV RAM
+     * - A/V drift correction: maxAudioFramesDrift: 1, stretchShortVideoTrack: true
+     */
+    function buildHlsConfig() {
+      const isHisense = /Hisense|VIDAA/i.test(navigator.userAgent);
+      return {
+        enableWorker: !isHisense,       // Crucial for Hisense VIDAA stability
+        lowLatencyMode: false,          // Essential for stable IPTV feeds
+        maxBufferLength: 24,            // Low memory footprint for TV RAM
+        maxMaxBufferLength: 48,
+        backBufferLength: 10,
+        maxBufferSize: 20 * 1024 * 1024,
+        maxBufferHole: 0.5,
+        nudgeMaxRetry: 8,
+        maxAudioFramesDrift: 1,         // Fix audio falling behind video
+        stretchShortVideoTrack: true,   // Fix audio/video timestamp mismatch
+        capLevelToPlayerSize: true,     // Cap resolution to TV element size
+        capLevelOnFPSDrop: true,        // Drop quality on frame drops
+        startLevel: 0,                  // Start at level 0 for instant start, let ABR climb
+        abrBandWidthFactor: 0.7,
+        abrBandWidthUpFactor: 0.5,
+        liveSyncDurationCount: 5,       // Buffer 5 segments from live edge for rock-solid stability
+        liveMaxLatencyDurationCount: 14,
+        liveDurationInfinity: true,
+      };
+    }
+
+    function failoverToNextSource(session, reason = "Stream issue") {
+      if (session !== playSessionId) return;
+      console.warn(`Failover triggered (session ${session}): ${reason}`);
+
+      if (currentSources && currentSources.length > 1) {
+        currentSourceIndex = (currentSourceIndex + 1) % currentSources.length;
+        const nextSrc = currentSources[currentSourceIndex];
+        const nextUrl = (typeof nextSrc === "string") ? nextSrc : (nextSrc.url || nextSrc);
+        console.log(`Switching to backup source ${currentSourceIndex + 1}/${currentSources.length}: ${nextUrl}`);
+        showOSD(currentTitle, `Failover to Source S${currentSourceIndex + 1}...`, currentLogoUrl, currentSourceIndex, currentSources.length);
+
+        playStream(nextUrl, currentTitle, currentLogoUrl, {
+          sources: currentSources,
+          sourceIndex: currentSourceIndex,
+          channelId: currentChannelId,
+          isFailover: true
+        });
+      } else {
+        showOSD(currentTitle, "⚠️ Stream currently unavailable upstream", currentLogoUrl);
+        destroyPlayers();
+        video.style.display = "none";
+        standby.style.display = "flex";
+      }
+    }
+
+    function playStream(url, title = "Live Stream", logoUrl = "", opts = {}) {
+      const session = ++playSessionId;
+      console.log(`playStream initiated: session=${session} url=${url}`);
+
+      currentPlayingUrl = url;
+      currentTitle = title;
+      currentLogoUrl = logoUrl;
+      currentChannelId = opts.channelId || null;
+
+      if (opts.sources && Array.isArray(opts.sources) && opts.sources.length) {
+        currentSources = opts.sources;
+        currentSourceIndex = typeof opts.sourceIndex === "number" ? opts.sourceIndex : 0;
+      } else if (!opts.isFailover) {
+        currentSources = [{ url: url, type: "hls" }];
+        currentSourceIndex = 0;
+      }
+
+      errorRetryCount = 0;
+      destroyPlayers();
+
+      standby.style.display = "none";
+      video.style.display = "block";
+      showOSD(title, "Loading Stream...", logoUrl, currentSourceIndex, currentSources.length);
+
+      const cleanUrl = url.split("?")[0].toLowerCase();
+      const isHls = cleanUrl.endsWith(".m3u8") || url.includes(".m3u8");
+      const isMpegTs = cleanUrl.endsWith("/mpegts") || cleanUrl.endsWith(".ts") || url.includes("/mpegts");
+
+      // CASE 1: HLS Stream (.m3u8) via Hls.js
+      if (isHls && Hls.isSupported()) {
+        hls = new Hls(buildHlsConfig());
+        hls.loadSource(url);
+        hls.attachMedia(video);
+
+        hls.on(Hls.Events.MANIFEST_PARSED, (event, data) => {
+          if (session !== playSessionId) return;
+          showOSD(title, "Playing Live Stream", logoUrl, currentSourceIndex, currentSources.length);
+
+          // Hard-cap resolution: remove levels with height > 1080 to protect TV hardware decoder
+          if (data && data.levels && data.levels.length) {
+            const capped = data.levels.filter(lvl => (lvl.height || 0) <= 1080);
+            if (capped.length > 0 && capped.length < data.levels.length) {
+              data.levels = capped;
+            }
+            hls.startLevel = 0;
+            hls.loadLevel = 0;
+          }
+          video.play().catch(e => console.log("Autoplay notice:", e));
+        });
+
+        // Error recovery & failover logic
+        hls.on(Hls.Events.ERROR, (event, data) => {
+          if (session !== playSessionId) return;
+          console.warn(`HLS Error (session ${session}):`, data.type, data.details, "fatal:", data.fatal);
+
+          // If session was deliberately terminated (HTTP 410 Gone due to channel switch), stop immediately
+          if (data.response && data.response.code === 410) {
+            console.log("Channel session terminated upstream (HTTP 410). Stopping obsolete stream.");
+            destroyPlayers();
+            return;
+          }
+
+          if (data.fatal) {
+            // First step: Try quality downgrade if ABR level > 0
+            if (hls && hls.currentLevel > 0) {
+              console.log("Downgrading quality level to 0 before failover...");
+              hls.currentLevel = 0;
+              hls.startLoad();
+              return;
+            }
+
+            errorRetryCount++;
+            if (errorRetryCount <= 2) {
+              const delay = errorRetryCount * 1200;
+              showOSD(title, `Reconnecting (${errorRetryCount}/2)...`, logoUrl, currentSourceIndex, currentSources.length);
+              retryTimer = setTimeout(() => {
+                if (session !== playSessionId || !hls) return;
+                switch (data.type) {
+                  case Hls.ErrorTypes.NETWORK_ERROR:
+                    hls.startLoad();
+                    break;
+                  case Hls.ErrorTypes.MEDIA_ERROR:
+                    hls.recoverMediaError();
+                    break;
+                  default:
+                    failoverToNextSource(session, data.details || "Fatal HLS error");
+                    break;
+                }
+              }, delay);
+            } else {
+              // Retries exhausted for this source: trigger failover to next source!
+              failoverToNextSource(session, "Source retries exhausted");
+            }
+          }
+        });
+
+      // CASE 2: Native HLS support (Safari or native VIDAA MSE fallback)
+      } else if (isHls && video.canPlayType("application/vnd.apple.mpegurl")) {
+        video.src = url;
+        video.play().catch(e => console.log("Native HLS autoplay notice:", e));
+        showOSD(title, "Playing Stream", logoUrl, currentSourceIndex, currentSources.length);
+        video.onerror = () => {
+          if (session !== playSessionId) return;
+          failoverToNextSource(session, "Native HLS playback error");
+        };
+
+      // CASE 3: MPEG-TS Stream via mpegts.js
+      } else if (isMpegTs && window.mpegts && mpegts.isSupported()) {
+        try {
+          mpegtsPlayer = mpegts.createPlayer({
+            type: "mse",
+            isLive: true,
+            url: url
+          }, {
+            enableWorker: false,
+            lazyLoad: false,
+            liveBufferLatencyChasing: false,
+            enableStashBuffer: true
+          });
+          mpegtsPlayer.attachMediaElement(video);
+          mpegtsPlayer.load();
+          mpegtsPlayer.play().catch(e => console.log("MPEG-TS autoplay notice:", e));
+
+          mpegtsPlayer.on(mpegts.Events.ERROR, (errType, errDetail) => {
+            if (session !== playSessionId) return;
+            console.warn("mpegts error:", errType, errDetail);
+            failoverToNextSource(session, `MPEG-TS error: ${errType}`);
+          });
+          showOSD(title, "Playing MPEG-TS Stream", logoUrl, currentSourceIndex, currentSources.length);
+        } catch (e) {
+          failoverToNextSource(session, "MPEG-TS unsupported");
+        }
+
+      // CASE 4: Direct HTML5 Video fallback
+      } else {
+        video.src = url;
+        video.play().catch(e => console.log("Autoplay notice:", e));
+        showOSD(title, "Playing Stream", logoUrl, currentSourceIndex, currentSources.length);
+        video.onerror = () => {
+          if (session !== playSessionId) return;
+          failoverToNextSource(session, "Direct HTML5 video error");
+        };
+      }
+
+      // 7. Stall Watchdog: Monitors if playback freezes or stays stuck for > 8s
+      stallTimer = setInterval(() => {
+        if (session !== playSessionId) return;
+        if (!video.paused) {
+          if (video.currentTime === lastCurrentTime && video.readyState < 3) {
+            timeNotAdvancingCount++;
+            if (timeNotAdvancingCount >= 4) { // 4 * 2s = 8 seconds stuck
+              stallCount++;
+              timeNotAdvancingCount = 0;
+              console.warn(`Playback stall detected (${stallCount} stalls in window)`);
+              if (stallCount >= 2) {
+                failoverToNextSource(session, "Extended playback stall (>8s)");
+              } else if (hls) {
+                hls.startLoad();
+              }
+            }
+          } else {
+            timeNotAdvancingCount = 0;
+            lastCurrentTime = video.currentTime;
+          }
+        }
+      }, 2000);
+
+      // 8. Audio/Video Drift Monitor: Compares audio and video buffered ends every 5s
+      driftTimer = setInterval(() => {
+        if (session !== playSessionId || video.paused) return;
+        try {
+          if (video.buffered && video.buffered.length > 0) {
+            const bufEnd = video.buffered.end(video.buffered.length - 1);
+            const drift = Math.abs(bufEnd - video.currentTime);
+            // If playhead lags behind buffer end by more than 25 seconds or audio drift detected
+            if (drift > 25.0) {
+              driftSampleCount++;
+              if (driftSampleCount >= 2) {
+                console.log("A/V drift threshold reached. Nudging playhead to resync...");
+                driftSampleCount = 0;
+                video.currentTime = bufEnd - 4.0; // Nudge close to live edge
+                if (hls) hls.recoverMediaError();
+              }
+            } else {
+              driftSampleCount = 0;
+            }
+          }
+        } catch (e) {}
+      }, 5000);
+    }
+
+    // Hub Connection resolution
+    function getHubBase() {
+      const params = new URLSearchParams(window.location.search);
+      const hubParam = params.get("hub");
+      if (hubParam) return hubParam.replace(/\/+$/, "");
+      const stored = localStorage.getItem("tvhub_backend_url");
+      if (stored) return stored.replace(/\/+$/, "");
+      return "";
+    }
+
+    function getWsUrl(path) {
+      const base = getHubBase();
+      const cleanPath = path.startsWith("/") ? path : `/${path}`;
+      if (base) {
+        const wsProto = base.startsWith("https:") ? "wss:" : "ws:";
+        const host = base.replace(/^https?:\/\//, "");
+        return `${wsProto}//${host}${cleanPath}`;
+      }
+      const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
+      return `${protocol}//${window.location.host}${cleanPath}`;
+    }
+
+    // Connect WebSocket to Hub Server
+    let ws = null;
+    function connectWS() {
+      const wsUrl = getWsUrl("/ws/receiver");
+      try {
+        ws = new WebSocket(wsUrl);
+      } catch (e) {
+        console.warn("WebSocket init error:", e);
+        return;
+      }
+
+      ws.onopen = () => console.log("Connected to TV Hub WebSocket");
+      
+      ws.onmessage = (event) => {
+        try {
+          const msg = JSON.parse(event.data);
+          if (msg.type === "playback_command") {
+            const action = msg.action;
+            if (action === "play") {
+              if (msg.url) {
+                if (typeof msg.version === 'number' && msg.version <= appliedVersion) {
+                  console.log(`Ignoring stale playback_command version ${msg.version} (already applied ${appliedVersion})`);
+                  return;
+                }
+                if (msg.url === currentPlayingUrl && msg.channel_id === currentChannelId && typeof msg.version === 'number' && msg.version === appliedVersion) {
+                  return;
+                }
+                if (typeof msg.version === 'number') appliedVersion = msg.version;
+
+                playStream(msg.url, msg.title || "Live Stream", msg.logo || "", {
+                  sources: msg.sources || [],
+                  sourceIndex: msg.source_index || 0,
+                  channelId: msg.channel_id || null
+                });
+              } else {
+                video.play();
+              }
+            } else if (action === "pause") {
+              video.pause();
+              showOSD("Paused", "");
+            } else if (action === "stop") {
+              if (typeof msg.version === 'number') {
+                if (msg.version <= appliedVersion) return;
+                appliedVersion = msg.version;
+              }
+              currentPlayingUrl = "";
+              video.pause();
+              destroyPlayers();
+              video.src = "";
+              video.style.display = "none";
+              standby.style.display = "flex";
+            } else if (action === "volume") {
+              if (msg.volume !== undefined) {
+                video.volume = msg.volume / 100;
+              }
+              if (msg.mute !== undefined) {
+                video.muted = msg.mute;
+              }
+              showVolume(Math.round(video.volume * 100), video.muted);
+            } else if (action === "seek" && msg.value) {
+              const delta = parseFloat(msg.value);
+              if (!isNaN(delta)) {
+                video.currentTime += delta;
+              }
+            }
+          } else if (msg.type === "abr_hint") {
+            // Quality cap from smartphone controller (e.g. Low Data Mode)
+            if (hls && msg.maxHeight) {
+              hls.autoLevelCapping = hls.levels.findIndex(lvl => lvl.height <= msg.maxHeight);
+              showOSD(currentTitle, `Quality capped to ${msg.maxHeight}p`);
+            }
+          }
+        } catch (err) {}
+      };
+
+      ws.onclose = () => {
+        setTimeout(connectWS, 2000);
+      };
+    }
+
+    connectWS();
+
+    // Fallback sync poll: every 5s check GET /api/state/current
+    // In case WebSocket disconnected or dropped packets, keep state monotonically in sync
+    setInterval(async () => {
+      try {
+        const res = await fetch("/api/state/current");
+        if (!res.ok) return;
+        const data = await res.json();
+        if (typeof data.version === "number" && data.version > appliedVersion) {
+          appliedVersion = data.version;
+          if (data.url) {
+            console.log(`Fallback sync: applying updated stream version ${data.version}: ${data.title}`);
+            playStream(data.url, data.title || "Live Stream", data.logo || "", {
+              sources: data.sources || [],
+              sourceIndex: data.source_index || 0,
+              channelId: data.channel_id || null
+            });
+          } else if (currentPlayingUrl) {
+            currentPlayingUrl = "";
+            video.pause();
+            destroyPlayers();
+            video.src = "";
+            video.style.display = "none";
+            standby.style.display = "flex";
+          }
+        }
+      } catch (e) {}
+    }, 5000);
+
+    // Toggle Fullscreen on click or remote OK
+    document.addEventListener("click", () => {
+      if (!document.fullscreenElement) {
+        document.documentElement.requestFullscreen().catch(() => {});
+      }
+    });
+
+    // TV Remote / D-pad Key Handler
+    window.addEventListener("keydown", (e) => {
+      switch (e.key) {
+        case "Enter":
+        case " ":
+          if (video.style.display !== "none") {
+            if (video.paused) video.play(); else video.pause();
+          }
+          break;
+        case "Escape":
+        case "Back":
+        case "BrowserBack":
+          currentPlayingUrl = "";
+          video.pause();
+          destroyPlayers();
+          video.src = "";
+          video.style.display = "none";
+          standby.style.display = "flex";
+          break;
+        case "ArrowUp":
+          video.volume = Math.min(1.0, video.volume + 0.05);
+          showVolume(Math.round(video.volume * 100), video.muted);
+          break;
+        case "ArrowDown":
+          video.volume = Math.max(0.0, video.volume - 0.05);
+          showVolume(Math.round(video.volume * 100), video.muted);
+          break;
+      }
+    });
+  </script>
+</body>
+</html>
