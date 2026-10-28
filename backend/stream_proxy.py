@@ -32,13 +32,28 @@ class ActiveStreamSessionManager:
         self._latest_sid: str = f"s_init_{int(time.time())}"
         self._latest_stream_url: str = ""
         self._previous_stream_url: str = ""
+        self._invalidated_sids: set = set()
+        self._obsolete_urls: set = set()
         self._channel_switch_time: float = 0.0
 
     def start_session(self, target_ip: Optional[str], stream_url: str) -> str:
         sid = f"s_{int(time.time())}_{uuid.uuid4().hex[:6]}"
         clean_url = stream_url.split("?")[0]
         now = time.time()
-        self._previous_stream_url = self._latest_stream_url
+
+        # Invalidate old session ID
+        if self._latest_sid:
+            self._invalidated_sids.add(self._latest_sid)
+        if self._latest_stream_url and self._latest_stream_url != clean_url:
+            self._obsolete_urls.add(self._latest_stream_url.lower())
+            self._previous_stream_url = self._latest_stream_url
+
+        # Keep sets bounded
+        if len(self._invalidated_sids) > 200:
+            self._invalidated_sids = set(list(self._invalidated_sids)[-100:])
+        if len(self._obsolete_urls) > 100:
+            self._obsolete_urls = set(list(self._obsolete_urls)[-50:])
+
         self._latest_sid = sid
         self._latest_stream_url = clean_url
         self._channel_switch_time = now
@@ -49,7 +64,11 @@ class ActiveStreamSessionManager:
             "timestamp": now
         }
         if target_ip and target_ip != "web_receiver":
+            old_dev_sid = self._device_sessions.get(target_ip, {}).get("sid")
+            if old_dev_sid:
+                self._invalidated_sids.add(old_dev_sid)
             self._device_sessions[target_ip] = info
+
         self._device_sessions["127.0.0.1"] = info
         self._device_sessions["localhost"] = info
 
@@ -63,26 +82,27 @@ class ActiveStreamSessionManager:
         return self._latest_sid
 
     def is_session_active(self, client_ip: str, request_sid: Optional[str], target_url: str) -> bool:
+        # Check 1: If request carries an explicitly invalidated session ID, reject immediately
+        if request_sid and request_sid in self._invalidated_sids:
+            logger.info(f"Terminating invalidated channel session request from {client_ip} [sid={request_sid}]")
+            return False
+
         dev_info = self._device_sessions.get(client_ip)
         active_sid = dev_info["sid"] if dev_info else self._latest_sid
         active_url = dev_info["stream_url"] if dev_info else self._latest_stream_url
 
-        # Check 1: If request carries a sid, verify against active session AND latest session
+        # Check 2: If request carries a sid, verify against active session OR latest session
         if request_sid:
             if request_sid == active_sid or request_sid == self._latest_sid:
                 return True
             logger.info(f"Terminating stale channel request from {client_ip}: sid {request_sid} != active {active_sid}")
             return False
 
-        # Check 2: If no sid was provided and we recently switched channels (last 45s),
-        # only reject if this URL clearly belongs to the PREVIOUS channel
-        if time.time() - self._channel_switch_time < 45.0 and self._previous_stream_url:
-            clean_target = target_url.split("?")[0].lower()
-            prev_base = self._previous_stream_url.rsplit("/", 1)[0].lower()
-            curr_base = active_url.rsplit("/", 1)[0].lower()
-            if prev_base and prev_base != curr_base and clean_target.startswith(prev_base):
-                logger.info(f"Terminating previous channel request {clean_target} matching {prev_base}")
-                return False
+        # Check 3: If no sid was provided, reject if URL is in obsolete URLs set
+        clean_target = target_url.split("?")[0].lower()
+        if clean_target in self._obsolete_urls:
+            logger.info(f"Terminating obsolete channel URL request {clean_target}")
+            return False
 
         return True
 
@@ -176,11 +196,11 @@ class SegmentCache:
         self._in_flight.clear()
 
     def get_manifest(self, url: str) -> Optional[bytes]:
-        """Debounce rapid manifest polls (served in < 0.1ms from RAM)."""
+        """Debounce rapid manifest polls within 0.5s (eliminates duplicate concurrent network requests)."""
         now = time.time()
         if url in self._manifest_cache:
             data, ts = self._manifest_cache[url]
-            if now - ts < 3.5:
+            if now - ts < 0.5:
                 return data
         return None
 
@@ -452,17 +472,9 @@ async def proxy_stream(url: str, request: Request, server_host: str):
             return Response(content=f"Segment error: {e}", status_code=502)
 
     # --- CASE 2: HLS Playlist Manifest (.m3u8) or Direct Stream ---
+    requested_url = url
     if url_clean.endswith(".m3u8") or "mpegurl" in request.headers.get("accept", "").lower():
-        # Rate-limit client manifest polling to prevent TV CPU spin-locking & audio/video desync
-        poll_key = (client_ip, url.split("?")[0])
-        now = time.time()
-        last_poll = _client_manifest_poll.get(poll_key, 0.0)
-        elapsed = now - last_poll
-        if 0 < elapsed < 1.5:
-            await asyncio.sleep(1.5 - elapsed)
-        _client_manifest_poll[poll_key] = time.time()
-
-        # Check rapid-poll manifest debounce cache
+        # Check rapid-poll manifest debounce cache (0.5s deduplication to prevent double-fetches)
         cached_m3u8 = segment_engine.get_manifest(url)
         if cached_m3u8 is not None:
             return Response(
@@ -472,8 +484,9 @@ async def proxy_stream(url: str, request: Request, server_host: str):
                     "Content-Type": "application/vnd.apple.mpegurl",
                     "Access-Control-Allow-Origin": "*",
                     "Access-Control-Allow-Headers": "*",
-                    "Cache-Control": "no-store",
+                    "Cache-Control": "no-cache, no-store, must-revalidate",
                     "Pragma": "no-cache",
+                    "Expires": "0",
                     "X-Cache": "HIT"
                 }
             )
@@ -599,8 +612,10 @@ async def proxy_stream(url: str, request: Request, server_host: str):
                 segment_engine.prefetch(segment_urls_for_prefetch[:1], headers)
 
             rewritten_body = "\r\n".join(rewritten_lines).encode("utf-8")
-            # Store in short-lived manifest cache to eliminate TV rapid-polling lag
-            segment_engine.put_manifest(url, rewritten_body)
+            # Store in short-lived manifest cache for 0.5s deduplication
+            segment_engine.put_manifest(requested_url, rewritten_body)
+            if requested_url != url:
+                segment_engine.put_manifest(url, rewritten_body)
 
             return Response(
                 content=rewritten_body,
@@ -609,8 +624,9 @@ async def proxy_stream(url: str, request: Request, server_host: str):
                     "Content-Type": "application/vnd.apple.mpegurl",
                     "Access-Control-Allow-Origin": "*",
                     "Access-Control-Allow-Headers": "*",
-                    "Cache-Control": "no-store",
+                    "Cache-Control": "no-cache, no-store, must-revalidate",
                     "Pragma": "no-cache",
+                    "Expires": "0",
                     "X-Cache": "MISS"
                 }
             )

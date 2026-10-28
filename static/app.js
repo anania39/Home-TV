@@ -656,7 +656,8 @@ async function castChannel(channel) {
   }
 
   try {
-    const res = await fetch(getApiUrl(`/api/iptv/cast/${channel.id}`), { method: "POST", signal });
+    const devParam = state.currentTvId ? `?device_id=${encodeURIComponent(state.currentTvId)}` : "";
+    const res = await fetch(getApiUrl(`/api/iptv/cast/${channel.id}${devParam}`), { method: "POST", signal });
     if (signal.aborted) return;
     const data = await res.json();
     if (signal.aborted) return;

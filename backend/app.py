@@ -447,6 +447,16 @@ async def cast_media(req: CastRequest, request: Request, client_ip: str = Depend
 
     web_stream_url = relative_proxy_url if req.use_proxy else raw_stream_url
 
+    # Ensure all channel sources are properly proxied with active_sid for seamless client failover
+    proxied_sources = []
+    for s in (req.sources or []):
+        s_url = s.get("url") if isinstance(s, dict) else s
+        if s_url:
+            p_url = f"/api/stream/proxy?url={quote(s_url, safe='')}&sid={active_sid}" if req.use_proxy else s_url
+            proxied_sources.append({"url": p_url, "type": "hls"})
+    if not proxied_sources and web_stream_url:
+        proxied_sources = [{"url": web_stream_url, "type": "hls"}]
+
     # Single output path determination
     mode = "google_tv" if (dev and dev.get("is_google_tv")) else ("dlna" if (dev and dev.get("av_transport_url")) else "web_receiver")
 
@@ -456,7 +466,7 @@ async def cast_media(req: CastRequest, request: Request, client_ip: str = Depend
         "url": web_stream_url,
         "title": title,
         "logo": req.logo or "",
-        "sources": req.sources or [],
+        "sources": proxied_sources,
         "source_index": req.source_index or 0,
         "version": my_version,
         "state": "PLAYING"
@@ -482,9 +492,9 @@ async def cast_media(req: CastRequest, request: Request, client_ip: str = Depend
             "title": title,
             "channel_id": req.channel_id,
             "logo": req.logo or "",
-            "sources": req.sources or [],
+            "sources": proxied_sources,
             "source_index": req.source_index or 0,
-            "sources_total": len(req.sources or []),
+            "sources_total": len(proxied_sources),
             "version": my_version
         })
         await ws_manager.broadcast_to_controllers("playback_update", ws_manager.current_state)
@@ -545,20 +555,10 @@ async def cast_media(req: CastRequest, request: Request, client_ip: str = Depend
             tv_online = ws_manager.current_state.get("tv_online", True)
             if not set_ok:
                 if not tv_online:
-                    # TV is known to be in standby/offline from monitor loop
+                    # TV is known to be in standby/offline from monitor loop: send WoL and return immediately
                     logger.info(f"TV {dev['name']} is in standby/offline. Sending WoL...")
                     send_wake_on_lan(["d4:ab:cd:50:e5:d3", "18:30:0c:9e:7e:fc"])
                     tv_is_active = False
-                    await asyncio.sleep(1.0)
-                    if is_stale():
-                        return {"status": "superseded", "version": my_version, "mode": mode}
-                    set_ok = await dlna_controller.set_av_transport_uri(av_url, tv_stream_url, title, req.mime_type)
-                    if set_ok:
-                        tv_is_active = True
-                        if not is_stale():
-                            await asyncio.sleep(0.1)
-                            if not is_stale():
-                                await dlna_controller.play(av_url)
                 else:
                     tv_is_active = False
             else:
@@ -792,7 +792,12 @@ async def get_debug_receivers():
     }
 
 @app.post("/api/iptv/cast/{channel_id}")
-async def cast_channel(channel_id: str, request: Request, client_ip: str = Depends(verify_local_network)):
+async def cast_channel(
+    channel_id: str,
+    request: Request,
+    device_id: Optional[str] = None,
+    client_ip: str = Depends(verify_local_network)
+):
     channel = iptv_manager.get_channel_by_id(channel_id)
     if not channel:
         raise HTTPException(status_code=404, detail="Channel not found")
@@ -817,7 +822,8 @@ async def cast_channel(channel_id: str, request: Request, client_ip: str = Depen
             channel_id=channel_id,
             logo=channel.get("logo", ""),
             sources=sources,
-            source_index=active_idx
+            source_index=active_idx,
+            device_id=device_id
         ),
         request=request,
         client_ip=client_ip

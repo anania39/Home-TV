@@ -286,6 +286,14 @@
       return "TV";
     }
 
+    function resolveAssetUrl(path) {
+      if (!path) return "";
+      if (path.startsWith("http://") || path.startsWith("https://") || path.startsWith("data:")) return path;
+      if (path.startsWith("/static/")) return "./" + path.substring(1);
+      if (path.startsWith("/")) return "." + path;
+      return path;
+    }
+
     function showOSD(title, status = "Playing Live Stream", logoUrl = "", sourceIdx = null, totalSources = null) {
       osdTitle.textContent = title;
       const tot = (totalSources !== null) ? totalSources : (currentSources ? currentSources.length : 1);
@@ -301,7 +309,7 @@
           osdLogoInitials.style.display = "block";
           osdLogoInitials.textContent = getInitials(title);
         };
-        osdLogoImg.src = logoUrl;
+        osdLogoImg.src = resolveAssetUrl(logoUrl);
       } else {
         osdLogoImg.style.display = "none";
         osdLogoInitials.style.display = "block";
@@ -358,6 +366,8 @@
       if (hls) {
         try {
           hls.stopLoad();
+          // Explicitly flush all MSE buffers across audio and video tracks
+          hls.trigger(Hls.Events.BUFFER_FLUSHING, { startOffset: 0, endOffset: Number.POSITIVE_INFINITY, type: 'all' });
           hls.detachMedia();
           hls.destroy();
         } catch (e) {}
@@ -375,10 +385,10 @@
       if (video) {
         try {
           video.pause();
+          video.playbackRate = 1.0;
           video.onerror = null;
           video.removeAttribute("src");
           video.src = "";
-          video.load(); // Forces HTML5 media pipeline and decoder to flush completely!
         } catch (e) {}
       }
     }
@@ -430,12 +440,13 @@
       return {
         enableWorker: !isHisense,       // Crucial for Hisense VIDAA stability
         lowLatencyMode: false,          // Essential for stable IPTV feeds
-        maxBufferLength: 24,            // Low memory footprint for TV RAM
-        maxMaxBufferLength: 48,
-        backBufferLength: 10,
-        maxBufferSize: 20 * 1024 * 1024,
+        maxBufferLength: 8,             // 8s forward buffer prevents stale chunk collision
+        maxMaxBufferLength: 16,         // 16s cap
+        backBufferLength: 0,            // Flush back buffer immediately on live to stop replaying old frames!
+        maxBufferSize: 15 * 1024 * 1024,// Compact memory
         maxBufferHole: 0.5,
-        nudgeMaxRetry: 8,
+        highBufferWatchdogPeriod: 2,
+        nudgeMaxRetry: 5,
         maxAudioFramesDrift: 1,         // Fix audio falling behind video
         stretchShortVideoTrack: true,   // Fix audio/video timestamp mismatch
         capLevelToPlayerSize: true,     // Cap resolution to TV element size
@@ -443,8 +454,9 @@
         startLevel: 0,                  // Start at level 0 for instant start, let ABR climb
         abrBandWidthFactor: 0.7,
         abrBandWidthUpFactor: 0.5,
-        liveSyncDurationCount: 5,       // Buffer 5 segments from live edge for rock-solid stability
-        liveMaxLatencyDurationCount: 14,
+        liveSyncDurationCount: 3,       // Buffer 3 segments from live edge (~9s)
+        liveMaxLatencyDurationCount: 7, // Max latency before catching up
+        maxLiveSyncPlaybackRate: 1.12,  // Smoothly catch up WITHOUT hard seek!
         liveDurationInfinity: true,
       };
     }
@@ -456,9 +468,19 @@
       if (currentSources && currentSources.length > 1) {
         currentSourceIndex = (currentSourceIndex + 1) % currentSources.length;
         const nextSrc = currentSources[currentSourceIndex];
-        const nextUrl = (typeof nextSrc === "string") ? nextSrc : (nextSrc.url || nextSrc);
+        let nextUrl = (typeof nextSrc === "string") ? nextSrc : (nextSrc.url || nextSrc);
+
+        // Ensure failover URL routes through stream proxy if it is a raw remote URL
+        if (nextUrl.startsWith("http://") || nextUrl.startsWith("https://")) {
+          if (!nextUrl.includes("/api/stream/proxy")) {
+            const hubBase = getHubBase();
+            const encoded = encodeURIComponent(nextUrl);
+            nextUrl = `${hubBase}/api/stream/proxy?url=${encoded}&sid=s_fo_${Date.now()}`;
+          }
+        }
+
         console.log(`Switching to backup source ${currentSourceIndex + 1}/${currentSources.length}: ${nextUrl}`);
-        showOSD(currentTitle, `Failover to Source S${currentSourceIndex + 1}...`, currentLogoUrl, currentSourceIndex, currentSources.length);
+        showOSD(currentTitle, `Switching to Backup S${currentSourceIndex + 1}...`, currentLogoUrl, currentSourceIndex, currentSources.length);
 
         playStream(nextUrl, currentTitle, currentLogoUrl, {
           sources: currentSources,
@@ -618,18 +640,18 @@
         };
       }
 
-      // 7. Stall Watchdog: Monitors if playback freezes or stays stuck for > 8s
+      // 7. Stall Watchdog: Monitors if playback freezes or stays stuck for > 16s
       stallTimer = setInterval(() => {
         if (session !== playSessionId) return;
         if (!video.paused) {
           if (video.currentTime === lastCurrentTime && video.readyState < 3) {
             timeNotAdvancingCount++;
-            if (timeNotAdvancingCount >= 4) { // 4 * 2s = 8 seconds stuck
+            if (timeNotAdvancingCount >= 8) { // 8 * 2s = 16 seconds stuck
               stallCount++;
               timeNotAdvancingCount = 0;
               console.warn(`Playback stall detected (${stallCount} stalls in window)`);
-              if (stallCount >= 2) {
-                failoverToNextSource(session, "Extended playback stall (>8s)");
+              if (stallCount >= 2 && currentSources && currentSources.length > 1) {
+                failoverToNextSource(session, "Extended playback stall (>16s)");
               } else if (hls) {
                 hls.startLoad();
               }
@@ -641,28 +663,27 @@
         }
       }, 2000);
 
-      // 8. Audio/Video Drift Monitor: Compares audio and video buffered ends every 5s
+      // 8. Audio/Video Drift Monitor: Gentle rate adjustment prevents hard-seek glitches & AV desync
       driftTimer = setInterval(() => {
         if (session !== playSessionId || video.paused) return;
         try {
           if (video.buffered && video.buffered.length > 0) {
             const bufEnd = video.buffered.end(video.buffered.length - 1);
-            const drift = Math.abs(bufEnd - video.currentTime);
-            // If playhead lags behind buffer end by more than 25 seconds or audio drift detected
-            if (drift > 25.0) {
-              driftSampleCount++;
-              if (driftSampleCount >= 2) {
-                console.log("A/V drift threshold reached. Nudging playhead to resync...");
-                driftSampleCount = 0;
-                video.currentTime = bufEnd - 4.0; // Nudge close to live edge
-                if (hls) hls.recoverMediaError();
+            const lagBehindBuffer = bufEnd - video.currentTime;
+
+            // If playhead lags behind buffer end by more than 12s, gently speed up
+            if (lagBehindBuffer > 12.0) {
+              if (video.playbackRate !== 1.08) {
+                console.log(`Gently syncing playhead (${lagBehindBuffer.toFixed(1)}s behind buffer). Rate=1.08x`);
+                video.playbackRate = 1.08;
               }
-            } else {
-              driftSampleCount = 0;
+            } else if (lagBehindBuffer <= 4.0 && video.playbackRate > 1.0) {
+              // Restored back to normal live edge
+              video.playbackRate = 1.0;
             }
           }
         } catch (e) {}
-      }, 5000);
+      }, 3000);
     }
 
     // Hub Connection resolution
