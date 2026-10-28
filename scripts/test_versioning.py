@@ -1,6 +1,6 @@
 """
 Automated test script for cast serialization and versioning.
-Tests rapid concurrent casts against a test instance (e.g. port 8010).
+Tests rapid concurrent casts against a test instance (e.g. port 8000).
 Verifies that:
 1. Version numbers increment monotonically.
 2. The final cast wins (last click wins).
@@ -83,5 +83,5 @@ async def run_tests(base_url: str):
 
 
 if __name__ == "__main__":
-    target_url = sys.argv[1] if len(sys.argv) > 1 else "http://127.0.0.1:8010"
+    target_url = sys.argv[1] if len(sys.argv) > 1 else "http://127.0.0.1:8000"
     asyncio.run(run_tests(target_url))

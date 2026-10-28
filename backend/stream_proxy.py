@@ -4,7 +4,7 @@ import gzip
 import re
 import uuid
 import httpx
-from urllib.parse import urljoin, quote
+from urllib.parse import urljoin, quote, urlsplit
 from starlette.responses import StreamingResponse, Response
 from fastapi import Request
 import logging
@@ -124,12 +124,24 @@ class SegmentCache:
         # Key: segment_url -> (data: bytes, content_type: str, timestamp: float)
         self._cache: Dict[str, Tuple[bytes, str, float]] = {}
         # Key: manifest_url -> (rewritten_manifest: bytes, timestamp: float)
-        self._manifest_cache: Dict[str, Tuple[bytes, float]] = {}
+        self._manifest_cache: Dict[str, Tuple[bytes, float, float]] = {}
+        # Upstream rate limit backoff: domain -> backoff_until_timestamp
+        self._domain_backoff: Dict[str, float] = {}
         # Map: segment_url -> list of upcoming segment_urls for conveyor-belt prefetching
         self._next_segments: Dict[str, list[str]] = {}
         # In-flight download tasks: segment_url -> asyncio.Task
         self._in_flight: Dict[str, asyncio.Task] = {}
         self._client: Optional[httpx.AsyncClient] = None
+
+    def is_domain_in_backoff(self, domain: str) -> bool:
+        if not domain:
+            return False
+        return time.time() < self._domain_backoff.get(domain, 0.0)
+
+    def set_domain_backoff(self, domain: str, duration: float = 4.5):
+        if domain:
+            self._domain_backoff[domain] = time.time() + duration
+            logger.warning(f"Upstream domain {domain} backoff active for {duration:.1f}s (shielding from 429)")
 
     def get_client(self) -> httpx.AsyncClient:
         if self._client is None or self._client.is_closed:
@@ -188,6 +200,7 @@ class SegmentCache:
         """Clear cache when user changes channels so old channel frames never bleed in."""
         self._cache.clear()
         self._manifest_cache.clear()
+        self._domain_backoff.clear()
         self._next_segments.clear()
         _client_manifest_poll.clear()
         for task in list(self._in_flight.values()):
@@ -195,12 +208,20 @@ class SegmentCache:
                 task.cancel()
         self._in_flight.clear()
 
-    def get_manifest(self, url: str) -> Optional[bytes]:
-        """Debounce rapid manifest polls within 0.5s (eliminates duplicate concurrent network requests)."""
+    def get_manifest(self, url: str, min_ttl: float = 2.0) -> Optional[bytes]:
+        """
+        RFC 8216 Section 6.3.4 compliant debounce cache.
+        Caches rewritten manifests for half of target duration (min 2.0s).
+        Eliminates TV client spin loops (10+ req/sec) and protects upstream from HTTP 429.
+        """
         now = time.time()
         if url in self._manifest_cache:
-            data, ts = self._manifest_cache[url]
-            if now - ts < 0.5:
+            entry = self._manifest_cache[url]
+            data = entry[0]
+            ts = entry[1]
+            target_dur = entry[2] if len(entry) > 2 else 5.0
+            effective_ttl = max(min_ttl, min(target_dur / 2.0, 3.5))
+            if now - ts < effective_ttl:
                 return data
         return None
 
@@ -210,8 +231,8 @@ class SegmentCache:
             return self._manifest_cache[url][0]
         return None
 
-    def put_manifest(self, url: str, data: bytes):
-        self._manifest_cache[url] = (data, time.time())
+    def put_manifest(self, url: str, data: bytes, target_duration: float = 5.0):
+        self._manifest_cache[url] = (data, time.time(), target_duration)
 
     async def get_or_fetch(self, url: str, headers: dict) -> Tuple[Optional[bytes], str]:
         """Fetch segment from cache or upstream with auto-retry and in-flight deduplication."""
@@ -473,9 +494,11 @@ async def proxy_stream(url: str, request: Request, server_host: str):
 
     # --- CASE 2: HLS Playlist Manifest (.m3u8) or Direct Stream ---
     requested_url = url
+    domain = urlsplit(url).netloc
+
     if url_clean.endswith(".m3u8") or "mpegurl" in request.headers.get("accept", "").lower():
-        # Check rapid-poll manifest debounce cache (0.5s deduplication to prevent double-fetches)
-        cached_m3u8 = segment_engine.get_manifest(url)
+        # 1. RFC 8216 Manifest Cache (2.0s - 2.5s TTL): Serve immediately from RAM to prevent TV spin-locking
+        cached_m3u8 = segment_engine.get_manifest(url, min_ttl=2.0)
         if cached_m3u8 is not None:
             return Response(
                 content=cached_m3u8,
@@ -484,12 +507,29 @@ async def proxy_stream(url: str, request: Request, server_host: str):
                     "Content-Type": "application/vnd.apple.mpegurl",
                     "Access-Control-Allow-Origin": "*",
                     "Access-Control-Allow-Headers": "*",
-                    "Cache-Control": "no-cache, no-store, must-revalidate",
+                    "Cache-Control": "public, max-age=2, stale-while-revalidate=2",
                     "Pragma": "no-cache",
-                    "Expires": "0",
                     "X-Cache": "HIT"
                 }
             )
+
+        # 2. Upstream 429/5xx Circuit Breaker: If domain is in backoff, serve cached manifest without hammering upstream
+        if segment_engine.is_domain_in_backoff(domain):
+            last_good = segment_engine.get_last_manifest(url)
+            if last_good is not None:
+                segment_engine.put_manifest(url, last_good)
+                return Response(
+                    content=last_good,
+                    status_code=200,
+                    headers={
+                        "Content-Type": "application/vnd.apple.mpegurl",
+                        "Access-Control-Allow-Origin": "*",
+                        "Access-Control-Allow-Headers": "*",
+                        "Cache-Control": "public, max-age=3, stale-while-revalidate=3",
+                        "Pragma": "no-cache",
+                        "X-Cache": "BACKOFF-SHIELD-200"
+                    }
+                )
 
     client = segment_engine.get_client()
     try:
@@ -503,11 +543,13 @@ async def proxy_stream(url: str, request: Request, server_host: str):
             body = await upstream_resp.aread()
             await upstream_resp.aclose()
 
-            # 429 / 5xx Rate Limit Shield: If upstream is throttling or errored, shield TV player with cached manifest
+            # 429 / 5xx Rate Limit Shield & Circuit Breaker:
             if upstream_resp.status_code in (429, 500, 502, 503, 504):
+                segment_engine.set_domain_backoff(domain, duration=4.5)
                 last_good = segment_engine.get_last_manifest(url)
                 if last_good is not None:
-                    logger.warning(f"Upstream returned HTTP {upstream_resp.status_code} for {url}. Shielding TV player with cached manifest.")
+                    logger.warning(f"Upstream returned HTTP {upstream_resp.status_code} for {url}. Shielding TV player with cached manifest (backoff 4.5s).")
+                    segment_engine.put_manifest(url, last_good)
                     return Response(
                         content=last_good,
                         status_code=200,
@@ -515,7 +557,7 @@ async def proxy_stream(url: str, request: Request, server_host: str):
                             "Content-Type": "application/vnd.apple.mpegurl",
                             "Access-Control-Allow-Origin": "*",
                             "Access-Control-Allow-Headers": "*",
-                            "Cache-Control": "no-store",
+                            "Cache-Control": "public, max-age=3, stale-while-revalidate=3",
                             "Pragma": "no-cache",
                             "X-Cache": "SHIELD-200"
                         }
@@ -568,6 +610,15 @@ async def proxy_stream(url: str, request: Request, server_host: str):
                     except Exception as e:
                         logger.debug(f"Variant fetch inline warning for {best_variant_url}: {e}")
 
+            # Extract target duration for RFC 8216 cache scheduling
+            target_dur = 5.0
+            for l in lines:
+                if l.startswith("#EXT-X-TARGETDURATION:"):
+                    try:
+                        target_dur = float(l.split(":")[1].strip())
+                    except Exception:
+                        pass
+                    break
             rewritten_lines = []
             segment_urls_for_prefetch = []
             variant_playlists_to_prewarm = []
@@ -609,14 +660,15 @@ async def proxy_stream(url: str, request: Request, server_host: str):
             # Register playlist sequence and gentle lookahead prefetch (only 1 upcoming segment):
             if segment_urls_for_prefetch:
                 segment_engine.register_playlist_sequence(segment_urls_for_prefetch)
-                segment_engine.prefetch(segment_urls_for_prefetch[:1], headers)
+                segment_engine.prefetch(segment_urls_for_prefetch[-1:], headers)
 
             rewritten_body = "\r\n".join(rewritten_lines).encode("utf-8")
             # Store in short-lived manifest cache for 0.5s deduplication
-            segment_engine.put_manifest(requested_url, rewritten_body)
+            segment_engine.put_manifest(requested_url, rewritten_body, target_dur)
             if requested_url != url:
-                segment_engine.put_manifest(url, rewritten_body)
+                segment_engine.put_manifest(url, rewritten_body, target_dur)
 
+            max_age_val = max(1, int(target_dur / 2.0))
             return Response(
                 content=rewritten_body,
                 status_code=upstream_resp.status_code,
@@ -624,9 +676,8 @@ async def proxy_stream(url: str, request: Request, server_host: str):
                     "Content-Type": "application/vnd.apple.mpegurl",
                     "Access-Control-Allow-Origin": "*",
                     "Access-Control-Allow-Headers": "*",
-                    "Cache-Control": "no-cache, no-store, must-revalidate",
+                    "Cache-Control": f"public, max-age={max_age_val}, stale-while-revalidate=2",
                     "Pragma": "no-cache",
-                    "Expires": "0",
                     "X-Cache": "MISS"
                 }
             )

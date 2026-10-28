@@ -339,25 +339,34 @@ async def probe_stream_health(url: str, timeout: float = 2.5) -> Dict[str, Any]:
     return result
 
 async def periodic_stream_health_task():
-    """Background task running every 5-10 minutes to re-probe channels and revive them."""
+    """Background task running periodically to probe channels and revive them without triggering 429s."""
     _load_stream_health()
-    await asyncio.sleep(15.0)  # Wait for startup
+    await asyncio.sleep(30.0)  # Wait for startup
     while True:
         try:
+            from urllib.parse import urlparse
+            active_stream = session_manager._latest_stream_url
+            active_domain = urlparse(active_stream).netloc if active_stream else ""
+
             for ch in iptv_manager.channels:
                 cid = ch.get("id")
                 sources = ch.get("sources", [])
                 for s in sources:
                     s_url = s.get("url")
-                    if s_url:
-                        probe = await probe_stream_health(s_url, timeout=3.0)
-                        if probe.get("ok"):
-                            if cid and cid not in _last_good_sources:
-                                _last_good_sources[cid] = s_url
-                            break
-                await asyncio.sleep(2.0)  # gentle spacing
+                    if not s_url:
+                        continue
+                    s_domain = urlparse(s_url).netloc
+                    # CRITICAL: Never probe the domain currently streaming to the TV!
+                    if active_domain and s_domain == active_domain:
+                        continue
+                    probe = await probe_stream_health(s_url, timeout=3.0)
+                    if probe.get("ok"):
+                        if cid and cid not in _last_good_sources:
+                            _last_good_sources[cid] = s_url
+                        break
+                await asyncio.sleep(12.0)  # gentle 12s spacing so we never exhaust upstream rate limit
             _save_stream_health()
-            await asyncio.sleep(400.0)  # Every ~6-7 mins
+            await asyncio.sleep(600.0)  # Every ~10 mins
         except asyncio.CancelledError:
             break
         except Exception as e:
@@ -531,44 +540,35 @@ async def cast_media(req: CastRequest, request: Request, client_ip: str = Depend
             if is_stale():
                 return {"status": "superseded", "version": my_version, "mode": mode}
 
-            # Step 1: Explicitly STOP active media player on TV so Hisense VIDAA tears down
-            # the previous player process and completely releases the hardware video decoder surface
-            try:
-                await dlna_controller.stop(av_url)
-                await asyncio.sleep(0.12)
-            except Exception as e:
-                logger.debug(f"DLNA stop notice: {e}")
-
-            if is_stale():
-                return {"status": "superseded", "version": my_version, "mode": mode}
-
-            # Step 2: SetAVTransportURI with the new channel stream
+            # Step 1: Seamlessly set new URI directly (avoids Hisense VIDAA exiting DLNA app to HDMI 1)
             set_ok = await dlna_controller.set_av_transport_uri(av_url, tv_stream_url, title, req.mime_type)
             if not set_ok:
-                if is_stale():
-                    return {"status": "superseded", "version": my_version, "mode": mode}
-                await asyncio.sleep(0.2)
+                # If TV renderer requires STOP transition first, stop and retry
+                try:
+                    await dlna_controller.stop(av_url)
+                    await asyncio.sleep(0.15)
+                except Exception as e:
+                    logger.debug(f"DLNA stop notice: {e}")
+
                 if is_stale():
                     return {"status": "superseded", "version": my_version, "mode": mode}
                 set_ok = await dlna_controller.set_av_transport_uri(av_url, tv_stream_url, title, req.mime_type)
 
-            tv_online = ws_manager.current_state.get("tv_online", True)
-            if not set_ok:
-                if not tv_online:
-                    # TV is known to be in standby/offline from monitor loop: send WoL and return immediately
-                    logger.info(f"TV {dev['name']} is in standby/offline. Sending WoL...")
-                    send_wake_on_lan(["d4:ab:cd:50:e5:d3", "18:30:0c:9e:7e:fc"])
-                    tv_is_active = False
-                else:
-                    tv_is_active = False
-            else:
+            if is_stale():
+                return {"status": "superseded", "version": my_version, "mode": mode}
+
+            if set_ok:
                 tv_is_active = True
-                if is_stale():
-                    return {"status": "superseded", "version": my_version, "mode": mode}
-                await asyncio.sleep(0.1)
+                await asyncio.sleep(0.08)
                 if is_stale():
                     return {"status": "superseded", "version": my_version, "mode": mode}
                 await dlna_controller.play(av_url)
+            else:
+                tv_online = ws_manager.current_state.get("tv_online", True)
+                if not tv_online:
+                    logger.info(f"TV {dev['name']} is in standby/offline. Sending WoL...")
+                    send_wake_on_lan(["d4:ab:cd:50:e5:d3", "18:30:0c:9e:7e:fc"])
+                tv_is_active = False
 
     if not tv_is_active:
         ws_manager.update_state({

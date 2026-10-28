@@ -7,12 +7,15 @@ from typing import Dict, Any
 logger = logging.getLogger("dlna")
 
 def build_didl_metadata(title: str, uri: str, mime_type: str = "video/mp4") -> str:
-    """Generate DIDL-Lite metadata XML with proper DLNA protocolInfo for HLS and MP4."""
+    """Generate DIDL-Lite metadata XML with proper DLNA protocolInfo for HLS live streams and MP4."""
     is_hls = ".m3u8" in uri or "mpegurl" in (mime_type or "").lower()
     if is_hls:
-        protocol_info = "http-get:*:application/vnd.apple.mpegurl:DLNA.ORG_OP=01;DLNA.ORG_CI=0;DLNA.ORG_FLAGS=01700000000000000000000000000000"
+        # DLNA.ORG_OP=00 signals live stream without seek (broadcast mode), preventing TV player from hitting EOS and dropping to HDMI 1
+        protocol_info = "http-get:*:application/vnd.apple.mpegurl:DLNA.ORG_OP=00;DLNA.ORG_CI=0;DLNA.ORG_FLAGS=01700000000000000000000000000000"
+        upnp_class = "object.item.videoItem.videoBroadcast"
     else:
         protocol_info = f"http-get:*:{mime_type}:*"
+        upnp_class = "object.item.videoItem"
 
     didl = (
         '<DIDL-Lite xmlns="urn:schemas-upnp-org:metadata-1-0/DIDL-Lite/" '
@@ -20,7 +23,7 @@ def build_didl_metadata(title: str, uri: str, mime_type: str = "video/mp4") -> s
         'xmlns:upnp="urn:schemas-upnp-org:metadata-1-0/upnp/">'
         f'<item id="1" parentID="0" restricted="1">'
         f'<dc:title>{html.escape(title)}</dc:title>'
-        f'<upnp:class>object.item.videoItem</upnp:class>'
+        f'<upnp:class>{upnp_class}</upnp:class>'
         f'<res protocolInfo="{protocol_info}">{html.escape(uri)}</res>'
         f'</item></DIDL-Lite>'
     )

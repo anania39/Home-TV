@@ -32,7 +32,7 @@ async def test_channel_switching():
         r_man_a = await client.get(f"{base}{url_a}")
         print(f"  Manifest A HTTP {r_man_a.status_code}, len={len(r_man_a.content)}, cache-control={r_man_a.headers.get('cache-control')}")
         assert r_man_a.status_code == 200
-        assert 'no-store' in r_man_a.headers.get('cache-control', '')
+        assert 'max-age' in r_man_a.headers.get('cache-control', '')
 
         # 3. Cast Channel B (Channel Switch!)
         t0 = time.time()
