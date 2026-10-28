@@ -120,10 +120,10 @@ function getInitials(name) {
 
 window.handleImgError = function(imgElement, name, genre, lang) {
   // 1. Try online fallback logo if available
-  const fallback = imgElement.dataset.fallbackLogo;
-  if (fallback && imgElement.src !== fallback && !imgElement.dataset.triedFallback) {
+  const onlineFallback = imgElement.dataset.fallbackLogo;
+  if (onlineFallback && imgElement.src !== onlineFallback && !imgElement.dataset.triedFallback) {
     imgElement.dataset.triedFallback = "true";
-    imgElement.src = fallback;
+    imgElement.src = onlineFallback;
     return;
   }
 
@@ -255,24 +255,33 @@ async function checkAuth() {
         shortLink.textContent = activeShort;
       }
 
-        // Network routing advisor (Tunnel vs Home LAN)
-        const advisor = document.getElementById("network-advisor-text");
-        if (advisor) {
-          const isTunnel = window.location.hostname.includes("trycloudflare.com") || window.location.hostname.includes("clck.ru");
-          if (isTunnel) {
-            advisor.innerHTML = `<span style="color: var(--accent-amber);">🌐 Connected via Cloudflare Quick Tunnel.</span><br>Quick tunnels add internet relay hops. When connected to home Wi-Fi, open <strong style="color:var(--accent-green)">http://${data.server_ip}:${data.port}</strong> for lowest latency & highest 1080p bitrate.`;
-          } else {
-            advisor.innerHTML = `<span style="color: var(--accent-green);">⚡ Direct Local Wi-Fi Connection.</span><br>Optimal 0ms local network routing directly to target TV.`;
-          }
+      // Network routing advisor (Tunnel vs Home LAN)
+      const advisor = document.getElementById("network-advisor-text");
+      if (advisor) {
+        const isTunnel = window.location.hostname.includes("trycloudflare.com") || window.location.hostname.includes("clck.ru");
+        if (isTunnel) {
+          advisor.innerHTML = `<span style="color: var(--accent-amber);">🌐 Connected via Cloudflare Quick Tunnel.</span><br>Quick tunnels add internet relay hops. When connected to home Wi-Fi, open <strong style="color:var(--accent-green)">http://${data.server_ip}:${data.port}</strong> for lowest latency & highest 1080p bitrate.`;
+        } else {
+          advisor.innerHTML = `<span style="color: var(--accent-green);">⚡ Direct Local Wi-Fi Connection.</span><br>Optimal 0ms local network routing directly to target TV.`;
         }
-      } else {
-        if (shortLink) shortLink.textContent = "Connecting static link...";
-        if (pubLink) pubLink.textContent = "Connecting public tunnel...";
-        setTimeout(checkAuth, 2000);
       }
+    } else {
+      const shortLink = document.getElementById("short-phone-link");
+      const pubLink = document.getElementById("public-phone-link");
+      if (shortLink) shortLink.textContent = "Connecting static link...";
+      if (pubLink) pubLink.textContent = "Connecting public tunnel...";
+      setTimeout(checkAuth, 2000);
     }
   } catch (e) {
-    console.error("Auth check error:", e);
+    if (window.location.hostname.includes("github.io")) {
+      if (badge) {
+        badge.innerHTML = `<span style="color: var(--accent-cyan); cursor: pointer;" title="Tap to configure TV Hub">🌐 GitHub Pages (${getHubBase() ? "Hub Linked" : "Tap to Link Hub"})</span>`;
+      }
+    } else {
+      if (badge) {
+        badge.innerHTML = `<span style="color: var(--accent-amber); cursor: pointer;" title="Tap to check Hub connection">🟡 Standalone Mode</span>`;
+      }
+    }
   }
 }
 
