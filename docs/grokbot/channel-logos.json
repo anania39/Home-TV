@@ -6,12 +6,12 @@
     "language": "Georgian",
     "genre": "Sports",
     "stream_url": "http://stream.mcquack.net/234/index.m3u8",
-    "logo_url": "/static/logos/ge-setanta1.png",
+    "logo_url": "https://i.imgur.com/VwQnBqa.png",
     "stream_status": "live",
     "is_alive": true,
     "popularity": 99,
     "notes": "Verified working Setanta Sports 1 HD",
-    "local_logo": "/static/logos/ge-setanta1.png"
+    "local_logo": "./static/logos/ge-setanta1.png"
   },
   {
     "id": "ru-matchpremier",
@@ -20,11 +20,11 @@
     "language": "Russian",
     "genre": "Sports",
     "stream_url": "http://stream.mcquack.net/193/index.m3u8",
-    "logo_url": "/static/logos/ru-matchpremier.png",
+    "logo_url": "https://i.imgur.com/GQPyHYK.png",
     "stream_status": "live",
     "is_alive": true,
     "popularity": 99,
-    "local_logo": "/static/logos/ru-matchpremier.png"
+    "local_logo": "./static/logos/ru-matchpremier.png"
   },
   {
     "id": "ge-setanta2",
@@ -33,12 +33,12 @@
     "language": "Georgian",
     "genre": "Sports",
     "stream_url": "http://stream.mcquack.net/235/index.m3u8",
-    "logo_url": "/static/logos/ge-setanta2.png",
+    "logo_url": "https://i.imgur.com/ZtoZQUV.png",
     "stream_status": "live",
     "is_alive": true,
     "popularity": 98,
     "notes": "Verified working Setanta Sports 2 HD",
-    "local_logo": "/static/logos/ge-setanta2.png"
+    "local_logo": "./static/logos/ge-setanta2.png"
   },
   {
     "id": "ru-matchtv",
@@ -47,11 +47,11 @@
     "language": "Russian",
     "genre": "Sports",
     "stream_url": "http://stream.mcquack.net/169/index.m3u8",
-    "logo_url": "/static/logos/ru-matchtv.png",
+    "logo_url": "https://i.imgur.com/iKZvKyP.png",
     "stream_status": "live",
     "is_alive": true,
     "popularity": 98,
-    "local_logo": "/static/logos/ru-matchtv.png"
+    "local_logo": "./static/logos/ru-matchtv.png"
   },
   {
     "id": "ge-silkuniversal",
@@ -60,12 +60,12 @@
     "language": "Georgian",
     "genre": "Sports",
     "stream_url": "https://streaming-hls2.televiziebi.org/hls/silk.m3u8",
-    "logo_url": "/static/logos/ge-silkuniversal.png",
+    "logo_url": "https://i.imgur.com/z0XHsPE.png",
     "stream_status": "live",
     "is_alive": true,
     "popularity": 97,
     "notes": "Silk Universal Sports & Entertainment",
-    "local_logo": "/static/logos/ge-silkuniversal.png"
+    "local_logo": "./static/logos/ge-silkuniversal.png"
   },
   {
     "id": "ru-matchfootball1",
@@ -74,11 +74,11 @@
     "language": "Russian",
     "genre": "Sports",
     "stream_url": "http://stream.mcquack.net/130/index.m3u8",
-    "logo_url": "/static/logos/ru-matchfootball1.png",
+    "logo_url": "https://i.imgur.com/XS2BB02.png",
     "stream_status": "live",
     "is_alive": true,
     "popularity": 97,
-    "local_logo": "/static/logos/ru-matchfootball1.png"
+    "local_logo": "./static/logos/ru-matchfootball1.png"
   },
   {
     "id": "ge-rugby",
@@ -87,12 +87,12 @@
     "language": "Georgian",
     "genre": "Sports",
     "stream_url": "https://streaming-hls4.televizia.org/hls/ragbitv.m3u8",
-    "logo_url": "/static/logos/ge-rugby.png",
+    "logo_url": "https://i.imgur.com/FLh1Brr.png",
     "stream_status": "live",
     "is_alive": true,
     "popularity": 96,
     "notes": "Georgian National Rugby Channel",
-    "local_logo": "/static/logos/ge-rugby.png"
+    "local_logo": "./static/logos/ge-rugby.png"
   },
   {
     "id": "ru-matchfootball2",
@@ -101,11 +101,11 @@
     "language": "Russian",
     "genre": "Sports",
     "stream_url": "http://stream.mcquack.net/142/index.m3u8",
-    "logo_url": "/static/logos/ru-matchfootball2.png",
+    "logo_url": "https://i.imgur.com/WhdGfSo.png",
     "stream_status": "live",
     "is_alive": true,
     "popularity": 96,
-    "local_logo": "/static/logos/ru-matchfootball2.png"
+    "local_logo": "./static/logos/ru-matchfootball2.png"
   },
   {
     "id": "ru-domkino",
@@ -114,12 +114,12 @@
     "language": "Russian",
     "genre": "Movies",
     "stream_url": "http://stream.mcquack.net/236/index.m3u8",
-    "logo_url": "/static/logos/ru-domkino.png",
+    "logo_url": "https://i.imgur.com/rJpQtvK.png",
     "stream_status": "live",
     "is_alive": true,
     "popularity": 96,
     "notes": "Verified working Dom Kino HD",
-    "local_logo": "/static/logos/ru-domkino.png"
+    "local_logo": "./static/logos/ru-domkino.png"
   },
   {
     "id": "en-discovery",
@@ -128,11 +128,11 @@
     "language": "English",
     "genre": "Documentaries",
     "stream_url": "http://stream.mcquack.net/177/index.m3u8",
-    "logo_url": "/static/logos/en-discovery.png",
+    "logo_url": "https://d2n0069hmnqmmx.cloudfront.net/epgdata/1.0/newchanlogos/512/512/skychb2401.png",
     "stream_status": "live",
     "is_alive": true,
     "popularity": 96,
-    "local_logo": "/static/logos/en-discovery.png"
+    "local_logo": "./static/logos/en-discovery.png"
   },
   {
     "id": "en-bbcnews",
@@ -141,11 +141,11 @@
     "language": "English",
     "genre": "News",
     "stream_url": "http://stream.mcquack.net/85/index.m3u8",
-    "logo_url": "/static/logos/en-bbcnews.png",
+    "logo_url": "https://i.imgur.com/vSz2WEp.png",
     "stream_status": "live",
     "is_alive": true,
     "popularity": 96,
-    "local_logo": "/static/logos/en-bbcnews.png"
+    "local_logo": "./static/logos/en-bbcnews.png"
   },
   {
     "id": "ge-imedi",
@@ -154,12 +154,12 @@
     "language": "Georgian",
     "genre": "News",
     "stream_url": "https://tv.cdn.xsg.ge/imedihd/index.m3u8",
-    "logo_url": "/static/logos/ge-imedi.png",
+    "logo_url": "https://i.imgur.com/94hNyxZ.png",
     "stream_status": "live",
     "is_alive": true,
     "popularity": 95,
     "notes": "Imedi TV direct high-bitrate master feed",
-    "local_logo": "/static/logos/ge-imedi.png"
+    "local_logo": "./static/logos/ge-imedi.png"
   },
   {
     "id": "ru-matchfootball3",
@@ -168,11 +168,11 @@
     "language": "Russian",
     "genre": "Sports",
     "stream_url": "http://stream.mcquack.net/185/index.m3u8",
-    "logo_url": "/static/logos/ru-matchfootball3.png",
+    "logo_url": "https://i.imgur.com/XS2BB02.png",
     "stream_status": "live",
     "is_alive": true,
     "popularity": 95,
-    "local_logo": "/static/logos/ru-matchfootball3.png"
+    "local_logo": "./static/logos/ru-matchfootball3.png"
   },
   {
     "id": "ru-domkinopremium",
@@ -181,11 +181,11 @@
     "language": "Russian",
     "genre": "Movies",
     "stream_url": "http://stream.mcquack.net/108/index.m3u8",
-    "logo_url": "/static/logos/ru-domkinopremium.png",
+    "logo_url": "https://i.imgur.com/rJpQtvK.png",
     "stream_status": "live",
     "is_alive": true,
     "popularity": 95,
-    "local_logo": "/static/logos/ru-domkinopremium.png"
+    "local_logo": "./static/logos/ru-domkinopremium.png"
   },
   {
     "id": "ru-tv1000",
@@ -194,11 +194,11 @@
     "language": "Russian",
     "genre": "Movies",
     "stream_url": "http://stream.mcquack.net/110/index.m3u8",
-    "logo_url": "/static/logos/ru-tv1000.png",
+    "logo_url": "https://i.imgur.com/ZMsyjSr.png",
     "stream_status": "live",
     "is_alive": true,
     "popularity": 95,
-    "local_logo": "/static/logos/ru-tv1000.png"
+    "local_logo": "./static/logos/ru-tv1000.png"
   },
   {
     "id": "en-natgeo",
@@ -207,11 +207,11 @@
     "language": "English",
     "genre": "Documentaries",
     "stream_url": "http://stream.mcquack.net/116/index.m3u8",
-    "logo_url": "/static/logos/en-natgeo.png",
+    "logo_url": "https://dtil.tmsimg.com/assets/s143574_ld_h15_aa.png?lock=720x540",
     "stream_status": "live",
     "is_alive": true,
     "popularity": 95,
-    "local_logo": "/static/logos/en-natgeo.png"
+    "local_logo": "./static/logos/en-natgeo.png"
   },
   {
     "id": "ru-sts",
@@ -220,11 +220,11 @@
     "language": "Russian",
     "genre": "Entertainment",
     "stream_url": "http://stream.mcquack.net/138/index.m3u8",
-    "logo_url": "/static/logos/ru-sts.png",
+    "logo_url": "https://i.imgur.com/ilUzAeb.png",
     "stream_status": "live",
     "is_alive": true,
     "popularity": 95,
-    "local_logo": "/static/logos/ru-sts.png"
+    "local_logo": "./static/logos/ru-sts.png"
   },
   {
     "id": "ge-rustavi2",
@@ -233,11 +233,11 @@
     "language": "Georgian",
     "genre": "Entertainment",
     "stream_url": "https://streaming-hls2.televizia.org/hls/rustavi2.m3u8",
-    "logo_url": "/static/logos/ge-rustavi2.png",
+    "logo_url": "https://i.imgur.com/rPqd1Cx.png",
     "stream_status": "live",
     "is_alive": true,
     "popularity": 94,
-    "local_logo": "/static/logos/ge-rustavi2.png"
+    "local_logo": "./static/logos/ge-rustavi2.png"
   },
   {
     "id": "ru-kinohit",
@@ -246,11 +246,11 @@
     "language": "Russian",
     "genre": "Movies",
     "stream_url": "http://stream.mcquack.net/126/index.m3u8",
-    "logo_url": "/static/logos/ru-kinohit.png",
+    "logo_url": "https://i.imgur.com/Ge8vkQM.png",
     "stream_status": "live",
     "is_alive": true,
     "popularity": 94,
-    "local_logo": "/static/logos/ru-kinohit.png"
+    "local_logo": "./static/logos/ru-kinohit.png"
   },
   {
     "id": "ru-tv1000action",
@@ -259,11 +259,11 @@
     "language": "Russian",
     "genre": "Movies",
     "stream_url": "http://stream.mcquack.net/100/index.m3u8",
-    "logo_url": "/static/logos/ru-tv1000action.png",
+    "logo_url": "https://i.imgur.com/TMmyuzh.png",
     "stream_status": "live",
     "is_alive": true,
     "popularity": 94,
-    "local_logo": "/static/logos/ru-tv1000action.png"
+    "local_logo": "./static/logos/ru-tv1000action.png"
   },
   {
     "id": "en-natgeowild",
@@ -272,11 +272,11 @@
     "language": "English",
     "genre": "Documentaries",
     "stream_url": "http://stream.mcquack.net/149/index.m3u8",
-    "logo_url": "/static/logos/en-natgeowild.png",
+    "logo_url": "https://i.imgur.com/HoeaQJC.png",
     "stream_status": "live",
     "is_alive": true,
     "popularity": 94,
-    "local_logo": "/static/logos/en-natgeowild.png"
+    "local_logo": "./static/logos/en-natgeowild.png"
   },
   {
     "id": "ru-tnt",
@@ -285,11 +285,11 @@
     "language": "Russian",
     "genre": "Entertainment",
     "stream_url": "http://stream.mcquack.net/135/index.m3u8",
-    "logo_url": "/static/logos/ru-tnt.png",
+    "logo_url": "https://i.imgur.com/T4A6rEI.png",
     "stream_status": "live",
     "is_alive": true,
     "popularity": 94,
-    "local_logo": "/static/logos/ru-tnt.png"
+    "local_logo": "./static/logos/ru-tnt.png"
   },
   {
     "id": "ge-1tv",
@@ -298,11 +298,11 @@
     "language": "Georgian",
     "genre": "News",
     "stream_url": "https://streaming-hls2.televizia.org/hls/pirveliarxi.m3u8",
-    "logo_url": "/static/logos/ge-1tv.png",
+    "logo_url": "https://i.imgur.com/FSkYLPK.png",
     "stream_status": "live",
     "is_alive": true,
     "popularity": 93,
-    "local_logo": "/static/logos/ge-1tv.png"
+    "local_logo": "./static/logos/ge-1tv.png"
   },
   {
     "id": "ru-matchigra",
@@ -311,11 +311,11 @@
     "language": "Russian",
     "genre": "Sports",
     "stream_url": "http://stream.mcquack.net/188/index.m3u8",
-    "logo_url": "/static/logos/ru-matchigra.png",
+    "logo_url": "https://i.imgur.com/iKZvKyP.png",
     "stream_status": "live",
     "is_alive": true,
     "popularity": 93,
-    "local_logo": "/static/logos/ru-matchigra.png"
+    "local_logo": "./static/logos/ru-matchigra.png"
   },
   {
     "id": "ru-kinomix",
@@ -324,11 +324,11 @@
     "language": "Russian",
     "genre": "Movies",
     "stream_url": "http://stream.mcquack.net/133/index.m3u8",
-    "logo_url": "/static/logos/ru-kinomix.png",
+    "logo_url": "https://i.imgur.com/Ge8vkQM.png",
     "stream_status": "live",
     "is_alive": true,
     "popularity": 93,
-    "local_logo": "/static/logos/ru-kinomix.png"
+    "local_logo": "./static/logos/ru-kinomix.png"
   },
   {
     "id": "ru-vijupremiere",
@@ -337,11 +337,11 @@
     "language": "Russian",
     "genre": "Movies",
     "stream_url": "http://stream.mcquack.net/202/index.m3u8",
-    "logo_url": "/static/logos/ru-vijupremiere.png",
+    "logo_url": "https://i.imgur.com/klRvhR5.png",
     "stream_status": "live",
     "is_alive": true,
     "popularity": 93,
-    "local_logo": "/static/logos/ru-vijupremiere.png"
+    "local_logo": "./static/logos/ru-vijupremiere.png"
   },
   {
     "id": "en-animalplanet",
@@ -350,11 +350,11 @@
     "language": "English",
     "genre": "Documentaries",
     "stream_url": "http://stream.mcquack.net/114/index.m3u8",
-    "logo_url": "/static/logos/en-animalplanet.png",
+    "logo_url": "https://dvdh7g0f0hwck.cloudfront.net/assets/images/channel/AnimalPlanetHD_Transparent_d36c0ee3-3e3f-4e0c-b3b2-23bfb3c3c2b0.png",
     "stream_status": "live",
     "is_alive": true,
     "popularity": 93,
-    "local_logo": "/static/logos/en-animalplanet.png"
+    "local_logo": "./static/logos/en-animalplanet.png"
   },
   {
     "id": "ru-friday",
@@ -363,11 +363,11 @@
     "language": "Russian",
     "genre": "Entertainment",
     "stream_url": "http://stream.mcquack.net/181/index.m3u8",
-    "logo_url": "/static/logos/ru-friday.png",
+    "logo_url": "https://antifriz.tv/storage/images/pack_logos/71e74d77d2a9f55f496870623e5f7203.png",
     "stream_status": "live",
     "is_alive": true,
     "popularity": 93,
-    "local_logo": "/static/logos/ru-friday.png"
+    "local_logo": "./static/logos/ru-friday.png"
   },
   {
     "id": "ru-matcharena",
@@ -376,11 +376,11 @@
     "language": "Russian",
     "genre": "Sports",
     "stream_url": "http://stream.mcquack.net/163/index.m3u8",
-    "logo_url": "/static/logos/ru-matcharena.png",
+    "logo_url": "https://i.imgur.com/iKZvKyP.png",
     "stream_status": "live",
     "is_alive": true,
     "popularity": 92,
-    "local_logo": "/static/logos/ru-matcharena.png"
+    "local_logo": "./static/logos/ru-matcharena.png"
   },
   {
     "id": "ru-kinosemya",
@@ -389,11 +389,11 @@
     "language": "Russian",
     "genre": "Movies",
     "stream_url": "http://stream.mcquack.net/170/index.m3u8",
-    "logo_url": "/static/logos/ru-kinosemya.png",
+    "logo_url": "https://i.imgur.com/4BF5VeK.png",
     "stream_status": "live",
     "is_alive": true,
     "popularity": 92,
-    "local_logo": "/static/logos/ru-kinosemya.png"
+    "local_logo": "./static/logos/ru-kinosemya.png"
   },
   {
     "id": "ru-vijumegahit",
@@ -402,11 +402,11 @@
     "language": "Russian",
     "genre": "Movies",
     "stream_url": "http://stream.mcquack.net/200/index.m3u8",
-    "logo_url": "/static/logos/ru-vijumegahit.png",
+    "logo_url": "https://i.imgur.com/oIQNddV.png",
     "stream_status": "live",
     "is_alive": true,
     "popularity": 92,
-    "local_logo": "/static/logos/ru-vijumegahit.png"
+    "local_logo": "./static/logos/ru-vijumegahit.png"
   },
   {
     "id": "ru-amediapremium",
@@ -415,11 +415,11 @@
     "language": "Russian",
     "genre": "Movies",
     "stream_url": "http://stream.mcquack.net/151/index.m3u8",
-    "logo_url": "/static/logos/ru-amediapremium.png",
+    "logo_url": "https://i.imgur.com/UUjehw9.png",
     "stream_status": "live",
     "is_alive": true,
     "popularity": 92,
-    "local_logo": "/static/logos/ru-amediapremium.png"
+    "local_logo": "./static/logos/ru-amediapremium.png"
   },
   {
     "id": "en-id",
@@ -428,11 +428,11 @@
     "language": "English",
     "genre": "Documentaries",
     "stream_url": "http://stream.mcquack.net/205/index.m3u8",
-    "logo_url": "/static/logos/en-id.png",
+    "logo_url": "https://dtil.tmsimg.com/assets/s157811_ld_h15_aa.png?lock=720x540",
     "stream_status": "live",
     "is_alive": true,
     "popularity": 92,
-    "local_logo": "/static/logos/en-id.png"
+    "local_logo": "./static/logos/en-id.png"
   },
   {
     "id": "ru-tv3",
@@ -441,11 +441,11 @@
     "language": "Russian",
     "genre": "Entertainment",
     "stream_url": "http://stream.mcquack.net/136/index.m3u8",
-    "logo_url": "/static/logos/ru-tv3.png",
+    "logo_url": "https://i.imgur.com/JLAvq8O.png",
     "stream_status": "live",
     "is_alive": true,
     "popularity": 92,
-    "local_logo": "/static/logos/ru-tv3.png"
+    "local_logo": "./static/logos/ru-tv3.png"
   },
   {
     "id": "ru-matchboets",
@@ -454,11 +454,11 @@
     "language": "Russian",
     "genre": "Sports",
     "stream_url": "http://stream.mcquack.net/112/index.m3u8",
-    "logo_url": "/static/logos/ru-matchboets.png",
+    "logo_url": "https://i.imgur.com/DogOkA4.png",
     "stream_status": "live",
     "is_alive": true,
     "popularity": 91,
-    "local_logo": "/static/logos/ru-matchboets.png"
+    "local_logo": "./static/logos/ru-matchboets.png"
   },
   {
     "id": "ru-kinokomediya",
@@ -467,11 +467,11 @@
     "language": "Russian",
     "genre": "Movies",
     "stream_url": "http://stream.mcquack.net/265/index.m3u8",
-    "logo_url": "/static/logos/ru-kinokomediya.png",
+    "logo_url": "https://i.imgur.com/dVjtth0.png",
     "stream_status": "live",
     "is_alive": true,
     "popularity": 91,
-    "local_logo": "/static/logos/ru-kinokomediya.png"
+    "local_logo": "./static/logos/ru-kinokomediya.png"
   },
   {
     "id": "ru-vijucomedy",
@@ -480,11 +480,11 @@
     "language": "Russian",
     "genre": "Movies",
     "stream_url": "http://stream.mcquack.net/201/index.m3u8",
-    "logo_url": "/static/logos/ru-vijucomedy.png",
+    "logo_url": "https://i.imgur.com/YoNOFu7.png",
     "stream_status": "live",
     "is_alive": true,
     "popularity": 91,
-    "local_logo": "/static/logos/ru-vijucomedy.png"
+    "local_logo": "./static/logos/ru-vijucomedy.png"
   },
   {
     "id": "ru-amedia1",
@@ -493,11 +493,11 @@
     "language": "Russian",
     "genre": "Movies",
     "stream_url": "http://stream.mcquack.net/117/index.m3u8",
-    "logo_url": "/static/logos/ru-amedia1.png",
+    "logo_url": "https://i.imgur.com/a8ZBGBw.png",
     "stream_status": "live",
     "is_alive": true,
     "popularity": 91,
-    "local_logo": "/static/logos/ru-amedia1.png"
+    "local_logo": "./static/logos/ru-amedia1.png"
   },
   {
     "id": "en-tlc",
@@ -506,11 +506,11 @@
     "language": "English",
     "genre": "Documentaries",
     "stream_url": "http://stream.mcquack.net/168/index.m3u8",
-    "logo_url": "/static/logos/en-tlc.png",
+    "logo_url": "https://i.imgur.com/w7W9vqT.png",
     "stream_status": "live",
     "is_alive": true,
     "popularity": 91,
-    "local_logo": "/static/logos/en-tlc.png"
+    "local_logo": "./static/logos/en-tlc.png"
   },
   {
     "id": "en-bloomberg",
@@ -519,11 +519,11 @@
     "language": "English",
     "genre": "News",
     "stream_url": "https://bloomberg.com/media-manifest/streams/us.m3u8",
-    "logo_url": "/static/logos/en-bloomberg.png",
+    "logo_url": "https://i.imgur.com/OuogLHx.png",
     "stream_status": "live",
     "is_alive": true,
     "popularity": 91,
-    "local_logo": "/static/logos/en-bloomberg.png"
+    "local_logo": "./static/logos/en-bloomberg.png"
   },
   {
     "id": "ru-ren",
@@ -532,11 +532,11 @@
     "language": "Russian",
     "genre": "Entertainment",
     "stream_url": "http://stream.mcquack.net/174/index.m3u8",
-    "logo_url": "/static/logos/ru-ren.png",
+    "logo_url": "https://i.imgur.com/0Tu5lte.png",
     "stream_status": "live",
     "is_alive": true,
     "popularity": 91,
-    "local_logo": "/static/logos/ru-ren.png"
+    "local_logo": "./static/logos/ru-ren.png"
   },
   {
     "id": "en-travelchannel",
@@ -545,11 +545,11 @@
     "language": "English",
     "genre": "Documentaries",
     "stream_url": "http://stream.mcquack.net/231/index.m3u8",
-    "logo_url": "/static/logos/en-travelchannel.png",
+    "logo_url": "https://i.imgur.com/RmHGeP1.png",
     "stream_status": "live",
     "is_alive": true,
     "popularity": 91,
-    "local_logo": "/static/logos/en-travelchannel.png"
+    "local_logo": "./static/logos/en-travelchannel.png"
   },
   {
     "id": "ge-formula",
@@ -558,11 +558,11 @@
     "language": "Georgian",
     "genre": "News",
     "stream_url": "https://streaming-hls1.televizia.org/hls/formula.m3u8",
-    "logo_url": "/static/logos/ge-formula.png",
+    "logo_url": "https://i.imgur.com/fsqBn8G.png",
     "stream_status": "live",
     "is_alive": true,
     "popularity": 90,
-    "local_logo": "/static/logos/ge-formula.png"
+    "local_logo": "./static/logos/ge-formula.png"
   },
   {
     "id": "ru-matchstrana",
@@ -571,11 +571,11 @@
     "language": "Russian",
     "genre": "Sports",
     "stream_url": "http://stream.mcquack.net/143/index.m3u8",
-    "logo_url": "/static/logos/ru-matchstrana.png",
+    "logo_url": "https://i.imgur.com/iKZvKyP.png",
     "stream_status": "live",
     "is_alive": true,
     "popularity": 90,
-    "local_logo": "/static/logos/ru-matchstrana.png"
+    "local_logo": "./static/logos/ru-matchstrana.png"
   },
   {
     "id": "ru-kinosvidaniye",
@@ -584,11 +584,11 @@
     "language": "Russian",
     "genre": "Movies",
     "stream_url": "http://stream.mcquack.net/171/index.m3u8",
-    "logo_url": "/static/logos/ru-kinosvidaniye.png",
+    "logo_url": "https://i.imgur.com/ZRaWqxj.png",
     "stream_status": "live",
     "is_alive": true,
     "popularity": 90,
-    "local_logo": "/static/logos/ru-kinosvidaniye.png"
+    "local_logo": "./static/logos/ru-kinosvidaniye.png"
   },
   {
     "id": "ru-vijuserial",
@@ -597,11 +597,11 @@
     "language": "Russian",
     "genre": "Movies",
     "stream_url": "http://stream.mcquack.net/311/index.m3u8",
-    "logo_url": "/static/logos/ru-vijuserial.png",
+    "logo_url": "https://i.imgur.com/8yXZET5.png",
     "stream_status": "live",
     "is_alive": true,
     "popularity": 90,
-    "local_logo": "/static/logos/ru-vijuserial.png"
+    "local_logo": "./static/logos/ru-vijuserial.png"
   },
   {
     "id": "ru-amediahit",
@@ -610,11 +610,11 @@
     "language": "Russian",
     "genre": "Movies",
     "stream_url": "http://stream.mcquack.net/162/index.m3u8",
-    "logo_url": "/static/logos/ru-amediahit.png",
+    "logo_url": "https://i.imgur.com/a8ZBGBw.png",
     "stream_status": "live",
     "is_alive": true,
     "popularity": 90,
-    "local_logo": "/static/logos/ru-amediahit.png"
+    "local_logo": "./static/logos/ru-amediahit.png"
   },
   {
     "id": "ru-nauka2",
@@ -623,11 +623,11 @@
     "language": "Russian",
     "genre": "Documentaries",
     "stream_url": "http://stream.mcquack.net/125/index.m3u8",
-    "logo_url": "/static/logos/ru-nauka2.png",
+    "logo_url": "https://i.imgur.com/ZZxzueO.png",
     "stream_status": "live",
     "is_alive": true,
     "popularity": 90,
-    "local_logo": "/static/logos/ru-nauka2.png"
+    "local_logo": "./static/logos/ru-nauka2.png"
   },
   {
     "id": "ru-1tv",
@@ -636,11 +636,11 @@
     "language": "Russian",
     "genre": "Entertainment",
     "stream_url": "http://stream.mcquack.net/216/index.m3u8",
-    "logo_url": "/static/logos/ru-1tv.png",
+    "logo_url": "https://i.imgur.com/RUSX0rX.png",
     "stream_status": "live",
     "is_alive": true,
     "popularity": 90,
-    "local_logo": "/static/logos/ru-1tv.png"
+    "local_logo": "./static/logos/ru-1tv.png"
   },
   {
     "id": "ge-gds",
@@ -649,11 +649,11 @@
     "language": "Georgian",
     "genre": "Movies",
     "stream_url": "https://streaming-hls3.televizia.org/hls/gds.m3u8",
-    "logo_url": "/static/logos/ge-gds.png",
+    "logo_url": "https://i.imgur.com/gv61tFf.png",
     "stream_status": "live",
     "is_alive": true,
     "popularity": 89,
-    "local_logo": "/static/logos/ge-gds.png"
+    "local_logo": "./static/logos/ge-gds.png"
   },
   {
     "id": "ru-khltv",
@@ -662,11 +662,11 @@
     "language": "Russian",
     "genre": "Sports",
     "stream_url": "http://stream.mcquack.net/166/index.m3u8",
-    "logo_url": "/static/logos/ru-khltv.png",
+    "logo_url": "https://i.imgur.com/RgdHdOV.png",
     "stream_status": "live",
     "is_alive": true,
     "popularity": 89,
-    "local_logo": "/static/logos/ru-khltv.png"
+    "local_logo": "./static/logos/ru-khltv.png"
   },
   {
     "id": "ru-kinouzas",
@@ -675,11 +675,11 @@
     "language": "Russian",
     "genre": "Movies",
     "stream_url": "http://stream.mcquack.net/278/index.m3u8",
-    "logo_url": "/static/logos/ru-kinouzas.png",
+    "logo_url": "https://i.imgur.com/mAcAAQF.png",
     "stream_status": "live",
     "is_alive": true,
     "popularity": 89,
-    "local_logo": "/static/logos/ru-kinouzas.png"
+    "local_logo": "./static/logos/ru-kinouzas.png"
   },
   {
     "id": "en-fox",
@@ -688,11 +688,11 @@
     "language": "English",
     "genre": "Movies",
     "stream_url": "http://stream.mcquack.net/182/index.m3u8",
-    "logo_url": "/static/logos/en-fox.png",
+    "logo_url": "https://i.imgur.com/O2miSLA.png",
     "stream_status": "live",
     "is_alive": true,
     "popularity": 89,
-    "local_logo": "/static/logos/en-fox.png"
+    "local_logo": "./static/logos/en-fox.png"
   },
   {
     "id": "en-vijuexplore",
@@ -701,11 +701,11 @@
     "language": "English",
     "genre": "Documentaries",
     "stream_url": "http://stream.mcquack.net/239/index.m3u8",
-    "logo_url": "/static/logos/en-vijuexplore.png",
+    "logo_url": "https://i.imgur.com/EGIpLPu.png",
     "stream_status": "live",
     "is_alive": true,
     "popularity": 89,
-    "local_logo": "/static/logos/en-vijuexplore.png"
+    "local_logo": "./static/logos/en-vijuexplore.png"
   },
   {
     "id": "en-dw",
@@ -714,11 +714,11 @@
     "language": "English",
     "genre": "News",
     "stream_url": "https://dwamdstream102.akamaized.net/hls/live/2015525/dwstream102/index.m3u8",
-    "logo_url": "/static/logos/en-dw.png",
+    "logo_url": "https://i.imgur.com/MNKkgfa.png",
     "stream_status": "live",
     "is_alive": true,
     "popularity": 89,
-    "local_logo": "/static/logos/en-dw.png"
+    "local_logo": "./static/logos/en-dw.png"
   },
   {
     "id": "ru-ntv",
@@ -727,11 +727,11 @@
     "language": "Russian",
     "genre": "Entertainment",
     "stream_url": "http://stream.mcquack.net/219/index.m3u8",
-    "logo_url": "/static/logos/ru-ntv.png",
+    "logo_url": "https://i.imgur.com/9r1BKzK.png",
     "stream_status": "live",
     "is_alive": true,
     "popularity": 89,
-    "local_logo": "/static/logos/ru-ntv.png"
+    "local_logo": "./static/logos/ru-ntv.png"
   },
   {
     "id": "ge-comedy",
@@ -740,11 +740,11 @@
     "language": "Georgian",
     "genre": "Entertainment",
     "stream_url": "https://streaming-hls2.televizia.org/hls/comedy.m3u8",
-    "logo_url": "/static/logos/ge-comedy.png",
+    "logo_url": "https://i.imgur.com/i1TANKv.png",
     "stream_status": "live",
     "is_alive": true,
     "popularity": 88,
-    "local_logo": "/static/logos/ge-comedy.png"
+    "local_logo": "./static/logos/ge-comedy.png"
   },
   {
     "id": "ru-khlprime",
@@ -753,11 +753,11 @@
     "language": "Russian",
     "genre": "Sports",
     "stream_url": "http://stream.mcquack.net/178/index.m3u8",
-    "logo_url": "/static/logos/ru-khlprime.png",
+    "logo_url": "https://i.imgur.com/pwxT0ON.png",
     "stream_status": "live",
     "is_alive": true,
     "popularity": 88,
-    "local_logo": "/static/logos/ru-khlprime.png"
+    "local_logo": "./static/logos/ru-khlprime.png"
   },
   {
     "id": "en-foxlife",
@@ -766,11 +766,11 @@
     "language": "English",
     "genre": "Movies",
     "stream_url": "http://stream.mcquack.net/129/index.m3u8",
-    "logo_url": "/static/logos/en-foxlife.png",
+    "logo_url": "https://i.imgur.com/O2miSLA.png",
     "stream_status": "live",
     "is_alive": true,
     "popularity": 88,
-    "local_logo": "/static/logos/en-foxlife.png"
+    "local_logo": "./static/logos/en-foxlife.png"
   },
   {
     "id": "en-vijuhistory",
@@ -779,11 +779,11 @@
     "language": "English",
     "genre": "Documentaries",
     "stream_url": "http://stream.mcquack.net/101/index.m3u8",
-    "logo_url": "/static/logos/en-vijuhistory.png",
+    "logo_url": "https://i.imgur.com/FqWkeXb.png",
     "stream_status": "live",
     "is_alive": true,
     "popularity": 88,
-    "local_logo": "/static/logos/en-vijuhistory.png"
+    "local_logo": "./static/logos/en-vijuhistory.png"
   },
   {
     "id": "ru-domashniy",
@@ -792,11 +792,11 @@
     "language": "Russian",
     "genre": "Entertainment",
     "stream_url": "http://stream.mcquack.net/227/index.m3u8",
-    "logo_url": "/static/logos/ru-domashniy.png",
+    "logo_url": "https://i.imgur.com/WaLwOyt.jpeg",
     "stream_status": "live",
     "is_alive": true,
     "popularity": 88,
-    "local_logo": "/static/logos/ru-domashniy.png"
+    "local_logo": "./static/logos/ru-domashniy.png"
   },
   {
     "id": "en-travelxp",
@@ -805,11 +805,11 @@
     "language": "English",
     "genre": "Documentaries",
     "stream_url": "http://stream.mcquack.net/451/index.m3u8",
-    "logo_url": "/static/logos/en-travelxp.png",
+    "logo_url": "https://i.imgur.com/HUWEnc5.png",
     "stream_status": "live",
     "is_alive": true,
     "popularity": 88,
-    "local_logo": "/static/logos/en-travelxp.png"
+    "local_logo": "./static/logos/en-travelxp.png"
   },
   {
     "id": "ru-vijusport",
@@ -818,11 +818,11 @@
     "language": "Russian",
     "genre": "Sports",
     "stream_url": "http://stream.mcquack.net/333/index.m3u8",
-    "logo_url": "/static/logos/ru-vijusport.png",
+    "logo_url": "https://i.imgur.com/fXESG0l.png",
     "stream_status": "live",
     "is_alive": true,
     "popularity": 87,
-    "local_logo": "/static/logos/ru-vijusport.png"
+    "local_logo": "./static/logos/ru-vijusport.png"
   },
   {
     "id": "ru-kinotv",
@@ -831,11 +831,11 @@
     "language": "Russian",
     "genre": "Movies",
     "stream_url": "http://stream.mcquack.net/221/index.m3u8",
-    "logo_url": "/static/logos/ru-kinotv.png",
+    "logo_url": "https://i.imgur.com/sMpamNO.png",
     "stream_status": "live",
     "is_alive": true,
     "popularity": 87,
-    "local_logo": "/static/logos/ru-kinotv.png"
+    "local_logo": "./static/logos/ru-kinotv.png"
   },
   {
     "id": "en-vijuplanet",
@@ -844,11 +844,11 @@
     "language": "English",
     "genre": "Documentaries",
     "stream_url": "http://stream.mcquack.net/240/index.m3u8",
-    "logo_url": "/static/logos/en-vijuplanet.png",
+    "logo_url": "https://i.imgur.com/9Weqdsk.png",
     "stream_status": "live",
     "is_alive": true,
     "popularity": 87,
-    "local_logo": "/static/logos/en-vijuplanet.png"
+    "local_logo": "./static/logos/en-vijuplanet.png"
   },
   {
     "id": "ru-subbota",
@@ -857,11 +857,11 @@
     "language": "Russian",
     "genre": "Entertainment",
     "stream_url": "http://stream.mcquack.net/269/index.m3u8",
-    "logo_url": "/static/logos/ru-subbota.png",
+    "logo_url": "https://i.imgur.com/nsk8PpB.png",
     "stream_status": "live",
     "is_alive": true,
     "popularity": 87,
-    "local_logo": "/static/logos/ru-subbota.png"
+    "local_logo": "./static/logos/ru-subbota.png"
   },
   {
     "id": "ru-stslove",
@@ -870,11 +870,11 @@
     "language": "Russian",
     "genre": "Entertainment",
     "stream_url": "http://stream.mcquack.net/183/index.m3u8",
-    "logo_url": "/static/logos/ru-stslove.png",
+    "logo_url": "https://i.imgur.com/ilUzAeb.png",
     "stream_status": "live",
     "is_alive": true,
     "popularity": 87,
-    "local_logo": "/static/logos/ru-stslove.png"
+    "local_logo": "./static/logos/ru-stslove.png"
   },
   {
     "id": "ru-extremesports",
@@ -883,11 +883,11 @@
     "language": "Russian",
     "genre": "Sports",
     "stream_url": "http://stream.mcquack.net/148/index.m3u8",
-    "logo_url": "/static/logos/ru-extremesports.png",
+    "logo_url": "https://i.imgur.com/m7IC01U.png",
     "stream_status": "live",
     "is_alive": true,
     "popularity": 86,
-    "local_logo": "/static/logos/ru-extremesports.png"
+    "local_logo": "./static/logos/ru-extremesports.png"
   },
   {
     "id": "ru-kinopokaz",
@@ -896,11 +896,11 @@
     "language": "Russian",
     "genre": "Movies",
     "stream_url": "http://stream.mcquack.net/64/index.m3u8",
-    "logo_url": "/static/logos/ru-kinopokaz.png",
+    "logo_url": "https://i.imgur.com/nNjMyAq.png",
     "stream_status": "live",
     "is_alive": true,
     "popularity": 86,
-    "local_logo": "/static/logos/ru-kinopokaz.png"
+    "local_logo": "./static/logos/ru-kinopokaz.png"
   },
   {
     "id": "en-davinci",
@@ -909,11 +909,11 @@
     "language": "English",
     "genre": "Documentaries",
     "stream_url": "http://stream.mcquack.net/238/index.m3u8",
-    "logo_url": "/static/logos/en-davinci.png",
+    "logo_url": "https://i.imgur.com/ZZxzueO.png",
     "stream_status": "live",
     "is_alive": true,
     "popularity": 86,
-    "local_logo": "/static/logos/en-davinci.png"
+    "local_logo": "./static/logos/en-davinci.png"
   },
   {
     "id": "ru-2x2",
@@ -922,11 +922,11 @@
     "language": "Russian",
     "genre": "Kids",
     "stream_url": "http://stream.mcquack.net/187/index.m3u8",
-    "logo_url": "/static/logos/ru-2x2.png",
+    "logo_url": "https://i.imgur.com/fhQFLEl.png",
     "stream_status": "live",
     "is_alive": true,
     "popularity": 86,
-    "local_logo": "/static/logos/ru-2x2.png"
+    "local_logo": "./static/logos/ru-2x2.png"
   },
   {
     "id": "ru-stskids",
@@ -935,11 +935,11 @@
     "language": "Russian",
     "genre": "Kids",
     "stream_url": "http://stream.mcquack.net/197/index.m3u8",
-    "logo_url": "/static/logos/ru-stskids.png",
+    "logo_url": "https://i.imgur.com/o9kLpAL.png",
     "stream_status": "live",
     "is_alive": true,
     "popularity": 86,
-    "local_logo": "/static/logos/ru-stskids.png"
+    "local_logo": "./static/logos/ru-stskids.png"
   },
   {
     "id": "ge-postv",
@@ -948,11 +948,11 @@
     "language": "Georgian",
     "genre": "News",
     "stream_url": "https://streaming-hls4.televizia.org/hls/postv.m3u8",
-    "logo_url": "/static/logos/ge-postv.png",
+    "logo_url": "https://i.imgur.com/UOiXFEW.png",
     "stream_status": "live",
     "is_alive": true,
     "popularity": 85,
-    "local_logo": "/static/logos/ge-postv.png"
+    "local_logo": "./static/logos/ge-postv.png"
   },
   {
     "id": "ru-udar",
@@ -961,11 +961,11 @@
     "language": "Russian",
     "genre": "Sports",
     "stream_url": "http://stream.mcquack.net/279/index.m3u8",
-    "logo_url": "/static/logos/ru-udar.png",
+    "logo_url": "https://mt.media/upload/iblock/2b3/2b3cf99141bf7f99cda377eec62ec084.png",
     "stream_status": "live",
     "is_alive": true,
     "popularity": 85,
-    "local_logo": "/static/logos/ru-udar.png"
+    "local_logo": "./static/logos/ru-udar.png"
   },
   {
     "id": "ru-muzhskoekino",
@@ -974,11 +974,11 @@
     "language": "Russian",
     "genre": "Movies",
     "stream_url": "http://stream.mcquack.net/107/index.m3u8",
-    "logo_url": "/static/logos/ru-muzhskoekino.png",
+    "logo_url": "https://i.imgur.com/8RN3tQC.png",
     "stream_status": "live",
     "is_alive": true,
     "popularity": 85,
-    "local_logo": "/static/logos/ru-muzhskoekino.png"
+    "local_logo": "./static/logos/ru-muzhskoekino.png"
   },
   {
     "id": "ru-doktor",
@@ -987,11 +987,11 @@
     "language": "Russian",
     "genre": "Documentaries",
     "stream_url": "http://stream.mcquack.net/80/index.m3u8",
-    "logo_url": "/static/logos/ru-doktor.png",
+    "logo_url": "https://static.wikia.nocookie.net/tvpedia/images/e/e8/%D0%94%D0%BE%D0%BA%D1%82%D0%BE%D1%80_%282020%29.svg/revision/latest?cb=20210107202221&path-prefix=ru",
     "stream_status": "live",
     "is_alive": true,
     "popularity": 85,
-    "local_logo": "/static/logos/ru-doktor.png"
+    "local_logo": "./static/logos/ru-doktor.png"
   },
   {
     "id": "ru-che",
@@ -1000,11 +1000,11 @@
     "language": "Russian",
     "genre": "Entertainment",
     "stream_url": "http://stream.mcquack.net/244/index.m3u8",
-    "logo_url": "/static/logos/ru-che.png",
+    "logo_url": "https://i.imgur.com/ZOcDGpB.png",
     "stream_status": "live",
     "is_alive": true,
     "popularity": 85,
-    "local_logo": "/static/logos/ru-che.png"
+    "local_logo": "./static/logos/ru-che.png"
   },
   {
     "id": "en-cmusic",
@@ -1013,11 +1013,11 @@
     "language": "English",
     "genre": "Music",
     "stream_url": "http://stream.mcquack.net/312/index.m3u8",
-    "logo_url": "/static/logos/en-cmusic.png",
+    "logo_url": "https://i.imgur.com/TpXs1qA.png",
     "stream_status": "live",
     "is_alive": true,
     "popularity": 85,
-    "local_logo": "/static/logos/en-cmusic.png"
+    "local_logo": "./static/logos/en-cmusic.png"
   },
   {
     "id": "ge-marao",
@@ -1026,11 +1026,11 @@
     "language": "Georgian",
     "genre": "Entertainment",
     "stream_url": "https://streaming-hls4.televizia.org/hls/marao.m3u8",
-    "logo_url": "/static/logos/ge-marao.png",
+    "logo_url": "https://i.imgur.com/Nurmw1G.png",
     "stream_status": "live",
     "is_alive": true,
     "popularity": 84,
-    "local_logo": "/static/logos/ge-marao.png"
+    "local_logo": "./static/logos/ge-marao.png"
   },
   {
     "id": "ru-boxtv",
@@ -1039,11 +1039,11 @@
     "language": "Russian",
     "genre": "Sports",
     "stream_url": "http://stream.mcquack.net/154/index.m3u8",
-    "logo_url": "/static/logos/ru-boxtv.png",
+    "logo_url": "https://i.imgur.com/swFzesA.png",
     "stream_status": "live",
     "is_alive": true,
     "popularity": 84,
-    "local_logo": "/static/logos/ru-boxtv.png"
+    "local_logo": "./static/logos/ru-boxtv.png"
   },
   {
     "id": "ru-rodnoekino",
@@ -1052,11 +1052,11 @@
     "language": "Russian",
     "genre": "Movies",
     "stream_url": "http://stream.mcquack.net/242/index.m3u8",
-    "logo_url": "/static/logos/ru-rodnoekino.png",
+    "logo_url": "https://i.imgur.com/H70LxoZ.png",
     "stream_status": "live",
     "is_alive": true,
     "popularity": 84,
-    "local_logo": "/static/logos/ru-rodnoekino.png"
+    "local_logo": "./static/logos/ru-rodnoekino.png"
   },
   {
     "id": "ru-glazamiturista",
@@ -1065,11 +1065,11 @@
     "language": "Russian",
     "genre": "Documentaries",
     "stream_url": "http://stream.mcquack.net/304/index.m3u8",
-    "logo_url": "/static/logos/ru-glazamiturista.png",
+    "logo_url": "https://i.imgur.com/GXJKWdy.png",
     "stream_status": "live",
     "is_alive": true,
     "popularity": 84,
-    "local_logo": "/static/logos/ru-glazamiturista.png"
+    "local_logo": "./static/logos/ru-glazamiturista.png"
   },
   {
     "id": "en-musicbox",
@@ -1078,11 +1078,11 @@
     "language": "English",
     "genre": "Music",
     "stream_url": "http://stream.mcquack.net/319/index.m3u8",
-    "logo_url": "/static/logos/en-musicbox.png",
+    "logo_url": "https://i.imgur.com/ZkJ3Rh9.png",
     "stream_status": "live",
     "is_alive": true,
     "popularity": 84,
-    "local_logo": "/static/logos/en-musicbox.png"
+    "local_logo": "./static/logos/en-musicbox.png"
   },
   {
     "id": "ge-adjaratv",
@@ -1091,11 +1091,11 @@
     "language": "Georgian",
     "genre": "News",
     "stream_url": "https://streaming-hls4.televizia.org/hls/adjara.m3u8",
-    "logo_url": "/static/logos/ge-adjaratv.png",
+    "logo_url": "https://i.imgur.com/Isrc9KE.png",
     "stream_status": "live",
     "is_alive": true,
     "popularity": 83,
-    "local_logo": "/static/logos/ge-adjaratv.png"
+    "local_logo": "./static/logos/ge-adjaratv.png"
   },
   {
     "id": "ru-sport1",
@@ -1104,11 +1104,11 @@
     "language": "Russian",
     "genre": "Sports",
     "stream_url": "http://stream.mcquack.net/391/index.m3u8",
-    "logo_url": "/static/logos/ru-sport1.png",
+    "logo_url": "https://i.imgur.com/Zjb8awW.png",
     "stream_status": "live",
     "is_alive": true,
     "popularity": 83,
-    "local_logo": "/static/logos/ru-sport1.png"
+    "local_logo": "./static/logos/ru-sport1.png"
   },
   {
     "id": "ru-evrokino",
@@ -1117,11 +1117,11 @@
     "language": "Russian",
     "genre": "Movies",
     "stream_url": "http://stream.mcquack.net/385/index.m3u8",
-    "logo_url": "/static/logos/ru-evrokino.png",
+    "logo_url": "https://i.imgur.com/8LPtPf6.png",
     "stream_status": "live",
     "is_alive": true,
     "popularity": 83,
-    "local_logo": "/static/logos/ru-evrokino.png"
+    "local_logo": "./static/logos/ru-evrokino.png"
   },
   {
     "id": "ru-vmirezhivotnykh",
@@ -1130,11 +1130,11 @@
     "language": "Russian",
     "genre": "Documentaries",
     "stream_url": "http://stream.mcquack.net/241/index.m3u8",
-    "logo_url": "/static/logos/ru-vmirezhivotnykh.png",
+    "logo_url": "https://i.imgur.com/6uotdVQ.png",
     "stream_status": "live",
     "is_alive": true,
     "popularity": 83,
-    "local_logo": "/static/logos/ru-vmirezhivotnykh.png"
+    "local_logo": "./static/logos/ru-vmirezhivotnykh.png"
   },
   {
     "id": "ge-palitra",
@@ -1143,11 +1143,11 @@
     "language": "Georgian",
     "genre": "News",
     "stream_url": "https://streaming-hls3.televizia.org/hls/palitra.m3u8",
-    "logo_url": "/static/logos/ge-palitra.png",
+    "logo_url": "https://i.imgur.com/BW95PMF.png",
     "stream_status": "live",
     "is_alive": true,
     "popularity": 82,
-    "local_logo": "/static/logos/ge-palitra.png"
+    "local_logo": "./static/logos/ge-palitra.png"
   },
   {
     "id": "ru-sport2",
@@ -1156,11 +1156,11 @@
     "language": "Russian",
     "genre": "Sports",
     "stream_url": "http://stream.mcquack.net/392/index.m3u8",
-    "logo_url": "/static/logos/ru-sport2.png",
+    "logo_url": "https://i.imgur.com/vk0j1mY.png",
     "stream_status": "live",
     "is_alive": true,
     "popularity": 82,
-    "local_logo": "/static/logos/ru-sport2.png"
+    "local_logo": "./static/logos/ru-sport2.png"
   },
   {
     "id": "ru-bestseller",
@@ -1169,11 +1169,11 @@
     "language": "Russian",
     "genre": "Movies",
     "stream_url": "http://stream.mcquack.net/208/index.m3u8",
-    "logo_url": "/static/logos/ru-bestseller.png",
+    "logo_url": "https://i.imgur.com/w0ZE9QJ.png",
     "stream_status": "live",
     "is_alive": true,
     "popularity": 82,
-    "local_logo": "/static/logos/ru-bestseller.png"
+    "local_logo": "./static/logos/ru-bestseller.png"
   },
   {
     "id": "ru-365dney",
@@ -1182,11 +1182,11 @@
     "language": "Russian",
     "genre": "Documentaries",
     "stream_url": "http://stream.mcquack.net/70/index.m3u8",
-    "logo_url": "/static/logos/ru-365dney.png",
+    "logo_url": "https://i.imgur.com/NfnAiTR.png",
     "stream_status": "live",
     "is_alive": true,
     "popularity": 82,
-    "local_logo": "/static/logos/ru-365dney.png"
+    "local_logo": "./static/logos/ru-365dney.png"
   },
   {
     "id": "ge-kavkasia",
@@ -1195,11 +1195,11 @@
     "language": "Georgian",
     "genre": "News",
     "stream_url": "https://streaming-hls2.televizia.org/hls/kavkasia.m3u8",
-    "logo_url": "/static/logos/ge-kavkasia.png",
+    "logo_url": "https://i.imgur.com/Z5b7w7K.png",
     "stream_status": "live",
     "is_alive": true,
     "popularity": 81,
-    "local_logo": "/static/logos/ge-kavkasia.png"
+    "local_logo": "./static/logos/ge-kavkasia.png"
   },
   {
     "id": "ru-sport3",
@@ -1208,11 +1208,11 @@
     "language": "Russian",
     "genre": "Sports",
     "stream_url": "http://stream.mcquack.net/393/index.m3u8",
-    "logo_url": "/static/logos/ru-sport3.png",
+    "logo_url": "https://i.imgur.com/qkvavfH.png",
     "stream_status": "live",
     "is_alive": true,
     "popularity": 81,
-    "local_logo": "/static/logos/ru-sport3.png"
+    "local_logo": "./static/logos/ru-sport3.png"
   },
   {
     "id": "ru-detektiv",
@@ -1221,11 +1221,11 @@
     "language": "Russian",
     "genre": "Movies",
     "stream_url": "http://stream.mcquack.net/204/index.m3u8",
-    "logo_url": "/static/logos/ru-detektiv.png",
+    "logo_url": "https://i.imgur.com/H3qhN8S.png",
     "stream_status": "live",
     "is_alive": true,
     "popularity": 81,
-    "local_logo": "/static/logos/ru-detektiv.png"
+    "local_logo": "./static/logos/ru-detektiv.png"
   },
   {
     "id": "ge-rioni",
@@ -1234,11 +1234,11 @@
     "language": "Georgian",
     "genre": "Entertainment",
     "stream_url": "https://streaming-hls1.televizia.org/hls/rioni.m3u8",
-    "logo_url": "/static/logos/ge-rioni.png",
+    "logo_url": "https://i.imgur.com/ogMqmth.png",
     "stream_status": "live",
     "is_alive": true,
     "popularity": 80,
-    "local_logo": "/static/logos/ge-rioni.png"
+    "local_logo": "./static/logos/ge-rioni.png"
   },
   {
     "id": "en-sport1baltic",
@@ -1247,11 +1247,11 @@
     "language": "English",
     "genre": "Sports",
     "stream_url": "http://stream.mcquack.net/461/index.m3u8",
-    "logo_url": "/static/logos/en-sport1baltic.png",
+    "logo_url": "https://i.imgur.com/aBY7QK4.png",
     "stream_status": "live",
     "is_alive": true,
     "popularity": 80,
-    "local_logo": "/static/logos/en-sport1baltic.png"
+    "local_logo": "./static/logos/en-sport1baltic.png"
   },
   {
     "id": "ge-ertsulovneba",
@@ -1260,11 +1260,11 @@
     "language": "Georgian",
     "genre": "Documentaries",
     "stream_url": "https://streaming-hls2.televizia.org/hls/ertsulovneba.m3u8",
-    "logo_url": "/static/logos/ge-ertsulovneba.png",
+    "logo_url": "https://i.imgur.com/KuuODMM.png",
     "stream_status": "live",
     "is_alive": true,
     "popularity": 79,
-    "local_logo": "/static/logos/ge-ertsulovneba.png"
+    "local_logo": "./static/logos/ge-ertsulovneba.png"
   },
   {
     "id": "en-redbull",
@@ -1273,10 +1273,10 @@
     "language": "English",
     "genre": "Sports",
     "stream_url": "https://rbmn-live.akamaized.net/hls/live/590964/BoRB-AT/master.m3u8",
-    "logo_url": "/static/logos/en-redbull.png",
+    "logo_url": "https://i.postimg.cc/8c78JM28/image.png",
     "stream_status": "live",
     "is_alive": true,
     "popularity": 79,
-    "local_logo": "/static/logos/en-redbull.png"
+    "local_logo": "./static/logos/en-redbull.png"
   }
 ]

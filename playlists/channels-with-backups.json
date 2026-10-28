@@ -23,7 +23,7 @@
     "is_alive": true,
     "notes": "Verified working Setanta Sports 1 HD",
     "popularity": 100,
-    "local_logo": "/static/logos/ge-setanta1.png"
+    "local_logo": "./static/logos/ge-setanta1.png"
   },
   {
     "id": "ru-matchpremier",
@@ -49,7 +49,7 @@
     "is_alive": true,
     "notes": "",
     "popularity": 99,
-    "local_logo": "/static/logos/ru-matchpremier.png"
+    "local_logo": "./static/logos/ru-matchpremier.png"
   },
   {
     "id": "ge-setanta2",
@@ -75,7 +75,7 @@
     "is_alive": true,
     "notes": "Verified working Setanta Sports 2 HD",
     "popularity": 98,
-    "local_logo": "/static/logos/ge-setanta2.png"
+    "local_logo": "./static/logos/ge-setanta2.png"
   },
   {
     "id": "ru-matchtv",
@@ -101,7 +101,7 @@
     "is_alive": true,
     "notes": "",
     "popularity": 97,
-    "local_logo": "/static/logos/ru-matchtv.png"
+    "local_logo": "./static/logos/ru-matchtv.png"
   },
   {
     "id": "ge-silkuniversal",
@@ -112,7 +112,7 @@
     "genre": "Sports",
     "url": "https://streaming-hls2.televiziebi.org/hls/silk.m3u8",
     "stream_type": "hls",
-    "logo": "https://i.imgur.com/8KkMv4h.png",
+    "logo": "https://i.imgur.com/z0XHsPE.png",
     "sources": [
       {
         "url": "https://streaming-hls2.televiziebi.org/hls/silk.m3u8",
@@ -127,7 +127,7 @@
     "is_alive": true,
     "notes": "Silk Universal Sports & Entertainment",
     "popularity": 96,
-    "local_logo": "/static/logos/ge-silkuniversal.png"
+    "local_logo": "./static/logos/ge-silkuniversal.png"
   },
   {
     "id": "ru-matchfootball1",
@@ -153,7 +153,7 @@
     "is_alive": true,
     "notes": "",
     "popularity": 95,
-    "local_logo": "/static/logos/ru-matchfootball1.png"
+    "local_logo": "./static/logos/ru-matchfootball1.png"
   },
   {
     "id": "ge-rugby",
@@ -164,7 +164,7 @@
     "genre": "Sports",
     "url": "https://streaming-hls4.televizia.org/hls/ragbitv.m3u8",
     "stream_type": "hls",
-    "logo": "https://i.imgur.com/eB3Mh4n.png",
+    "logo": "https://i.imgur.com/FLh1Brr.png",
     "sources": [
       {
         "url": "https://streaming-hls4.televizia.org/hls/ragbitv.m3u8",
@@ -179,7 +179,7 @@
     "is_alive": true,
     "notes": "Georgian National Rugby Channel",
     "popularity": 94,
-    "local_logo": "/static/logos/ge-rugby.png"
+    "local_logo": "./static/logos/ge-rugby.png"
   },
   {
     "id": "ru-matchfootball2",
@@ -190,7 +190,7 @@
     "genre": "Sports",
     "url": "http://stream.mcquack.net/142/index.m3u8",
     "stream_type": "hls",
-    "logo": "https://i.imgur.com/XS2BB02.png",
+    "logo": "https://i.imgur.com/WhdGfSo.png",
     "sources": [
       {
         "url": "http://stream.mcquack.net/142/index.m3u8",
@@ -205,7 +205,7 @@
     "is_alive": true,
     "notes": "",
     "popularity": 93,
-    "local_logo": "/static/logos/ru-matchfootball2.png"
+    "local_logo": "./static/logos/ru-matchfootball2.png"
   },
   {
     "id": "ru-domkino",
@@ -216,7 +216,7 @@
     "genre": "Movies",
     "url": "http://stream.mcquack.net/236/index.m3u8",
     "stream_type": "hls",
-    "logo": "https://i.imgur.com/w1iX5g0.png",
+    "logo": "https://i.imgur.com/rJpQtvK.png",
     "sources": [
       {
         "url": "http://stream.mcquack.net/236/index.m3u8",
@@ -231,7 +231,7 @@
     "is_alive": true,
     "notes": "Verified working Dom Kino HD",
     "popularity": 92,
-    "local_logo": "/static/logos/ru-domkino.png"
+    "local_logo": "./static/logos/ru-domkino.png"
   },
   {
     "id": "en-discovery",
@@ -242,7 +242,7 @@
     "genre": "Documentaries",
     "url": "http://stream.mcquack.net/177/index.m3u8",
     "stream_type": "hls",
-    "logo": "https://i.imgur.com/Kz8j6wF.png",
+    "logo": "https://d2n0069hmnqmmx.cloudfront.net/epgdata/1.0/newchanlogos/512/512/skychb2401.png",
     "sources": [
       {
         "url": "http://stream.mcquack.net/177/index.m3u8",
@@ -257,7 +257,7 @@
     "is_alive": true,
     "notes": "",
     "popularity": 91,
-    "local_logo": "/static/logos/en-discovery.png"
+    "local_logo": "./static/logos/en-discovery.png"
   },
   {
     "id": "en-bbcnews",
@@ -283,7 +283,7 @@
     "is_alive": true,
     "notes": "",
     "popularity": 90,
-    "local_logo": "/static/logos/en-bbcnews.png"
+    "local_logo": "./static/logos/en-bbcnews.png"
   },
   {
     "id": "ge-imedi",
@@ -294,7 +294,7 @@
     "genre": "News",
     "url": "https://tv.cdn.xsg.ge/imedihd/index.m3u8",
     "stream_type": "hls",
-    "logo": "https://i.imgur.com/4hJ7v0K.png",
+    "logo": "https://i.imgur.com/94hNyxZ.png",
     "sources": [
       {
         "url": "https://tv.cdn.xsg.ge/imedihd/index.m3u8",
@@ -321,7 +321,7 @@
     "is_alive": true,
     "notes": "Imedi TV direct high-bitrate master feed",
     "popularity": 89,
-    "local_logo": "/static/logos/ge-imedi.png"
+    "local_logo": "./static/logos/ge-imedi.png"
   },
   {
     "id": "ru-matchfootball3",
@@ -347,7 +347,7 @@
     "is_alive": true,
     "notes": "",
     "popularity": 88,
-    "local_logo": "/static/logos/ru-matchfootball3.png"
+    "local_logo": "./static/logos/ru-matchfootball3.png"
   },
   {
     "id": "ru-domkinopremium",
@@ -358,7 +358,7 @@
     "genre": "Movies",
     "url": "http://stream.mcquack.net/108/index.m3u8",
     "stream_type": "hls",
-    "logo": "https://i.imgur.com/w1iX5g0.png",
+    "logo": "https://i.imgur.com/rJpQtvK.png",
     "sources": [
       {
         "url": "http://stream.mcquack.net/108/index.m3u8",
@@ -373,7 +373,7 @@
     "is_alive": true,
     "notes": "",
     "popularity": 87,
-    "local_logo": "/static/logos/ru-domkinopremium.png"
+    "local_logo": "./static/logos/ru-domkinopremium.png"
   },
   {
     "id": "ru-tv1000",
@@ -384,7 +384,7 @@
     "genre": "Movies",
     "url": "http://stream.mcquack.net/110/index.m3u8",
     "stream_type": "hls",
-    "logo": "https://i.imgur.com/d9vG3hQ.png",
+    "logo": "https://i.imgur.com/ZMsyjSr.png",
     "sources": [
       {
         "url": "http://stream.mcquack.net/110/index.m3u8",
@@ -399,7 +399,7 @@
     "is_alive": true,
     "notes": "",
     "popularity": 86,
-    "local_logo": "/static/logos/ru-tv1000.png"
+    "local_logo": "./static/logos/ru-tv1000.png"
   },
   {
     "id": "en-natgeo",
@@ -410,7 +410,7 @@
     "genre": "Documentaries",
     "url": "http://stream.mcquack.net/116/index.m3u8",
     "stream_type": "hls",
-    "logo": "https://i.imgur.com/s6wE18b.png",
+    "logo": "https://dtil.tmsimg.com/assets/s143574_ld_h15_aa.png?lock=720x540",
     "sources": [
       {
         "url": "http://stream.mcquack.net/116/index.m3u8",
@@ -425,7 +425,7 @@
     "is_alive": true,
     "notes": "",
     "popularity": 85,
-    "local_logo": "/static/logos/en-natgeo.png"
+    "local_logo": "./static/logos/en-natgeo.png"
   },
   {
     "id": "ru-sts",
@@ -451,7 +451,7 @@
     "is_alive": true,
     "notes": "",
     "popularity": 84,
-    "local_logo": "/static/logos/ru-sts.png"
+    "local_logo": "./static/logos/ru-sts.png"
   },
   {
     "id": "ge-rustavi2",
@@ -477,7 +477,7 @@
     "is_alive": true,
     "notes": "",
     "popularity": 83,
-    "local_logo": "/static/logos/ge-rustavi2.png"
+    "local_logo": "./static/logos/ge-rustavi2.png"
   },
   {
     "id": "ru-kinohit",
@@ -488,7 +488,7 @@
     "genre": "Movies",
     "url": "http://stream.mcquack.net/126/index.m3u8",
     "stream_type": "hls",
-    "logo": "https://i.imgur.com/o0Z8mXm.png",
+    "logo": "https://i.imgur.com/Ge8vkQM.png",
     "sources": [
       {
         "url": "http://stream.mcquack.net/126/index.m3u8",
@@ -503,7 +503,7 @@
     "is_alive": true,
     "notes": "",
     "popularity": 82,
-    "local_logo": "/static/logos/ru-kinohit.png"
+    "local_logo": "./static/logos/ru-kinohit.png"
   },
   {
     "id": "ru-tv1000action",
@@ -514,7 +514,7 @@
     "genre": "Movies",
     "url": "http://stream.mcquack.net/100/index.m3u8",
     "stream_type": "hls",
-    "logo": "https://i.imgur.com/o6Vz4bH.png",
+    "logo": "https://i.imgur.com/TMmyuzh.png",
     "sources": [
       {
         "url": "http://stream.mcquack.net/100/index.m3u8",
@@ -529,7 +529,7 @@
     "is_alive": true,
     "notes": "",
     "popularity": 81,
-    "local_logo": "/static/logos/ru-tv1000action.png"
+    "local_logo": "./static/logos/ru-tv1000action.png"
   },
   {
     "id": "en-natgeowild",
@@ -540,7 +540,7 @@
     "genre": "Documentaries",
     "url": "http://stream.mcquack.net/149/index.m3u8",
     "stream_type": "hls",
-    "logo": "https://i.imgur.com/5V3K22K.png",
+    "logo": "https://i.imgur.com/HoeaQJC.png",
     "sources": [
       {
         "url": "http://stream.mcquack.net/149/index.m3u8",
@@ -555,7 +555,7 @@
     "is_alive": true,
     "notes": "",
     "popularity": 80,
-    "local_logo": "/static/logos/en-natgeowild.png"
+    "local_logo": "./static/logos/en-natgeowild.png"
   },
   {
     "id": "ru-tnt",
@@ -581,7 +581,7 @@
     "is_alive": true,
     "notes": "",
     "popularity": 79,
-    "local_logo": "/static/logos/ru-tnt.png"
+    "local_logo": "./static/logos/ru-tnt.png"
   },
   {
     "id": "ge-1tv",
@@ -613,7 +613,7 @@
     "is_alive": true,
     "notes": "",
     "popularity": 78,
-    "local_logo": "/static/logos/ge-1tv.png"
+    "local_logo": "./static/logos/ge-1tv.png"
   },
   {
     "id": "ru-matchigra",
@@ -639,7 +639,7 @@
     "is_alive": true,
     "notes": "",
     "popularity": 77,
-    "local_logo": "/static/logos/ru-matchigra.png"
+    "local_logo": "./static/logos/ru-matchigra.png"
   },
   {
     "id": "ru-kinomix",
@@ -650,7 +650,7 @@
     "genre": "Movies",
     "url": "http://stream.mcquack.net/133/index.m3u8",
     "stream_type": "hls",
-    "logo": "https://i.imgur.com/P7H0eJm.png",
+    "logo": "https://i.imgur.com/Ge8vkQM.png",
     "sources": [
       {
         "url": "http://stream.mcquack.net/133/index.m3u8",
@@ -665,7 +665,7 @@
     "is_alive": true,
     "notes": "",
     "popularity": 76,
-    "local_logo": "/static/logos/ru-kinomix.png"
+    "local_logo": "./static/logos/ru-kinomix.png"
   },
   {
     "id": "ru-vijupremiere",
@@ -676,7 +676,7 @@
     "genre": "Movies",
     "url": "http://stream.mcquack.net/202/index.m3u8",
     "stream_type": "hls",
-    "logo": "https://i.imgur.com/uG9X1kE.png",
+    "logo": "https://i.imgur.com/klRvhR5.png",
     "sources": [
       {
         "url": "http://stream.mcquack.net/202/index.m3u8",
@@ -691,7 +691,7 @@
     "is_alive": true,
     "notes": "",
     "popularity": 75,
-    "local_logo": "/static/logos/ru-vijupremiere.png"
+    "local_logo": "./static/logos/ru-vijupremiere.png"
   },
   {
     "id": "en-animalplanet",
@@ -702,7 +702,7 @@
     "genre": "Documentaries",
     "url": "http://stream.mcquack.net/114/index.m3u8",
     "stream_type": "hls",
-    "logo": "https://i.imgur.com/970R14v.png",
+    "logo": "https://dvdh7g0f0hwck.cloudfront.net/assets/images/channel/AnimalPlanetHD_Transparent_d36c0ee3-3e3f-4e0c-b3b2-23bfb3c3c2b0.png",
     "sources": [
       {
         "url": "http://stream.mcquack.net/114/index.m3u8",
@@ -717,7 +717,7 @@
     "is_alive": true,
     "notes": "",
     "popularity": 74,
-    "local_logo": "/static/logos/en-animalplanet.png"
+    "local_logo": "./static/logos/en-animalplanet.png"
   },
   {
     "id": "ru-friday",
@@ -728,7 +728,7 @@
     "genre": "Entertainment",
     "url": "http://stream.mcquack.net/181/index.m3u8",
     "stream_type": "hls",
-    "logo": "https://i.imgur.com/UfmlXxe.png",
+    "logo": "https://antifriz.tv/storage/images/pack_logos/71e74d77d2a9f55f496870623e5f7203.png",
     "sources": [
       {
         "url": "http://stream.mcquack.net/181/index.m3u8",
@@ -743,7 +743,7 @@
     "is_alive": true,
     "notes": "",
     "popularity": 73,
-    "local_logo": "/static/logos/ru-friday.png"
+    "local_logo": "./static/logos/ru-friday.png"
   },
   {
     "id": "ru-matcharena",
@@ -769,7 +769,7 @@
     "is_alive": true,
     "notes": "",
     "popularity": 72,
-    "local_logo": "/static/logos/ru-matcharena.png"
+    "local_logo": "./static/logos/ru-matcharena.png"
   },
   {
     "id": "ru-kinosemya",
@@ -780,7 +780,7 @@
     "genre": "Movies",
     "url": "http://stream.mcquack.net/170/index.m3u8",
     "stream_type": "hls",
-    "logo": "https://i.imgur.com/L1MhV8d.png",
+    "logo": "https://i.imgur.com/4BF5VeK.png",
     "sources": [
       {
         "url": "http://stream.mcquack.net/170/index.m3u8",
@@ -795,7 +795,7 @@
     "is_alive": true,
     "notes": "",
     "popularity": 71,
-    "local_logo": "/static/logos/ru-kinosemya.png"
+    "local_logo": "./static/logos/ru-kinosemya.png"
   },
   {
     "id": "ru-vijumegahit",
@@ -806,7 +806,7 @@
     "genre": "Movies",
     "url": "http://stream.mcquack.net/200/index.m3u8",
     "stream_type": "hls",
-    "logo": "https://i.imgur.com/uG9X1kE.png",
+    "logo": "https://i.imgur.com/oIQNddV.png",
     "sources": [
       {
         "url": "http://stream.mcquack.net/200/index.m3u8",
@@ -821,7 +821,7 @@
     "is_alive": true,
     "notes": "",
     "popularity": 70,
-    "local_logo": "/static/logos/ru-vijumegahit.png"
+    "local_logo": "./static/logos/ru-vijumegahit.png"
   },
   {
     "id": "ge-2tv",
@@ -853,7 +853,7 @@
     "is_alive": true,
     "notes": "GPB second channel CDN",
     "popularity": 70,
-    "local_logo": "/static/logos/ge-2tv.png"
+    "local_logo": "./static/logos/ge-2tv.png"
   },
   {
     "id": "ru-abaza",
@@ -879,7 +879,7 @@
     "is_alive": true,
     "notes": "Public camera stream",
     "popularity": 70,
-    "local_logo": "/static/logos/ru-abaza.png"
+    "local_logo": "./static/logos/ru-abaza.png"
   },
   {
     "id": "ru-dw",
@@ -911,7 +911,7 @@
     "is_alive": true,
     "notes": "DW Russian official",
     "popularity": 70,
-    "local_logo": "/static/logos/ru-dw.png"
+    "local_logo": "./static/logos/ru-dw.png"
   },
   {
     "id": "ru-rtdoc",
@@ -922,7 +922,7 @@
     "genre": "Entertainment",
     "url": "https://rt-rtd.rttv.com/live/rtdoc/playlist.m3u8",
     "stream_type": "hls",
-    "logo": "https://i.imgur.com/pY1X9kP.png",
+    "logo": "https://jiotvimages.cdn.jio.com/dare_images/images/RT_TV.png",
     "sources": [
       {
         "url": "https://rt-rtd.rttv.com/live/rtdoc/playlist.m3u8",
@@ -937,7 +937,7 @@
     "is_alive": true,
     "notes": "RT Doc official",
     "popularity": 70,
-    "local_logo": "/static/logos/ru-rtdoc.png"
+    "local_logo": "./static/logos/ru-rtdoc.png"
   },
   {
     "id": "ru-rt",
@@ -948,7 +948,7 @@
     "genre": "News",
     "url": "https://rt-glb.rttv.com/live/rtnews/playlist.m3u8",
     "stream_type": "hls",
-    "logo": "https://i.imgur.com/pY1X9kP.png",
+    "logo": "https://jiotvimages.cdn.jio.com/dare_images/images/RT_TV.png",
     "sources": [
       {
         "url": "https://rt-glb.rttv.com/live/rtnews/playlist.m3u8",
@@ -963,7 +963,7 @@
     "is_alive": true,
     "notes": "RT official CDN",
     "popularity": 70,
-    "local_logo": "/static/logos/ru-rt.png"
+    "local_logo": "./static/logos/ru-rt.png"
   },
   {
     "id": "ru-currenttime",
@@ -995,7 +995,7 @@
     "is_alive": true,
     "notes": "RFE/RL official free Russian news",
     "popularity": 70,
-    "local_logo": "/static/logos/ru-currenttime.png"
+    "local_logo": "./static/logos/ru-currenttime.png"
   },
   {
     "id": "ru-smotrim-kids",
@@ -1006,7 +1006,7 @@
     "genre": "Entertainment",
     "url": "https://stream.smotrim.ru/hls/fasttv05/playlist_3.m3u8",
     "stream_type": "hls",
-    "logo": "https://i.imgur.com/z482tN5.png",
+    "logo": "https://i.imgur.com/1hsNeTa.png",
     "sources": [
       {
         "url": "https://stream.smotrim.ru/hls/fasttv05/playlist_3.m3u8",
@@ -1027,7 +1027,7 @@
     "is_alive": true,
     "notes": "VGTRK FAST",
     "popularity": 70,
-    "local_logo": "/static/logos/ru-smotrim-kids.png"
+    "local_logo": "./static/logos/ru-smotrim-kids.png"
   },
   {
     "id": "ru-smotrim-classic",
@@ -1038,7 +1038,7 @@
     "genre": "Entertainment",
     "url": "https://stream.smotrim.ru/hls/fasttv03/playlist_3.m3u8",
     "stream_type": "hls",
-    "logo": "https://i.imgur.com/z482tN5.png",
+    "logo": "https://i.imgur.com/aASNpKq.png",
     "sources": [
       {
         "url": "https://stream.smotrim.ru/hls/fasttv03/playlist_3.m3u8",
@@ -1059,7 +1059,7 @@
     "is_alive": true,
     "notes": "VGTRK FAST",
     "popularity": 70,
-    "local_logo": "/static/logos/ru-smotrim-classic.png"
+    "local_logo": "./static/logos/ru-smotrim-classic.png"
   },
   {
     "id": "ru-smotrim-men",
@@ -1070,7 +1070,7 @@
     "genre": "Entertainment",
     "url": "https://stream.smotrim.ru/hls/fasttv02/playlist_3.m3u8",
     "stream_type": "hls",
-    "logo": "https://i.imgur.com/z482tN5.png",
+    "logo": "https://i.imgur.com/UY3fjYU.png",
     "sources": [
       {
         "url": "https://stream.smotrim.ru/hls/fasttv02/playlist_3.m3u8",
@@ -1091,7 +1091,7 @@
     "is_alive": true,
     "notes": "VGTRK FAST",
     "popularity": 70,
-    "local_logo": "/static/logos/ru-smotrim-men.png"
+    "local_logo": "./static/logos/ru-smotrim-men.png"
   },
   {
     "id": "ru-smotrim-holiday",
@@ -1102,7 +1102,7 @@
     "genre": "Entertainment",
     "url": "https://stream.smotrim.ru/hls/fasttv04/playlist_3.m3u8",
     "stream_type": "hls",
-    "logo": "https://i.imgur.com/z482tN5.png",
+    "logo": "https://i.imgur.com/NEcqFse.png",
     "sources": [
       {
         "url": "https://stream.smotrim.ru/hls/fasttv04/playlist_3.m3u8",
@@ -1123,7 +1123,7 @@
     "is_alive": true,
     "notes": "VGTRK FAST",
     "popularity": 70,
-    "local_logo": "/static/logos/ru-smotrim-holiday.png"
+    "local_logo": "./static/logos/ru-smotrim-holiday.png"
   },
   {
     "id": "ru-smotrim-facts",
@@ -1134,7 +1134,7 @@
     "genre": "Entertainment",
     "url": "https://stream.smotrim.ru/hls/fasttv06/playlist_3.m3u8",
     "stream_type": "hls",
-    "logo": "https://i.imgur.com/z482tN5.png",
+    "logo": "https://i.imgur.com/dB3cJzO.png",
     "sources": [
       {
         "url": "https://stream.smotrim.ru/hls/fasttv06/playlist_3.m3u8",
@@ -1155,7 +1155,7 @@
     "is_alive": true,
     "notes": "VGTRK Smotrim free FAST",
     "popularity": 70,
-    "local_logo": "/static/logos/ru-smotrim-facts.png"
+    "local_logo": "./static/logos/ru-smotrim-facts.png"
   },
   {
     "id": "ru-euronews",
@@ -1166,7 +1166,7 @@
     "genre": "News",
     "url": "https://cdn-euronews.akamaized.net/live/eds/euronews-ru/25071/index.m3u8",
     "stream_type": "hls",
-    "logo": "https://i.imgur.com/P4b0m7j.png",
+    "logo": "https://i.imgur.com/8t9mdg9.png",
     "sources": [
       {
         "url": "https://cdn-euronews.akamaized.net/live/eds/euronews-ru/25071/index.m3u8",
@@ -1181,7 +1181,7 @@
     "is_alive": true,
     "notes": "Euronews RU official Akamai",
     "popularity": 70,
-    "local_logo": "/static/logos/ru-euronews.png"
+    "local_logo": "./static/logos/ru-euronews.png"
   },
   {
     "id": "ru-rtdoc-ru",
@@ -1192,7 +1192,7 @@
     "genre": "Entertainment",
     "url": "https://rt-doc.rttv.com/dvr/rtdru/playlist.m3u8",
     "stream_type": "hls",
-    "logo": "https://i.imgur.com/pY1X9kP.png",
+    "logo": "https://jiotvimages.cdn.jio.com/dare_images/images/RT_TV.png",
     "sources": [
       {
         "url": "https://rt-doc.rttv.com/dvr/rtdru/playlist.m3u8",
@@ -1207,7 +1207,7 @@
     "is_alive": true,
     "notes": "RT Doc Russian",
     "popularity": 70,
-    "local_logo": "/static/logos/ru-rtdoc-ru.png"
+    "local_logo": "./static/logos/ru-rtdoc-ru.png"
   },
   {
     "id": "ru-smotrim-love",
@@ -1218,7 +1218,7 @@
     "genre": "Entertainment",
     "url": "https://stream.smotrim.ru/hls/fasttv01/playlist_2.m3u8",
     "stream_type": "hls",
-    "logo": "https://i.imgur.com/z482tN5.png",
+    "logo": "https://i.imgur.com/4EFh0nu.png",
     "sources": [
       {
         "url": "https://stream.smotrim.ru/hls/fasttv01/playlist_2.m3u8",
@@ -1233,7 +1233,7 @@
     "is_alive": true,
     "notes": "VGTRK FAST",
     "popularity": 70,
-    "local_logo": "/static/logos/ru-smotrim-love.png"
+    "local_logo": "./static/logos/ru-smotrim-love.png"
   },
   {
     "id": "en-trt",
@@ -1265,7 +1265,7 @@
     "is_alive": true,
     "notes": "TRT master",
     "popularity": 70,
-    "local_logo": "/static/logos/en-trt.png"
+    "local_logo": "./static/logos/en-trt.png"
   },
   {
     "id": "en-aje",
@@ -1297,7 +1297,7 @@
     "is_alive": true,
     "notes": "AJ apps CDN 1080p",
     "popularity": 70,
-    "local_logo": "/static/logos/en-aje.png"
+    "local_logo": "./static/logos/en-aje.png"
   },
   {
     "id": "en-cbc-news",
@@ -1323,7 +1323,7 @@
     "is_alive": true,
     "notes": "Official CBC FAST; master playlist 1080p OK from box, ffprobe timed out — already in app",
     "popularity": 70,
-    "local_logo": "/static/logos/en-cbc-news.png"
+    "local_logo": "./static/logos/en-cbc-news.png"
   },
   {
     "id": "en-cgtn",
@@ -1349,7 +1349,7 @@
     "is_alive": true,
     "notes": "CGTN via Rakuten FAST",
     "popularity": 70,
-    "local_logo": "/static/logos/en-cgtn.png"
+    "local_logo": "./static/logos/en-cgtn.png"
   },
   {
     "id": "en-cna",
@@ -1375,7 +1375,7 @@
     "is_alive": true,
     "notes": "Channel NewsAsia",
     "popularity": 70,
-    "local_logo": "/static/logos/en-cna.png"
+    "local_logo": "./static/logos/en-cna.png"
   },
   {
     "id": "en-cheddar",
@@ -1386,7 +1386,7 @@
     "genre": "News",
     "url": "https://hls.livecdn.io/cheddar.com/cheddar/playlist.m3u8",
     "stream_type": "hls",
-    "logo": "https://i.imgur.com/813qK9M.png",
+    "logo": "https://i.imgur.com/tuP9GW8.png",
     "sources": [
       {
         "url": "https://hls.livecdn.io/cheddar.com/cheddar/playlist.m3u8",
@@ -1401,7 +1401,7 @@
     "is_alive": true,
     "notes": "Cheddar free",
     "popularity": 70,
-    "local_logo": "/static/logos/en-cheddar.png"
+    "local_logo": "./static/logos/en-cheddar.png"
   },
   {
     "id": "en-france24",
@@ -1412,7 +1412,7 @@
     "genre": "Entertainment",
     "url": "https://live.france24.com/hls/live/2037218-b/F24_EN_HI_HLS/master_5000.m3u8",
     "stream_type": "hls",
-    "logo": "https://i.imgur.com/9Xw3fJ0.png",
+    "logo": "https://i.imgur.com/u8N6uoj.png",
     "sources": [
       {
         "url": "https://live.france24.com/hls/live/2037218-b/F24_EN_HI_HLS/master_5000.m3u8",
@@ -1427,7 +1427,7 @@
     "is_alive": true,
     "notes": "France24 official HI",
     "popularity": 70,
-    "local_logo": "/static/logos/en-france24.png"
+    "local_logo": "./static/logos/en-france24.png"
   },
   {
     "id": "en-nbcnow",
@@ -1438,7 +1438,7 @@
     "genre": "News",
     "url": "https://d1si3n1st4nkgb.cloudfront.net/10502/88896001/hls/master.m3u8?ads.xumo_channelId=88896001",
     "stream_type": "hls",
-    "logo": "https://i.imgur.com/5lV9v4N.png",
+    "logo": "https://i.imgur.com/JZt2qh5.png",
     "sources": [
       {
         "url": "https://d1si3n1st4nkgb.cloudfront.net/10502/88896001/hls/master.m3u8?ads.xumo_channelId=88896001",
@@ -1453,7 +1453,7 @@
     "is_alive": true,
     "notes": "NBC News NOW via Xumo FAST",
     "popularity": 70,
-    "local_logo": "/static/logos/en-nbcnow.png"
+    "local_logo": "./static/logos/en-nbcnow.png"
   },
   {
     "id": "en-nhk",
@@ -1464,7 +1464,7 @@
     "genre": "Entertainment",
     "url": "https://masterpl.hls.nhkworld.jp/hls/w/live/smarttv.m3u8",
     "stream_type": "hls",
-    "logo": "https://i.imgur.com/8Qj6N1z.png",
+    "logo": "https://i.imgur.com/P30Ty2d.png",
     "sources": [
       {
         "url": "https://masterpl.hls.nhkworld.jp/hls/w/live/smarttv.m3u8",
@@ -1479,7 +1479,7 @@
     "is_alive": true,
     "notes": "NHK World official",
     "popularity": 70,
-    "local_logo": "/static/logos/en-nhk.png"
+    "local_logo": "./static/logos/en-nhk.png"
   },
   {
     "id": "en-i24",
@@ -1490,7 +1490,7 @@
     "genre": "News",
     "url": "https://i24newsenglish-cdn.encoders.immergo.tv/master.m3u8",
     "stream_type": "hls",
-    "logo": "https://i.imgur.com/G3b4p6K.png",
+    "logo": "https://www.i24news.tv/images/favicon.png",
     "sources": [
       {
         "url": "https://i24newsenglish-cdn.encoders.immergo.tv/master.m3u8",
@@ -1505,7 +1505,7 @@
     "is_alive": true,
     "notes": "i24 English",
     "popularity": 70,
-    "local_logo": "/static/logos/en-i24.png"
+    "local_logo": "./static/logos/en-i24.png"
   },
   {
     "id": "en-abc",
@@ -1516,7 +1516,7 @@
     "genre": "News",
     "url": "https://abc-news-dmd-streams-1.akamaized.net/out/v1/701126012d044971b3fa89406a440133/index.m3u8",
     "stream_type": "hls",
-    "logo": "https://i.imgur.com/8fP44vj.png",
+    "logo": "https://i.imgur.com/BrW7gk8.png",
     "sources": [
       {
         "url": "https://abc-news-dmd-streams-1.akamaized.net/out/v1/701126012d044971b3fa89406a440133/index.m3u8",
@@ -1531,7 +1531,7 @@
     "is_alive": true,
     "notes": "ABC News main",
     "popularity": 70,
-    "local_logo": "/static/logos/en-abc.png"
+    "local_logo": "./static/logos/en-abc.png"
   },
   {
     "id": "en-africanews",
@@ -1542,7 +1542,7 @@
     "genre": "News",
     "url": "https://cdn-euronews.akamaized.net/live/eds/africanews-en/25049/index.m3u8",
     "stream_type": "hls",
-    "logo": "https://i.imgur.com/P4b0m7j.png",
+    "logo": "https://i.imgur.com/5UxU4zc.png",
     "sources": [
       {
         "url": "https://cdn-euronews.akamaized.net/live/eds/africanews-en/25049/index.m3u8",
@@ -1557,7 +1557,7 @@
     "is_alive": true,
     "notes": "Africanews via Euronews CDN",
     "popularity": 70,
-    "local_logo": "/static/logos/en-africanews.png"
+    "local_logo": "./static/logos/en-africanews.png"
   },
   {
     "id": "en-bloomberg-asia",
@@ -1568,7 +1568,7 @@
     "genre": "Entertainment",
     "url": "https://bloomberg.com/media-manifest/streams/asia.m3u8",
     "stream_type": "hls",
-    "logo": "https://i.imgur.com/bmkXfIE.png",
+    "logo": "https://i.imgur.com/OuogLHx.png",
     "sources": [
       {
         "url": "https://bloomberg.com/media-manifest/streams/asia.m3u8",
@@ -1583,7 +1583,7 @@
     "is_alive": true,
     "notes": "Bloomberg Asia",
     "popularity": 70,
-    "local_logo": "/static/logos/en-bloomberg-asia.png"
+    "local_logo": "./static/logos/en-bloomberg-asia.png"
   },
   {
     "id": "en-bloomberg-eu",
@@ -1594,7 +1594,7 @@
     "genre": "Entertainment",
     "url": "https://bloomberg.com/media-manifest/streams/eu.m3u8",
     "stream_type": "hls",
-    "logo": "https://i.imgur.com/bmkXfIE.png",
+    "logo": "https://i.imgur.com/OuogLHx.png",
     "sources": [
       {
         "url": "https://bloomberg.com/media-manifest/streams/eu.m3u8",
@@ -1609,7 +1609,7 @@
     "is_alive": true,
     "notes": "Bloomberg Europe",
     "popularity": 70,
-    "local_logo": "/static/logos/en-bloomberg-eu.png"
+    "local_logo": "./static/logos/en-bloomberg-eu.png"
   },
   {
     "id": "en-cbs247",
@@ -1635,7 +1635,7 @@
     "is_alive": true,
     "notes": "CBS News 24/7 Pluto",
     "popularity": 70,
-    "local_logo": "/static/logos/en-cbs247.png"
+    "local_logo": "./static/logos/en-cbs247.png"
   },
   {
     "id": "en-skynews",
@@ -1661,7 +1661,7 @@
     "is_alive": true,
     "notes": "Sky News CloudFront",
     "popularity": 70,
-    "local_logo": "/static/logos/en-skynews.png"
+    "local_logo": "./static/logos/en-skynews.png"
   },
   {
     "id": "en-euronews",
@@ -1672,7 +1672,7 @@
     "genre": "News",
     "url": "https://jmp2.uk/plu-61de96114757070008d33cae.m3u8",
     "stream_type": "hls",
-    "logo": "https://i.imgur.com/P4b0m7j.png",
+    "logo": "https://i.imgur.com/8t9mdg9.png",
     "sources": [
       {
         "url": "https://jmp2.uk/plu-61de96114757070008d33cae.m3u8",
@@ -1687,7 +1687,7 @@
     "is_alive": true,
     "notes": "Euronews EN via Pluto redirect",
     "popularity": 70,
-    "local_logo": "/static/logos/en-euronews.png"
+    "local_logo": "./static/logos/en-euronews.png"
   },
   {
     "id": "en-sky-au1",
@@ -1713,7 +1713,7 @@
     "is_alive": true,
     "notes": "Sky News Australia free extra",
     "popularity": 70,
-    "local_logo": "/static/logos/en-sky-au1.png"
+    "local_logo": "./static/logos/en-sky-au1.png"
   },
   {
     "id": "en-sky-au3",
@@ -1739,7 +1739,7 @@
     "is_alive": true,
     "notes": "Sky News AU Extra 3",
     "popularity": 70,
-    "local_logo": "/static/logos/en-sky-au3.png"
+    "local_logo": "./static/logos/en-sky-au3.png"
   },
   {
     "id": "en-cbc-comedy",
@@ -1750,7 +1750,7 @@
     "genre": "Entertainment",
     "url": "https://amagi-streams.akamaized.net/hls/live/2110963/cbccomedy/master.m3u8",
     "stream_type": "hls",
-    "logo": "https://i.imgur.com/L1MhV8d.png",
+    "logo": "https://i.imgur.com/xflShTG.png",
     "sources": [
       {
         "url": "https://amagi-streams.akamaized.net/hls/live/2110963/cbccomedy/master.m3u8",
@@ -1765,7 +1765,7 @@
     "is_alive": true,
     "notes": "Official CBC FAST; playlist OK, ffprobe timed out — already in app",
     "popularity": 70,
-    "local_logo": "/static/logos/en-cbc-comedy.png"
+    "local_logo": "./static/logos/en-cbc-comedy.png"
   },
   {
     "id": "en-cbc-explore",
@@ -1776,7 +1776,7 @@
     "genre": "Documentaries",
     "url": "https://amagi-streams.akamaized.net/hls/live/2110962/cbcexplore/master.m3u8",
     "stream_type": "hls",
-    "logo": "https://i.imgur.com/L1MhV8d.png",
+    "logo": "https://i.imgur.com/xflShTG.png",
     "sources": [
       {
         "url": "https://amagi-streams.akamaized.net/hls/live/2110962/cbcexplore/master.m3u8",
@@ -1791,7 +1791,7 @@
     "is_alive": true,
     "notes": "Official CBC FAST; playlist OK from box",
     "popularity": 70,
-    "local_logo": "/static/logos/en-cbc-explore.png"
+    "local_logo": "./static/logos/en-cbc-explore.png"
   },
   {
     "id": "en-cbc-kids",
@@ -1802,7 +1802,7 @@
     "genre": "Kids",
     "url": "https://amagi-streams.akamaized.net/hls/live/2120483/cbckids/master.m3u8",
     "stream_type": "hls",
-    "logo": "https://i.imgur.com/L1MhV8d.png",
+    "logo": "https://i.imgur.com/xflShTG.png",
     "sources": [
       {
         "url": "https://amagi-streams.akamaized.net/hls/live/2120483/cbckids/master.m3u8",
@@ -1817,7 +1817,7 @@
     "is_alive": true,
     "notes": "Official CBC FAST; playlist OK, ffprobe timed out — already in app",
     "popularity": 70,
-    "local_logo": "/static/logos/en-cbc-kids.png"
+    "local_logo": "./static/logos/en-cbc-kids.png"
   },
   {
     "id": "en-cbc-heartland",
@@ -1828,7 +1828,7 @@
     "genre": "Movies",
     "url": "https://amagi-streams.akamaized.net/hls/live/2113391/cbcheartland/master.m3u8",
     "stream_type": "hls",
-    "logo": "https://i.imgur.com/L1MhV8d.png",
+    "logo": "https://i.imgur.com/xflShTG.png",
     "sources": [
       {
         "url": "https://amagi-streams.akamaized.net/hls/live/2113391/cbcheartland/master.m3u8",
@@ -1843,7 +1843,7 @@
     "is_alive": true,
     "notes": "Official CBC FAST; playlist OK from box",
     "popularity": 70,
-    "local_logo": "/static/logos/en-cbc-heartland.png"
+    "local_logo": "./static/logos/en-cbc-heartland.png"
   },
   {
     "id": "en-cbc-murdoch",
@@ -1854,7 +1854,7 @@
     "genre": "Movies",
     "url": "https://amagi-streams.akamaized.net/hls/live/2113390/cbcmurdoch/master.m3u8",
     "stream_type": "hls",
-    "logo": "https://i.imgur.com/L1MhV8d.png",
+    "logo": "https://i.imgur.com/xflShTG.png",
     "sources": [
       {
         "url": "https://amagi-streams.akamaized.net/hls/live/2113390/cbcmurdoch/master.m3u8",
@@ -1869,7 +1869,7 @@
     "is_alive": true,
     "notes": "Official CBC FAST; playlist OK from box",
     "popularity": 70,
-    "local_logo": "/static/logos/en-cbc-murdoch.png"
+    "local_logo": "./static/logos/en-cbc-murdoch.png"
   },
   {
     "id": "en-cbc-schitt",
@@ -1880,7 +1880,7 @@
     "genre": "Movies",
     "url": "https://amagi-streams.akamaized.net/hls/live/2120484/schittscreek/master.m3u8",
     "stream_type": "hls",
-    "logo": "https://i.imgur.com/L1MhV8d.png",
+    "logo": "https://i.imgur.com/xflShTG.png",
     "sources": [
       {
         "url": "https://amagi-streams.akamaized.net/hls/live/2120484/schittscreek/master.m3u8",
@@ -1895,7 +1895,7 @@
     "is_alive": true,
     "notes": "Official CBC FAST; playlist OK from box",
     "popularity": 70,
-    "local_logo": "/static/logos/en-cbc-schitt.png"
+    "local_logo": "./static/logos/en-cbc-schitt.png"
   },
   {
     "id": "ru-amediapremium",
@@ -1906,7 +1906,7 @@
     "genre": "Movies",
     "url": "http://stream.mcquack.net/151/index.m3u8",
     "stream_type": "hls",
-    "logo": "https://i.imgur.com/d9vG3hQ.png",
+    "logo": "https://i.imgur.com/UUjehw9.png",
     "sources": [
       {
         "url": "http://stream.mcquack.net/151/index.m3u8",
@@ -1921,7 +1921,7 @@
     "is_alive": true,
     "notes": "",
     "popularity": 69,
-    "local_logo": "/static/logos/ru-amediapremium.png"
+    "local_logo": "./static/logos/ru-amediapremium.png"
   },
   {
     "id": "en-id",
@@ -1932,7 +1932,7 @@
     "genre": "Documentaries",
     "url": "http://stream.mcquack.net/205/index.m3u8",
     "stream_type": "hls",
-    "logo": "https://i.imgur.com/8Qj6N1z.png",
+    "logo": "https://dtil.tmsimg.com/assets/s157811_ld_h15_aa.png?lock=720x540",
     "sources": [
       {
         "url": "http://stream.mcquack.net/205/index.m3u8",
@@ -1947,7 +1947,7 @@
     "is_alive": true,
     "notes": "",
     "popularity": 68,
-    "local_logo": "/static/logos/en-id.png"
+    "local_logo": "./static/logos/en-id.png"
   },
   {
     "id": "ru-tv3",
@@ -1973,7 +1973,7 @@
     "is_alive": true,
     "notes": "",
     "popularity": 67,
-    "local_logo": "/static/logos/ru-tv3.png"
+    "local_logo": "./static/logos/ru-tv3.png"
   },
   {
     "id": "ru-matchboets",
@@ -1984,7 +1984,7 @@
     "genre": "Sports",
     "url": "http://stream.mcquack.net/112/index.m3u8",
     "stream_type": "hls",
-    "logo": "https://i.imgur.com/iKZvKyP.png",
+    "logo": "https://i.imgur.com/DogOkA4.png",
     "sources": [
       {
         "url": "http://stream.mcquack.net/112/index.m3u8",
@@ -1999,7 +1999,7 @@
     "is_alive": true,
     "notes": "",
     "popularity": 66,
-    "local_logo": "/static/logos/ru-matchboets.png"
+    "local_logo": "./static/logos/ru-matchboets.png"
   },
   {
     "id": "ru-kinokomediya",
@@ -2010,7 +2010,7 @@
     "genre": "Movies",
     "url": "http://stream.mcquack.net/265/index.m3u8",
     "stream_type": "hls",
-    "logo": "https://i.imgur.com/c6hW9oA.png",
+    "logo": "https://i.imgur.com/dVjtth0.png",
     "sources": [
       {
         "url": "http://stream.mcquack.net/265/index.m3u8",
@@ -2025,7 +2025,7 @@
     "is_alive": true,
     "notes": "",
     "popularity": 65,
-    "local_logo": "/static/logos/ru-kinokomediya.png"
+    "local_logo": "./static/logos/ru-kinokomediya.png"
   },
   {
     "id": "ru-vijucomedy",
@@ -2036,7 +2036,7 @@
     "genre": "Movies",
     "url": "http://stream.mcquack.net/201/index.m3u8",
     "stream_type": "hls",
-    "logo": "https://i.imgur.com/uG9X1kE.png",
+    "logo": "https://i.imgur.com/YoNOFu7.png",
     "sources": [
       {
         "url": "http://stream.mcquack.net/201/index.m3u8",
@@ -2051,7 +2051,7 @@
     "is_alive": true,
     "notes": "",
     "popularity": 64,
-    "local_logo": "/static/logos/ru-vijucomedy.png"
+    "local_logo": "./static/logos/ru-vijucomedy.png"
   },
   {
     "id": "ru-amedia1",
@@ -2062,7 +2062,7 @@
     "genre": "Movies",
     "url": "http://stream.mcquack.net/117/index.m3u8",
     "stream_type": "hls",
-    "logo": "https://i.imgur.com/d9vG3hQ.png",
+    "logo": "https://i.imgur.com/a8ZBGBw.png",
     "sources": [
       {
         "url": "http://stream.mcquack.net/117/index.m3u8",
@@ -2077,7 +2077,7 @@
     "is_alive": true,
     "notes": "",
     "popularity": 63,
-    "local_logo": "/static/logos/ru-amedia1.png"
+    "local_logo": "./static/logos/ru-amedia1.png"
   },
   {
     "id": "en-tlc",
@@ -2088,7 +2088,7 @@
     "genre": "Documentaries",
     "url": "http://stream.mcquack.net/168/index.m3u8",
     "stream_type": "hls",
-    "logo": "https://i.imgur.com/M8P2x4N.png",
+    "logo": "https://i.imgur.com/w7W9vqT.png",
     "sources": [
       {
         "url": "http://stream.mcquack.net/168/index.m3u8",
@@ -2103,7 +2103,7 @@
     "is_alive": true,
     "notes": "",
     "popularity": 62,
-    "local_logo": "/static/logos/en-tlc.png"
+    "local_logo": "./static/logos/en-tlc.png"
   },
   {
     "id": "en-bloomberg",
@@ -2114,7 +2114,7 @@
     "genre": "News",
     "url": "https://bloomberg.com/media-manifest/streams/us.m3u8",
     "stream_type": "hls",
-    "logo": "https://i.imgur.com/bmkXfIE.png",
+    "logo": "https://i.imgur.com/OuogLHx.png",
     "sources": [
       {
         "url": "https://bloomberg.com/media-manifest/streams/us.m3u8",
@@ -2129,7 +2129,7 @@
     "is_alive": true,
     "notes": "",
     "popularity": 61,
-    "local_logo": "/static/logos/en-bloomberg.png"
+    "local_logo": "./static/logos/en-bloomberg.png"
   },
   {
     "id": "ru-ren",
@@ -2140,7 +2140,7 @@
     "genre": "Entertainment",
     "url": "http://stream.mcquack.net/174/index.m3u8",
     "stream_type": "hls",
-    "logo": "https://i.imgur.com/kS9wT3I.png",
+    "logo": "https://i.imgur.com/0Tu5lte.png",
     "sources": [
       {
         "url": "http://stream.mcquack.net/174/index.m3u8",
@@ -2155,7 +2155,7 @@
     "is_alive": true,
     "notes": "",
     "popularity": 60,
-    "local_logo": "/static/logos/ru-ren.png"
+    "local_logo": "./static/logos/ru-ren.png"
   },
   {
     "id": "en-travelchannel",
@@ -2166,7 +2166,7 @@
     "genre": "Documentaries",
     "url": "http://stream.mcquack.net/231/index.m3u8",
     "stream_type": "hls",
-    "logo": "https://i.imgur.com/Kz8j6wF.png",
+    "logo": "https://i.imgur.com/RmHGeP1.png",
     "sources": [
       {
         "url": "http://stream.mcquack.net/231/index.m3u8",
@@ -2181,7 +2181,7 @@
     "is_alive": true,
     "notes": "",
     "popularity": 59,
-    "local_logo": "/static/logos/en-travelchannel.png"
+    "local_logo": "./static/logos/en-travelchannel.png"
   },
   {
     "id": "ge-formula",
@@ -2192,7 +2192,7 @@
     "genre": "News",
     "url": "https://c4635.cdn.xsg.ge/c4635/TVFormula/index.m3u8",
     "stream_type": "hls",
-    "logo": "https://i.imgur.com/wK6x8Yp.png",
+    "logo": "https://i.imgur.com/fsqBn8G.png",
     "sources": [
       {
         "url": "https://c4635.cdn.xsg.ge/c4635/TVFormula/index.m3u8",
@@ -2219,7 +2219,7 @@
     "is_alive": true,
     "notes": "",
     "popularity": 58,
-    "local_logo": "/static/logos/ge-formula.png"
+    "local_logo": "./static/logos/ge-formula.png"
   },
   {
     "id": "ru-matchstrana",
@@ -2245,7 +2245,7 @@
     "is_alive": true,
     "notes": "",
     "popularity": 57,
-    "local_logo": "/static/logos/ru-matchstrana.png"
+    "local_logo": "./static/logos/ru-matchstrana.png"
   },
   {
     "id": "ru-kinosvidaniye",
@@ -2256,7 +2256,7 @@
     "genre": "Movies",
     "url": "http://stream.mcquack.net/171/index.m3u8",
     "stream_type": "hls",
-    "logo": "https://i.imgur.com/GzB9kQW.png",
+    "logo": "https://i.imgur.com/ZRaWqxj.png",
     "sources": [
       {
         "url": "http://stream.mcquack.net/171/index.m3u8",
@@ -2271,7 +2271,7 @@
     "is_alive": true,
     "notes": "",
     "popularity": 56,
-    "local_logo": "/static/logos/ru-kinosvidaniye.png"
+    "local_logo": "./static/logos/ru-kinosvidaniye.png"
   },
   {
     "id": "ru-vijuserial",
@@ -2282,7 +2282,7 @@
     "genre": "Movies",
     "url": "http://stream.mcquack.net/311/index.m3u8",
     "stream_type": "hls",
-    "logo": "https://i.imgur.com/uG9X1kE.png",
+    "logo": "https://i.imgur.com/8yXZET5.png",
     "sources": [
       {
         "url": "http://stream.mcquack.net/311/index.m3u8",
@@ -2297,7 +2297,7 @@
     "is_alive": true,
     "notes": "",
     "popularity": 55,
-    "local_logo": "/static/logos/ru-vijuserial.png"
+    "local_logo": "./static/logos/ru-vijuserial.png"
   },
   {
     "id": "ru-amediahit",
@@ -2308,7 +2308,7 @@
     "genre": "Movies",
     "url": "http://stream.mcquack.net/162/index.m3u8",
     "stream_type": "hls",
-    "logo": "https://i.imgur.com/d9vG3hQ.png",
+    "logo": "https://i.imgur.com/a8ZBGBw.png",
     "sources": [
       {
         "url": "http://stream.mcquack.net/162/index.m3u8",
@@ -2323,7 +2323,7 @@
     "is_alive": true,
     "notes": "",
     "popularity": 54,
-    "local_logo": "/static/logos/ru-amediahit.png"
+    "local_logo": "./static/logos/ru-amediahit.png"
   },
   {
     "id": "ru-nauka2",
@@ -2349,7 +2349,7 @@
     "is_alive": true,
     "notes": "",
     "popularity": 53,
-    "local_logo": "/static/logos/ru-nauka2.png"
+    "local_logo": "./static/logos/ru-nauka2.png"
   },
   {
     "id": "ru-1tv",
@@ -2360,7 +2360,7 @@
     "genre": "Entertainment",
     "url": "http://stream.mcquack.net/216/index.m3u8",
     "stream_type": "hls",
-    "logo": "https://i.imgur.com/0uB0a6A.png",
+    "logo": "https://i.imgur.com/RUSX0rX.png",
     "sources": [
       {
         "url": "http://stream.mcquack.net/216/index.m3u8",
@@ -2375,7 +2375,7 @@
     "is_alive": true,
     "notes": "",
     "popularity": 52,
-    "local_logo": "/static/logos/ru-1tv.png"
+    "local_logo": "./static/logos/ru-1tv.png"
   },
   {
     "id": "ge-gds",
@@ -2386,7 +2386,7 @@
     "genre": "Movies",
     "url": "https://streaming-hls3.televizia.org/hls/gds.m3u8",
     "stream_type": "hls",
-    "logo": "https://i.imgur.com/4hJ7v0K.png",
+    "logo": "https://i.imgur.com/gv61tFf.png",
     "sources": [
       {
         "url": "https://streaming-hls3.televizia.org/hls/gds.m3u8",
@@ -2401,7 +2401,7 @@
     "is_alive": true,
     "notes": "",
     "popularity": 51,
-    "local_logo": "/static/logos/ge-gds.png"
+    "local_logo": "./static/logos/ge-gds.png"
   },
   {
     "id": "ru-khltv",
@@ -2427,7 +2427,7 @@
     "is_alive": true,
     "notes": "",
     "popularity": 50,
-    "local_logo": "/static/logos/ru-khltv.png"
+    "local_logo": "./static/logos/ru-khltv.png"
   },
   {
     "id": "ru-kinouzas",
@@ -2438,7 +2438,7 @@
     "genre": "Movies",
     "url": "http://stream.mcquack.net/278/index.m3u8",
     "stream_type": "hls",
-    "logo": "https://i.imgur.com/lJ41j7W.png",
+    "logo": "https://i.imgur.com/mAcAAQF.png",
     "sources": [
       {
         "url": "http://stream.mcquack.net/278/index.m3u8",
@@ -2453,7 +2453,7 @@
     "is_alive": true,
     "notes": "",
     "popularity": 49,
-    "local_logo": "/static/logos/ru-kinouzas.png"
+    "local_logo": "./static/logos/ru-kinouzas.png"
   },
   {
     "id": "en-fox",
@@ -2479,7 +2479,7 @@
     "is_alive": true,
     "notes": "",
     "popularity": 48,
-    "local_logo": "/static/logos/en-fox.png"
+    "local_logo": "./static/logos/en-fox.png"
   },
   {
     "id": "en-vijuexplore",
@@ -2490,7 +2490,7 @@
     "genre": "Documentaries",
     "url": "http://stream.mcquack.net/239/index.m3u8",
     "stream_type": "hls",
-    "logo": "https://i.imgur.com/uG9X1kE.png",
+    "logo": "https://i.imgur.com/EGIpLPu.png",
     "sources": [
       {
         "url": "http://stream.mcquack.net/239/index.m3u8",
@@ -2505,7 +2505,7 @@
     "is_alive": true,
     "notes": "",
     "popularity": 47,
-    "local_logo": "/static/logos/en-vijuexplore.png"
+    "local_logo": "./static/logos/en-vijuexplore.png"
   },
   {
     "id": "en-dw",
@@ -2537,7 +2537,7 @@
     "is_alive": true,
     "notes": "",
     "popularity": 46,
-    "local_logo": "/static/logos/en-dw.png"
+    "local_logo": "./static/logos/en-dw.png"
   },
   {
     "id": "ru-ntv",
@@ -2548,7 +2548,7 @@
     "genre": "Entertainment",
     "url": "http://stream.mcquack.net/219/index.m3u8",
     "stream_type": "hls",
-    "logo": "https://i.imgur.com/8fP44vj.png",
+    "logo": "https://i.imgur.com/9r1BKzK.png",
     "sources": [
       {
         "url": "http://stream.mcquack.net/219/index.m3u8",
@@ -2563,7 +2563,7 @@
     "is_alive": true,
     "notes": "",
     "popularity": 45,
-    "local_logo": "/static/logos/ru-ntv.png"
+    "local_logo": "./static/logos/ru-ntv.png"
   },
   {
     "id": "ge-comedy",
@@ -2574,7 +2574,7 @@
     "genre": "Entertainment",
     "url": "https://streaming-hls2.televizia.org/hls/comedy.m3u8",
     "stream_type": "hls",
-    "logo": "https://i.imgur.com/FwM1w0f.png",
+    "logo": "https://i.imgur.com/i1TANKv.png",
     "sources": [
       {
         "url": "https://streaming-hls2.televizia.org/hls/comedy.m3u8",
@@ -2589,7 +2589,7 @@
     "is_alive": true,
     "notes": "",
     "popularity": 44,
-    "local_logo": "/static/logos/ge-comedy.png"
+    "local_logo": "./static/logos/ge-comedy.png"
   },
   {
     "id": "ru-khlprime",
@@ -2615,7 +2615,7 @@
     "is_alive": true,
     "notes": "",
     "popularity": 43,
-    "local_logo": "/static/logos/ru-khlprime.png"
+    "local_logo": "./static/logos/ru-khlprime.png"
   },
   {
     "id": "en-foxlife",
@@ -2641,7 +2641,7 @@
     "is_alive": true,
     "notes": "",
     "popularity": 42,
-    "local_logo": "/static/logos/en-foxlife.png"
+    "local_logo": "./static/logos/en-foxlife.png"
   },
   {
     "id": "en-vijuhistory",
@@ -2652,7 +2652,7 @@
     "genre": "Documentaries",
     "url": "http://stream.mcquack.net/101/index.m3u8",
     "stream_type": "hls",
-    "logo": "https://i.imgur.com/uG9X1kE.png",
+    "logo": "https://i.imgur.com/FqWkeXb.png",
     "sources": [
       {
         "url": "http://stream.mcquack.net/101/index.m3u8",
@@ -2667,7 +2667,7 @@
     "is_alive": true,
     "notes": "",
     "popularity": 41,
-    "local_logo": "/static/logos/en-vijuhistory.png"
+    "local_logo": "./static/logos/en-vijuhistory.png"
   },
   {
     "id": "ru-domashniy",
@@ -2693,7 +2693,7 @@
     "is_alive": true,
     "notes": "",
     "popularity": 40,
-    "local_logo": "/static/logos/ru-domashniy.png"
+    "local_logo": "./static/logos/ru-domashniy.png"
   },
   {
     "id": "en-travelxp",
@@ -2704,7 +2704,7 @@
     "genre": "Documentaries",
     "url": "http://stream.mcquack.net/451/index.m3u8",
     "stream_type": "hls",
-    "logo": "https://i.imgur.com/uG9X1kE.png",
+    "logo": "https://i.imgur.com/HUWEnc5.png",
     "sources": [
       {
         "url": "http://stream.mcquack.net/451/index.m3u8",
@@ -2719,7 +2719,7 @@
     "is_alive": true,
     "notes": "",
     "popularity": 39,
-    "local_logo": "/static/logos/en-travelxp.png"
+    "local_logo": "./static/logos/en-travelxp.png"
   },
   {
     "id": "ru-vijusport",
@@ -2730,7 +2730,7 @@
     "genre": "Sports",
     "url": "http://stream.mcquack.net/333/index.m3u8",
     "stream_type": "hls",
-    "logo": "https://i.imgur.com/uG9X1kE.png",
+    "logo": "https://i.imgur.com/fXESG0l.png",
     "sources": [
       {
         "url": "http://stream.mcquack.net/333/index.m3u8",
@@ -2745,7 +2745,7 @@
     "is_alive": true,
     "notes": "",
     "popularity": 38,
-    "local_logo": "/static/logos/ru-vijusport.png"
+    "local_logo": "./static/logos/ru-vijusport.png"
   },
   {
     "id": "ru-kinotv",
@@ -2756,7 +2756,7 @@
     "genre": "Movies",
     "url": "http://stream.mcquack.net/221/index.m3u8",
     "stream_type": "hls",
-    "logo": "https://i.imgur.com/lJ41j7W.png",
+    "logo": "https://i.imgur.com/sMpamNO.png",
     "sources": [
       {
         "url": "http://stream.mcquack.net/221/index.m3u8",
@@ -2771,7 +2771,7 @@
     "is_alive": true,
     "notes": "",
     "popularity": 37,
-    "local_logo": "/static/logos/ru-kinotv.png"
+    "local_logo": "./static/logos/ru-kinotv.png"
   },
   {
     "id": "en-vijuplanet",
@@ -2782,7 +2782,7 @@
     "genre": "Documentaries",
     "url": "http://stream.mcquack.net/240/index.m3u8",
     "stream_type": "hls",
-    "logo": "https://i.imgur.com/uG9X1kE.png",
+    "logo": "https://i.imgur.com/9Weqdsk.png",
     "sources": [
       {
         "url": "http://stream.mcquack.net/240/index.m3u8",
@@ -2797,7 +2797,7 @@
     "is_alive": true,
     "notes": "",
     "popularity": 36,
-    "local_logo": "/static/logos/en-vijuplanet.png"
+    "local_logo": "./static/logos/en-vijuplanet.png"
   },
   {
     "id": "ru-subbota",
@@ -2808,7 +2808,7 @@
     "genre": "Entertainment",
     "url": "http://stream.mcquack.net/269/index.m3u8",
     "stream_type": "hls",
-    "logo": "https://i.imgur.com/r8B2c0v.png",
+    "logo": "https://i.imgur.com/nsk8PpB.png",
     "sources": [
       {
         "url": "http://stream.mcquack.net/269/index.m3u8",
@@ -2823,7 +2823,7 @@
     "is_alive": true,
     "notes": "",
     "popularity": 35,
-    "local_logo": "/static/logos/ru-subbota.png"
+    "local_logo": "./static/logos/ru-subbota.png"
   },
   {
     "id": "ru-stslove",
@@ -2849,7 +2849,7 @@
     "is_alive": true,
     "notes": "",
     "popularity": 34,
-    "local_logo": "/static/logos/ru-stslove.png"
+    "local_logo": "./static/logos/ru-stslove.png"
   },
   {
     "id": "ru-extremesports",
@@ -2875,7 +2875,7 @@
     "is_alive": true,
     "notes": "",
     "popularity": 33,
-    "local_logo": "/static/logos/ru-extremesports.png"
+    "local_logo": "./static/logos/ru-extremesports.png"
   },
   {
     "id": "ru-kinopokaz",
@@ -2886,7 +2886,7 @@
     "genre": "Movies",
     "url": "http://stream.mcquack.net/64/index.m3u8",
     "stream_type": "hls",
-    "logo": "https://i.imgur.com/c6hW9oA.png",
+    "logo": "https://i.imgur.com/nNjMyAq.png",
     "sources": [
       {
         "url": "http://stream.mcquack.net/64/index.m3u8",
@@ -2901,7 +2901,7 @@
     "is_alive": true,
     "notes": "",
     "popularity": 32,
-    "local_logo": "/static/logos/ru-kinopokaz.png"
+    "local_logo": "./static/logos/ru-kinopokaz.png"
   },
   {
     "id": "en-davinci",
@@ -2927,7 +2927,7 @@
     "is_alive": true,
     "notes": "",
     "popularity": 31,
-    "local_logo": "/static/logos/en-davinci.png"
+    "local_logo": "./static/logos/en-davinci.png"
   },
   {
     "id": "ru-2x2",
@@ -2938,7 +2938,7 @@
     "genre": "Kids",
     "url": "http://stream.mcquack.net/187/index.m3u8",
     "stream_type": "hls",
-    "logo": "https://i.imgur.com/m6Yk7Wz.png",
+    "logo": "https://i.imgur.com/fhQFLEl.png",
     "sources": [
       {
         "url": "http://stream.mcquack.net/187/index.m3u8",
@@ -2953,7 +2953,7 @@
     "is_alive": true,
     "notes": "",
     "popularity": 30,
-    "local_logo": "/static/logos/ru-2x2.png"
+    "local_logo": "./static/logos/ru-2x2.png"
   },
   {
     "id": "ru-stskids",
@@ -2964,7 +2964,7 @@
     "genre": "Kids",
     "url": "http://stream.mcquack.net/197/index.m3u8",
     "stream_type": "hls",
-    "logo": "https://i.imgur.com/ilUzAeb.png",
+    "logo": "https://i.imgur.com/o9kLpAL.png",
     "sources": [
       {
         "url": "http://stream.mcquack.net/197/index.m3u8",
@@ -2979,7 +2979,7 @@
     "is_alive": true,
     "notes": "",
     "popularity": 29,
-    "local_logo": "/static/logos/ru-stskids.png"
+    "local_logo": "./static/logos/ru-stskids.png"
   },
   {
     "id": "ge-postv",
@@ -2990,7 +2990,7 @@
     "genre": "News",
     "url": "https://streaming-hls4.televizia.org/hls/postv.m3u8",
     "stream_type": "hls",
-    "logo": "https://i.imgur.com/rN9eJ2K.png",
+    "logo": "https://i.imgur.com/UOiXFEW.png",
     "sources": [
       {
         "url": "https://streaming-hls4.televizia.org/hls/postv.m3u8",
@@ -3005,7 +3005,7 @@
     "is_alive": true,
     "notes": "",
     "popularity": 28,
-    "local_logo": "/static/logos/ge-postv.png"
+    "local_logo": "./static/logos/ge-postv.png"
   },
   {
     "id": "ru-udar",
@@ -3016,7 +3016,7 @@
     "genre": "Sports",
     "url": "http://stream.mcquack.net/279/index.m3u8",
     "stream_type": "hls",
-    "logo": "https://i.imgur.com/J3tG21K.png",
+    "logo": "https://mt.media/upload/iblock/2b3/2b3cf99141bf7f99cda377eec62ec084.png",
     "sources": [
       {
         "url": "http://stream.mcquack.net/279/index.m3u8",
@@ -3031,7 +3031,7 @@
     "is_alive": true,
     "notes": "",
     "popularity": 27,
-    "local_logo": "/static/logos/ru-udar.png"
+    "local_logo": "./static/logos/ru-udar.png"
   },
   {
     "id": "ru-muzhskoekino",
@@ -3042,7 +3042,7 @@
     "genre": "Movies",
     "url": "http://stream.mcquack.net/107/index.m3u8",
     "stream_type": "hls",
-    "logo": "https://i.imgur.com/GzB9kQW.png",
+    "logo": "https://i.imgur.com/8RN3tQC.png",
     "sources": [
       {
         "url": "http://stream.mcquack.net/107/index.m3u8",
@@ -3057,7 +3057,7 @@
     "is_alive": true,
     "notes": "",
     "popularity": 26,
-    "local_logo": "/static/logos/ru-muzhskoekino.png"
+    "local_logo": "./static/logos/ru-muzhskoekino.png"
   },
   {
     "id": "ru-doktor",
@@ -3068,7 +3068,7 @@
     "genre": "Documentaries",
     "url": "http://stream.mcquack.net/80/index.m3u8",
     "stream_type": "hls",
-    "logo": "https://i.imgur.com/K1bT7zM.png",
+    "logo": "https://static.wikia.nocookie.net/tvpedia/images/e/e8/%D0%94%D0%BE%D0%BA%D1%82%D0%BE%D1%80_%282020%29.svg/revision/latest?cb=20210107202221&path-prefix=ru",
     "sources": [
       {
         "url": "http://stream.mcquack.net/80/index.m3u8",
@@ -3083,7 +3083,7 @@
     "is_alive": true,
     "notes": "",
     "popularity": 25,
-    "local_logo": "/static/logos/ru-doktor.png"
+    "local_logo": "./static/logos/ru-doktor.png"
   },
   {
     "id": "ru-che",
@@ -3094,7 +3094,7 @@
     "genre": "Entertainment",
     "url": "http://stream.mcquack.net/244/index.m3u8",
     "stream_type": "hls",
-    "logo": "https://i.imgur.com/x4k9qQo.png",
+    "logo": "https://i.imgur.com/ZOcDGpB.png",
     "sources": [
       {
         "url": "http://stream.mcquack.net/244/index.m3u8",
@@ -3109,7 +3109,7 @@
     "is_alive": true,
     "notes": "",
     "popularity": 24,
-    "local_logo": "/static/logos/ru-che.png"
+    "local_logo": "./static/logos/ru-che.png"
   },
   {
     "id": "en-cmusic",
@@ -3120,7 +3120,7 @@
     "genre": "Music",
     "url": "http://stream.mcquack.net/312/index.m3u8",
     "stream_type": "hls",
-    "logo": "https://i.imgur.com/9nJ5b1k.png",
+    "logo": "https://i.imgur.com/TpXs1qA.png",
     "sources": [
       {
         "url": "http://stream.mcquack.net/312/index.m3u8",
@@ -3135,7 +3135,7 @@
     "is_alive": true,
     "notes": "",
     "popularity": 23,
-    "local_logo": "/static/logos/en-cmusic.png"
+    "local_logo": "./static/logos/en-cmusic.png"
   },
   {
     "id": "ge-marao",
@@ -3146,7 +3146,7 @@
     "genre": "Entertainment",
     "url": "https://streaming-hls4.televizia.org/hls/marao.m3u8",
     "stream_type": "hls",
-    "logo": "https://i.imgur.com/rPqd1Cx.png",
+    "logo": "https://i.imgur.com/Nurmw1G.png",
     "sources": [
       {
         "url": "https://streaming-hls4.televizia.org/hls/marao.m3u8",
@@ -3161,7 +3161,7 @@
     "is_alive": true,
     "notes": "",
     "popularity": 22,
-    "local_logo": "/static/logos/ge-marao.png"
+    "local_logo": "./static/logos/ge-marao.png"
   },
   {
     "id": "ru-boxtv",
@@ -3172,7 +3172,7 @@
     "genre": "Sports",
     "url": "http://stream.mcquack.net/154/index.m3u8",
     "stream_type": "hls",
-    "logo": "https://i.imgur.com/tYn9pM1.png",
+    "logo": "https://i.imgur.com/swFzesA.png",
     "sources": [
       {
         "url": "http://stream.mcquack.net/154/index.m3u8",
@@ -3187,7 +3187,7 @@
     "is_alive": true,
     "notes": "",
     "popularity": 21,
-    "local_logo": "/static/logos/ru-boxtv.png"
+    "local_logo": "./static/logos/ru-boxtv.png"
   },
   {
     "id": "ru-rodnoekino",
@@ -3198,7 +3198,7 @@
     "genre": "Movies",
     "url": "http://stream.mcquack.net/242/index.m3u8",
     "stream_type": "hls",
-    "logo": "https://i.imgur.com/rJpQtvK.png",
+    "logo": "https://i.imgur.com/H70LxoZ.png",
     "sources": [
       {
         "url": "http://stream.mcquack.net/242/index.m3u8",
@@ -3213,7 +3213,7 @@
     "is_alive": true,
     "notes": "",
     "popularity": 20,
-    "local_logo": "/static/logos/ru-rodnoekino.png"
+    "local_logo": "./static/logos/ru-rodnoekino.png"
   },
   {
     "id": "ru-glazamiturista",
@@ -3224,7 +3224,7 @@
     "genre": "Documentaries",
     "url": "http://stream.mcquack.net/304/index.m3u8",
     "stream_type": "hls",
-    "logo": "https://i.imgur.com/uG9X1kE.png",
+    "logo": "https://i.imgur.com/GXJKWdy.png",
     "sources": [
       {
         "url": "http://stream.mcquack.net/304/index.m3u8",
@@ -3239,7 +3239,7 @@
     "is_alive": true,
     "notes": "",
     "popularity": 19,
-    "local_logo": "/static/logos/ru-glazamiturista.png"
+    "local_logo": "./static/logos/ru-glazamiturista.png"
   },
   {
     "id": "en-musicbox",
@@ -3250,7 +3250,7 @@
     "genre": "Music",
     "url": "http://stream.mcquack.net/319/index.m3u8",
     "stream_type": "hls",
-    "logo": "https://i.imgur.com/9nJ5b1k.png",
+    "logo": "https://i.imgur.com/ZkJ3Rh9.png",
     "sources": [
       {
         "url": "http://stream.mcquack.net/319/index.m3u8",
@@ -3265,7 +3265,7 @@
     "is_alive": true,
     "notes": "",
     "popularity": 18,
-    "local_logo": "/static/logos/en-musicbox.png"
+    "local_logo": "./static/logos/en-musicbox.png"
   },
   {
     "id": "ge-adjaratv",
@@ -3291,7 +3291,7 @@
     "is_alive": true,
     "notes": "",
     "popularity": 17,
-    "local_logo": "/static/logos/ge-adjaratv.png"
+    "local_logo": "./static/logos/ge-adjaratv.png"
   },
   {
     "id": "ru-sport1",
@@ -3302,7 +3302,7 @@
     "genre": "Sports",
     "url": "http://stream.mcquack.net/391/index.m3u8",
     "stream_type": "hls",
-    "logo": "https://i.imgur.com/ZtoZQUV.png",
+    "logo": "https://i.imgur.com/Zjb8awW.png",
     "sources": [
       {
         "url": "http://stream.mcquack.net/391/index.m3u8",
@@ -3317,7 +3317,7 @@
     "is_alive": true,
     "notes": "",
     "popularity": 16,
-    "local_logo": "/static/logos/ru-sport1.png"
+    "local_logo": "./static/logos/ru-sport1.png"
   },
   {
     "id": "ru-evrokino",
@@ -3328,7 +3328,7 @@
     "genre": "Movies",
     "url": "http://stream.mcquack.net/385/index.m3u8",
     "stream_type": "hls",
-    "logo": "https://i.imgur.com/c6hW9oA.png",
+    "logo": "https://i.imgur.com/8LPtPf6.png",
     "sources": [
       {
         "url": "http://stream.mcquack.net/385/index.m3u8",
@@ -3343,7 +3343,7 @@
     "is_alive": true,
     "notes": "",
     "popularity": 15,
-    "local_logo": "/static/logos/ru-evrokino.png"
+    "local_logo": "./static/logos/ru-evrokino.png"
   },
   {
     "id": "ru-vmirezhivotnykh",
@@ -3354,7 +3354,7 @@
     "genre": "Documentaries",
     "url": "http://stream.mcquack.net/241/index.m3u8",
     "stream_type": "hls",
-    "logo": "https://i.imgur.com/uG9X1kE.png",
+    "logo": "https://i.imgur.com/6uotdVQ.png",
     "sources": [
       {
         "url": "http://stream.mcquack.net/241/index.m3u8",
@@ -3369,7 +3369,7 @@
     "is_alive": true,
     "notes": "",
     "popularity": 14,
-    "local_logo": "/static/logos/ru-vmirezhivotnykh.png"
+    "local_logo": "./static/logos/ru-vmirezhivotnykh.png"
   },
   {
     "id": "ge-palitra",
@@ -3380,7 +3380,7 @@
     "genre": "News",
     "url": "https://live.palitranews.ge/hls/palitratv/index.m3u8",
     "stream_type": "hls",
-    "logo": "https://i.imgur.com/bY3M7qK.png",
+    "logo": "https://i.imgur.com/BW95PMF.png",
     "sources": [
       {
         "url": "https://live.palitranews.ge/hls/palitratv/index.m3u8",
@@ -3395,7 +3395,7 @@
     "is_alive": true,
     "notes": "",
     "popularity": 13,
-    "local_logo": "/static/logos/ge-palitra.png"
+    "local_logo": "./static/logos/ge-palitra.png"
   },
   {
     "id": "ru-sport2",
@@ -3406,7 +3406,7 @@
     "genre": "Sports",
     "url": "http://stream.mcquack.net/392/index.m3u8",
     "stream_type": "hls",
-    "logo": "https://i.imgur.com/VwQnBqa.png",
+    "logo": "https://i.imgur.com/vk0j1mY.png",
     "sources": [
       {
         "url": "http://stream.mcquack.net/392/index.m3u8",
@@ -3421,7 +3421,7 @@
     "is_alive": true,
     "notes": "",
     "popularity": 12,
-    "local_logo": "/static/logos/ru-sport2.png"
+    "local_logo": "./static/logos/ru-sport2.png"
   },
   {
     "id": "ru-bestseller",
@@ -3432,7 +3432,7 @@
     "genre": "Movies",
     "url": "http://stream.mcquack.net/208/index.m3u8",
     "stream_type": "hls",
-    "logo": "https://i.imgur.com/lJ41j7W.png",
+    "logo": "https://i.imgur.com/w0ZE9QJ.png",
     "sources": [
       {
         "url": "http://stream.mcquack.net/208/index.m3u8",
@@ -3447,7 +3447,7 @@
     "is_alive": true,
     "notes": "",
     "popularity": 11,
-    "local_logo": "/static/logos/ru-bestseller.png"
+    "local_logo": "./static/logos/ru-bestseller.png"
   },
   {
     "id": "ru-365dney",
@@ -3458,7 +3458,7 @@
     "genre": "Documentaries",
     "url": "http://stream.mcquack.net/70/index.m3u8",
     "stream_type": "hls",
-    "logo": "https://i.imgur.com/uG9X1kE.png",
+    "logo": "https://i.imgur.com/NfnAiTR.png",
     "sources": [
       {
         "url": "http://stream.mcquack.net/70/index.m3u8",
@@ -3473,7 +3473,7 @@
     "is_alive": true,
     "notes": "",
     "popularity": 10,
-    "local_logo": "/static/logos/ru-365dney.png"
+    "local_logo": "./static/logos/ru-365dney.png"
   },
   {
     "id": "ge-kavkasia",
@@ -3484,7 +3484,7 @@
     "genre": "News",
     "url": "https://streaming-hls2.televizia.org/hls/kavkasia.m3u8",
     "stream_type": "hls",
-    "logo": "https://i.imgur.com/q8bK6Lm.png",
+    "logo": "https://i.imgur.com/Z5b7w7K.png",
     "sources": [
       {
         "url": "https://streaming-hls2.televizia.org/hls/kavkasia.m3u8",
@@ -3499,7 +3499,7 @@
     "is_alive": true,
     "notes": "",
     "popularity": 10,
-    "local_logo": "/static/logos/ge-kavkasia.png"
+    "local_logo": "./static/logos/ge-kavkasia.png"
   },
   {
     "id": "ru-sport3",
@@ -3510,7 +3510,7 @@
     "genre": "Sports",
     "url": "http://stream.mcquack.net/393/index.m3u8",
     "stream_type": "hls",
-    "logo": "https://i.imgur.com/ZtoZQUV.png",
+    "logo": "https://i.imgur.com/qkvavfH.png",
     "sources": [
       {
         "url": "http://stream.mcquack.net/393/index.m3u8",
@@ -3525,7 +3525,7 @@
     "is_alive": true,
     "notes": "",
     "popularity": 10,
-    "local_logo": "/static/logos/ru-sport3.png"
+    "local_logo": "./static/logos/ru-sport3.png"
   },
   {
     "id": "ru-detektiv",
@@ -3536,7 +3536,7 @@
     "genre": "Movies",
     "url": "http://stream.mcquack.net/204/index.m3u8",
     "stream_type": "hls",
-    "logo": "https://i.imgur.com/GzB9kQW.png",
+    "logo": "https://i.imgur.com/H3qhN8S.png",
     "sources": [
       {
         "url": "http://stream.mcquack.net/204/index.m3u8",
@@ -3551,7 +3551,7 @@
     "is_alive": true,
     "notes": "",
     "popularity": 10,
-    "local_logo": "/static/logos/ru-detektiv.png"
+    "local_logo": "./static/logos/ru-detektiv.png"
   },
   {
     "id": "ge-rioni",
@@ -3562,7 +3562,7 @@
     "genre": "Entertainment",
     "url": "https://streaming-hls1.televizia.org/hls/rioni.m3u8",
     "stream_type": "hls",
-    "logo": "https://i.imgur.com/kM8Z1xP.png",
+    "logo": "https://i.imgur.com/ogMqmth.png",
     "sources": [
       {
         "url": "https://streaming-hls1.televizia.org/hls/rioni.m3u8",
@@ -3577,7 +3577,7 @@
     "is_alive": true,
     "notes": "",
     "popularity": 10,
-    "local_logo": "/static/logos/ge-rioni.png"
+    "local_logo": "./static/logos/ge-rioni.png"
   },
   {
     "id": "en-sport1baltic",
@@ -3588,7 +3588,7 @@
     "genre": "Sports",
     "url": "http://stream.mcquack.net/461/index.m3u8",
     "stream_type": "hls",
-    "logo": "https://i.imgur.com/ZtoZQUV.png",
+    "logo": "https://i.imgur.com/aBY7QK4.png",
     "sources": [
       {
         "url": "http://stream.mcquack.net/461/index.m3u8",
@@ -3603,7 +3603,7 @@
     "is_alive": true,
     "notes": "",
     "popularity": 10,
-    "local_logo": "/static/logos/en-sport1baltic.png"
+    "local_logo": "./static/logos/en-sport1baltic.png"
   },
   {
     "id": "ge-ertsulovneba",
@@ -3614,7 +3614,7 @@
     "genre": "Documentaries",
     "url": "https://stream.sstv.ge/live/sstv/playlist.m3u8",
     "stream_type": "hls",
-    "logo": "https://i.imgur.com/tYF6u8R.png",
+    "logo": "https://i.imgur.com/KuuODMM.png",
     "sources": [
       {
         "url": "https://stream.sstv.ge/live/sstv/playlist.m3u8",
@@ -3629,7 +3629,7 @@
     "is_alive": true,
     "notes": "",
     "popularity": 10,
-    "local_logo": "/static/logos/ge-ertsulovneba.png"
+    "local_logo": "./static/logos/ge-ertsulovneba.png"
   },
   {
     "id": "en-redbull",
@@ -3640,7 +3640,7 @@
     "genre": "Sports",
     "url": "https://rbmn-live.akamaized.net/hls/live/590964/BoRB-AT/master.m3u8",
     "stream_type": "hls",
-    "logo": "https://i.imgur.com/m7IC01U.png",
+    "logo": "https://i.postimg.cc/8c78JM28/image.png",
     "sources": [
       {
         "url": "https://rbmn-live.akamaized.net/hls/live/590964/BoRB-AT/master.m3u8",
@@ -3655,6 +3655,6 @@
     "is_alive": true,
     "notes": "",
     "popularity": 10,
-    "local_logo": "/static/logos/en-redbull.png"
+    "local_logo": "./static/logos/en-redbull.png"
   }
 ]

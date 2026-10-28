@@ -595,9 +595,12 @@ function renderChannels() {
     else if (ch.language === "English") { langClass = "lang-en"; langLabel = "🇬🇧 EN"; }
 
     const initials = getInitials(ch.name);
-    const logoSrc = ch.local_logo || ch.logo;
+    const resolvedLocal = resolveAssetUrl(ch.local_logo);
+    const resolvedOnline = resolveAssetUrl(ch.logo);
+    const logoSrc = resolvedLocal || resolvedOnline;
+    const fallbackAttr = (resolvedLocal && resolvedOnline && resolvedOnline !== resolvedLocal) ? ` data-fallback-logo="${resolvedOnline}"` : "";
     const logoHtml = logoSrc
-      ? `<img src="${logoSrc}" class="channel-logo" alt="${ch.name}" referrerpolicy="no-referrer" loading="lazy" onerror="handleImgError(this, '${ch.name.replace(/'/g, "\\'")}', '${ch.genre || "General"}', '${ch.language || "English"}')">`
+      ? `<img src="${logoSrc}"${fallbackAttr} class="channel-logo" alt="${ch.name}" referrerpolicy="no-referrer" loading="lazy" onerror="handleImgError(this, '${ch.name.replace(/'/g, "\\'")}', '${ch.genre || "General"}', '${ch.language || "English"}')">`
       : `<div class="monogram-fallback"><span>${initials}</span><span class="monogram-sub">📺</span></div>`;
 
     const statusBadge = isDead
@@ -1297,7 +1300,7 @@ async function openMatchStreamModal(slug, title, timeLabel, isLive) {
         channels.forEach(ch => {
           chipsHtml += `
             <div class="matched-chip" onclick="castMatchedTvChannel('${ch.id}', '${escapeJs(ch.name)}')">
-              ${ch.logo ? `<img class="matched-chip-logo" src="${ch.logo}" alt="" onerror="this.style.display='none'">` : '📺'}
+              ${(ch.local_logo || ch.logo) ? `<img class="matched-chip-logo" src="${resolveAssetUrl(ch.local_logo) || resolveAssetUrl(ch.logo)}" alt="" onerror="this.style.display='none'">` : '📺'}
               <span>${escapeHtml(ch.name)}</span>
             </div>
           `;

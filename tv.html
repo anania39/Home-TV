@@ -286,6 +286,14 @@
       return "TV";
     }
 
+    function resolveAssetUrl(path) {
+      if (!path) return "";
+      if (path.startsWith("http://") || path.startsWith("https://") || path.startsWith("data:")) return path;
+      if (path.startsWith("/static/")) return "./" + path.substring(1);
+      if (path.startsWith("/")) return "." + path;
+      return path;
+    }
+
     function showOSD(title, status = "Playing Live Stream", logoUrl = "", sourceIdx = null, totalSources = null) {
       osdTitle.textContent = title;
       const tot = (totalSources !== null) ? totalSources : (currentSources ? currentSources.length : 1);
@@ -301,7 +309,7 @@
           osdLogoInitials.style.display = "block";
           osdLogoInitials.textContent = getInitials(title);
         };
-        osdLogoImg.src = logoUrl;
+        osdLogoImg.src = resolveAssetUrl(logoUrl);
       } else {
         osdLogoImg.style.display = "none";
         osdLogoInitials.style.display = "block";
