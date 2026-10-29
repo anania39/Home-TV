@@ -2989,3 +2989,117 @@ header {
   border-radius: 4px;
   font-size: 10px;
 }
+
+/* Universal Cast Card Enhancements */
+.universal-cast-card {
+  position: relative;
+  overflow: hidden;
+  border: 1px solid rgba(0, 242, 254, 0.25);
+  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.4), 0 0 20px rgba(0, 242, 254, 0.05);
+}
+.universal-cast-card::before {
+  content: "";
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  height: 2px;
+  background: linear-gradient(90deg, #ff0000, #ff7300, #00f2fe);
+}
+.cast-badge-highlight {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: rgba(0, 242, 254, 0.12);
+  border: 1px solid rgba(0, 242, 254, 0.35);
+  color: var(--accent-cyan);
+  font-size: 10px;
+  font-weight: 800;
+  padding: 3px 9px;
+  border-radius: 20px;
+  letter-spacing: 0.8px;
+  margin-bottom: 8px;
+}
+.input-with-action {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+.input-with-action .form-input {
+  padding-right: 75px;
+}
+.btn-input-action {
+  position: absolute;
+  right: 6px;
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  color: #ffffff;
+  border-radius: 8px;
+  padding: 5px 10px;
+  font-size: 11px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+.btn-input-action:hover {
+  background: rgba(0, 242, 254, 0.2);
+  border-color: var(--accent-cyan);
+  color: var(--accent-cyan);
+}
+.cast-detected-pill {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: rgba(0, 242, 254, 0.1);
+  border: 1px solid rgba(0, 242, 254, 0.3);
+  color: var(--accent-cyan);
+  font-size: 11px;
+  font-weight: 700;
+  padding: 6px 12px;
+  border-radius: 8px;
+  margin-top: 8px;
+  animation: fadeIn 0.25s ease;
+}
+.cast-detected-pill.youtube {
+  background: rgba(255, 0, 0, 0.12);
+  border-color: rgba(255, 0, 0, 0.35);
+  color: #ff5252;
+}
+.cast-detected-pill.movie {
+  background: rgba(187, 134, 252, 0.12);
+  border-color: rgba(187, 134, 252, 0.35);
+  color: #bb86fc;
+}
+.cast-preview-box {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  background: rgba(0, 0, 0, 0.3);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 10px;
+  padding: 8px 12px;
+  margin-top: 8px;
+  animation: fadeIn 0.3s ease;
+}
+.cast-preview-thumb {
+  width: 64px;
+  height: 42px;
+  border-radius: 6px;
+  object-fit: cover;
+  background: rgba(255, 255, 255, 0.05);
+}
+.cast-preview-info {
+  flex: 1;
+  min-width: 0;
+}
+.cast-preview-title {
+  font-size: 12px;
+  font-weight: 700;
+  color: #ffffff;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.cast-preview-tag {
+  font-size: 10px;
+  color: #00e676;
+  margin-top: 2px;
+}

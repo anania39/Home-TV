@@ -432,6 +432,8 @@ async def proxy_stream(url: str, request: Request, server_host: str):
         "Accept": "*/*",
         "Accept-Encoding": "gzip, deflate",
     }
+    if "range" in request.headers:
+        headers["Range"] = request.headers["range"]
     # Specific referrers for protected feeds (Georgian Silk Universal, Rugby TV, etc.)
     if "televizia" in url or "televiziebi" in url:
         headers["Referer"] = "https://www.televizia.org/"

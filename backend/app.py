@@ -569,11 +569,33 @@ async def protect_this_pc():
         return {"status": "error", "message": str(e)}
     return {"status": "error", "message": "Only available on Windows host"}
 
+@app.get("/api/media/resolve")
+async def resolve_media_url(url: str):
+    from .media_resolver import media_resolver
+    return await media_resolver.resolve(url)
+
 @app.post("/api/cast")
 async def cast_media(req: CastRequest, request: Request, client_ip: str = Depends(verify_local_network)):
     device_id = req.device_id or device_manager.selected_device_id
     raw_stream_url = req.url.strip()
     title = req.title or "Live Stream"
+
+    # Universal Ad-Free Media Resolver:
+    # Automatically extracts clean, ad-free direct streams from YouTube, movie platforms & web players
+    try:
+        from .media_resolver import media_resolver
+        preferred_title = req.title if req.title not in ("Live Stream", "Video Stream") else None
+        resolved = await media_resolver.resolve(raw_stream_url, preferred_title=preferred_title)
+        if resolved.get("resolved") and resolved.get("stream_url"):
+            logger.info(f"Resolved clean stream for {resolved.get('source_type')}: {resolved.get('title')}")
+            raw_stream_url = resolved["stream_url"]
+            if not req.title or req.title in ("Video Stream", "Live Stream"):
+                title = resolved.get("title") or title
+            if resolved.get("mime_type"):
+                req.mime_type = resolved["mime_type"]
+    except Exception as e:
+        logger.warning(f"Media resolution notice: {e}")
+
     dev = device_manager.get_device(device_id) if device_id != "web_receiver" else None
 
     # Step 1: Compute version & update state BEFORE any await to guarantee atomic monotonicity

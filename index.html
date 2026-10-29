@@ -20,7 +20,7 @@
   <link rel="dns-prefetch" href="https://i.postimg.cc">
   <link rel="dns-prefetch" href="https://uut-telecom.ru">
   <link rel="dns-prefetch" href="https://rutv.by">
-  <link rel="stylesheet" href="static/style.css?v=2.7">
+  <link rel="stylesheet" href="static/style.css?v=2.9">
 </head>
 <body>
 
@@ -280,33 +280,53 @@
       </div>
     </section>
 
-    <!-- TAB 3: Cast Media -->
+    <!-- TAB 3: Universal Ad-Free Cast -->
     <section id="tab-cast" class="tab-content">
-      <div class="cast-card">
-        <h3>
-          <svg viewBox="0 0 24 24"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>
-          Cast Video Stream URL
-        </h3>
-        <p style="font-size: 13px; color: var(--text-muted); margin-bottom: 12px;">
-          Paste any MP4, HLS (.m3u8), or RTSP stream link to play directly on your TV.
-        </p>
-        <div class="form-group">
-          <label>Stream URL</label>
-          <input type="text" id="cast-url-input" class="form-input" placeholder="https://example.com/stream.m3u8">
+      <div class="cast-card universal-cast-card">
+        <div class="cast-card-header">
+          <div class="cast-badge-highlight">
+            <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.5"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
+            UNIVERSAL AD-FREE CASTING
+          </div>
+          <h3>Cast Any Video, Movie &amp; YouTube Link</h3>
+          <p style="font-size: 13px; color: var(--text-muted); margin-bottom: 14px; line-height: 1.45;">
+            Paste any <strong>YouTube link</strong>, <strong>movie platform URL</strong>, web player page, or direct <strong>MP4 / HLS (.m3u8)</strong> stream. TV Hub automatically extracts the clean video stream and plays it on your TV with <strong>ZERO ADS</strong>.
+          </p>
         </div>
+
         <div class="form-group">
-          <label>Title (Optional)</label>
-          <input type="text" id="cast-title-input" class="form-input" placeholder="Live Sports / Movie Title">
+          <label for="cast-url-input">Video or Webpage URL</label>
+          <div class="input-with-action">
+            <input type="text" id="cast-url-input" class="form-input" placeholder="Paste YouTube link, movie platform URL, or MP4/HLS stream...">
+            <button type="button" id="btn-paste-cast-url" class="btn-input-action" title="Paste from clipboard">📋 Paste</button>
+          </div>
+          <!-- Real-Time Platform Detection Badge -->
+          <div id="cast-detected-badge" class="cast-detected-pill" style="display: none;"></div>
+          <!-- Live Resolved Preview Card -->
+          <div id="cast-preview-box" class="cast-preview-box" style="display: none;">
+            <img id="cast-preview-thumb" class="cast-preview-thumb" src="" alt="Thumbnail" style="display: none;">
+            <div class="cast-preview-info">
+              <div id="cast-preview-title" class="cast-preview-title">Detected Video</div>
+              <div class="cast-preview-tag" id="cast-preview-tag">✓ Clean Ad-Free Stream Ready</div>
+            </div>
+          </div>
         </div>
+
+        <div class="form-group">
+          <label for="cast-title-input">Title (Auto-detected from video if blank)</label>
+          <input type="text" id="cast-title-input" class="form-input" placeholder="Auto-detected from YouTube / movie platform">
+        </div>
+
         <div style="margin-bottom: 14px; display: flex; align-items: center; gap: 8px;">
           <input type="checkbox" id="cast-use-proxy" checked>
           <label for="cast-use-proxy" style="font-size: 13px; color: var(--text-muted); margin: 0; cursor: pointer;">
-            Enable Compatibility Stream Proxy (Recommended for older TVs)
+            Enable Ad-Shield Stream Proxy (Strips stream ads &amp; optimizes for TV hardware)
           </label>
         </div>
-        <button id="btn-submit-cast" class="btn-primary">
+
+        <button id="btn-submit-cast" class="btn-primary" style="font-weight: 700;">
           <svg viewBox="0 0 24 24" style="width: 18px; height: 18px; stroke: #fff;"><path d="m22 2-7 20-4-9-9-4Z"/><path d="M22 2 11 13"/></svg>
-          Cast Stream to TV
+          <span id="btn-cast-text">Cast Ad-Free to TV</span>
         </button>
       </div>
 
@@ -857,6 +877,6 @@
     </div>
   </div>
 
-  <script src="static/app.js?v=2.7"></script>
+  <script src="static/app.js?v=2.9"></script>
 </body>
 </html>

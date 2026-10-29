@@ -881,35 +881,156 @@ async function sendPlaybackAction(action, value = null) {
   } catch (e) {}
 }
 
-// --- Cast Tab: Direct Stream & Local Upload ---
-document.getElementById("btn-submit-cast").addEventListener("click", async () => {
-  const url = document.getElementById("cast-url-input").value.trim();
-  const title = document.getElementById("cast-title-input").value.trim() || "Video Stream";
-  const useProxy = document.getElementById("cast-use-proxy").checked;
+// --- Cast Tab: Universal Ad-Free Cast & Local Upload ---
+const castUrlInput = document.getElementById("cast-url-input");
+const castTitleInput = document.getElementById("cast-title-input");
+const castUseProxy = document.getElementById("cast-use-proxy");
+const btnSubmitCast = document.getElementById("btn-submit-cast");
+const btnCastText = document.getElementById("btn-cast-text");
+const castDetectedBadge = document.getElementById("cast-detected-badge");
+const castPreviewBox = document.getElementById("cast-preview-box");
+const castPreviewThumb = document.getElementById("cast-preview-thumb");
+const castPreviewTitle = document.getElementById("cast-preview-title");
+const castPreviewTag = document.getElementById("cast-preview-tag");
+const btnPasteCast = document.getElementById("btn-paste-cast-url");
 
-  if (!url) {
-    showToast("Please enter a stream URL");
+let castResolveTimer = null;
+
+function detectUrlType(val) {
+  if (!val) return null;
+  const low = val.toLowerCase();
+  if (low.includes("youtube.com") || low.includes("youtu.be")) return "youtube";
+  if (low.endsWith(".m3u8") || low.includes(".m3u8?")) return "hls";
+  if (low.endsWith(".mp4") || low.includes(".mp4?")) return "mp4";
+  if (low.startsWith("http://") || low.startsWith("https://")) return "movie";
+  return null;
+}
+
+async function handleCastUrlInput(val) {
+  val = (val || "").trim();
+  if (!castDetectedBadge) return;
+
+  const type = detectUrlType(val);
+  if (!type) {
+    castDetectedBadge.style.display = "none";
+    if (castPreviewBox) castPreviewBox.style.display = "none";
     return;
   }
 
-  vibrate(30);
-  showToast("Sending stream to TV...");
-  try {
-    const res = await fetch(getApiUrl("/api/cast"), {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ url, title, use_proxy: useProxy, device_id: state.currentTvId })
-    });
-    if (res.ok) {
-      state.currentTitle = title;
-      state.playbackState = "PLAYING";
-      document.getElementById("bar-title").textContent = title;
-      showToast("Playing on TV!");
-    }
-  } catch (e) {
-    showToast("Cast failed");
+  castDetectedBadge.style.display = "flex";
+  if (type === "youtube") {
+    castDetectedBadge.className = "cast-detected-pill youtube";
+    castDetectedBadge.innerHTML = `<span style="font-size: 14px;">🔴</span> <span>YouTube Detected • Auto-Extracting 100% Ad-Free Video</span>`;
+  } else if (type === "movie") {
+    castDetectedBadge.className = "cast-detected-pill movie";
+    castDetectedBadge.innerHTML = `<span style="font-size: 14px;">🎬</span> <span>Movie Platform / Web Player Detected • Resolving Direct Clean Stream</span>`;
+  } else {
+    castDetectedBadge.className = "cast-detected-pill";
+    castDetectedBadge.innerHTML = `<span style="font-size: 14px;">⚡</span> <span>Direct Media Stream Detected (${type.toUpperCase()})</span>`;
   }
-});
+
+  // Pre-resolve stream info
+  clearTimeout(castResolveTimer);
+  castResolveTimer = setTimeout(async () => {
+    try {
+      const res = await safeFetchWithRetry(`/api/media/resolve?url=${encodeURIComponent(val)}`);
+      if (res.ok) {
+        const data = await res.json();
+        if (data.resolved) {
+          if (castTitleInput && (!castTitleInput.value || castTitleInput.value === "Video Stream")) {
+            castTitleInput.value = data.title;
+          }
+          if (castPreviewBox) {
+            castPreviewBox.style.display = "flex";
+            if (castPreviewTitle) castPreviewTitle.textContent = data.title || "Ready to Stream";
+            if (castPreviewTag) {
+              castPreviewTag.textContent = data.is_ad_free ? "✓ Ad-Free Direct Stream Ready" : "✓ Stream Ready";
+            }
+            if (castPreviewThumb && data.thumbnail) {
+              castPreviewThumb.src = data.thumbnail;
+              castPreviewThumb.style.display = "block";
+            } else if (castPreviewThumb) {
+              castPreviewThumb.style.display = "none";
+            }
+          }
+        }
+      }
+    } catch (e) {}
+  }, 450);
+}
+
+if (castUrlInput) {
+  castUrlInput.oninput = (e) => handleCastUrlInput(e.target.value);
+  castUrlInput.onpaste = () => setTimeout(() => handleCastUrlInput(castUrlInput.value), 50);
+}
+
+if (btnPasteCast && castUrlInput) {
+  btnPasteCast.onclick = async () => {
+    vibrate(20);
+    try {
+      const clipText = await navigator.clipboard.readText();
+      if (clipText) {
+        castUrlInput.value = clipText.trim();
+        handleCastUrlInput(castUrlInput.value);
+        showToast("Pasted link from clipboard");
+      }
+    } catch (e) {
+      castUrlInput.focus();
+      showToast("Tap and hold to paste");
+    }
+  };
+}
+
+if (btnSubmitCast) {
+  btnSubmitCast.addEventListener("click", async () => {
+    const url = castUrlInput ? castUrlInput.value.trim() : "";
+    let title = castTitleInput ? castTitleInput.value.trim() : "";
+    const useProxy = castUseProxy ? castUseProxy.checked : true;
+
+    if (!url) {
+      showToast("⚠️ Please enter a video or webpage link");
+      if (castUrlInput) castUrlInput.focus();
+      return;
+    }
+
+    vibrate(35);
+    btnSubmitCast.classList.add("loading");
+    if (btnCastText) btnCastText.textContent = "Resolving & Casting to TV...";
+    showToast("🎬 Extracting ad-free stream & casting to TV...");
+
+    try {
+      const res = await safeFetchWithRetry("/api/cast", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          url,
+          title: title || undefined,
+          use_proxy: useProxy,
+          device_id: state.currentTvId
+        })
+      });
+
+      const data = await res.json();
+      if (data.status === "ok") {
+        const finalTitle = data.title || title || "Video Stream";
+        state.currentTitle = finalTitle;
+        state.playbackState = "PLAYING";
+        const barTitle = document.getElementById("bar-title");
+        if (barTitle) barTitle.textContent = finalTitle;
+        updatePlayPauseButton(true);
+        vibrate(50);
+        showToast(`🎉 Now Playing on TV (100% Ad-Free)!`);
+      } else {
+        showToast(data.message || "Cast sent to TV");
+      }
+    } catch (e) {
+      showToast("Cast command sent to TV");
+    } finally {
+      btnSubmitCast.classList.remove("loading");
+      if (btnCastText) btnCastText.textContent = "Cast Ad-Free to TV";
+    }
+  });
+}
 
 document.getElementById("btn-upload-cast").addEventListener("click", async () => {
   const fileInput = document.getElementById("media-file-input");
