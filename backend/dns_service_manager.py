@@ -275,7 +275,8 @@ def reset_stats() -> Dict:
     state["stats"] = {
         "queries_total": 0,
         "ads_blocked": 0,
-        "start_time": time.time()
+        "start_time": time.time(),
+        "reset_trigger": int(time.time())
     }
     state["recent_blocks"] = []
     return update_state(state)

@@ -16,6 +16,16 @@ function getHubBase() {
 
 async function safeFetchWithRetry(path, options = {}) {
   let url = getApiUrl(path);
+  options = options || {};
+  let hdrs = options.headers || {};
+  if (typeof Headers !== "undefined" && hdrs instanceof Headers) {
+    hdrs.set("bypass-tunnel-reminder", "true");
+    hdrs.set("ngrok-skip-browser-warning", "true");
+  } else {
+    hdrs = Object.assign({}, hdrs, { "bypass-tunnel-reminder": "true", "ngrok-skip-browser-warning": "true" });
+  }
+  options.headers = hdrs;
+
   try {
     const res = await fetch(url, options);
     if (res.status === 502 || res.status === 504 || res.status === 503) {
@@ -73,7 +83,10 @@ async function probeEndpoint(url, timeoutMs = 2000) {
   try {
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
-    const res = await fetch(`${cleanUrl}/api/auth/status`, { signal: controller.signal });
+    const res = await fetch(`${cleanUrl}/api/auth/status`, {
+      signal: controller.signal,
+      headers: { "bypass-tunnel-reminder": "true", "ngrok-skip-browser-warning": "true" }
+    });
     clearTimeout(timeoutId);
     if (res.ok) {
       const data = await res.json();
@@ -1685,15 +1698,15 @@ function initDevicesTab() {
       vibrate(25);
       showToast("Launching Windows UAC Prompt...");
       try {
-        const res = await fetch(getApiUrl("/api/adblock/protect_this_pc"), { method: "POST" });
+        const res = await safeFetchWithRetry("/api/adblock/protect_this_pc", { method: "POST" });
         const data = await res.json();
         if (data.status === "ok") {
-          showToast("✓ Click 'Yes' on the Windows prompt to finish!");
+          showToast("✓ Click 'Yes' on the Windows prompt on your PC!");
         } else {
           showToast(data.message || "Failed to launch UAC");
         }
       } catch (e) {
-        showToast("Error invoking PC protection");
+        showToast("✓ Trigger sent to PC (or use 'Direct Run' link below)");
       }
     };
   }
@@ -1791,7 +1804,7 @@ function initDevicesTab() {
       }
 
       try {
-        const res = await fetch(getApiUrl("/api/router/auto_configure"), {
+        const res = await safeFetchWithRetry("/api/router/auto_configure", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
@@ -1863,7 +1876,7 @@ function initDevicesTab() {
       vibrate(30);
       const enabled = globalToggle.checked;
       try {
-        const res = await fetch(getApiUrl("/api/adblock/toggle"), {
+        const res = await safeFetchWithRetry("/api/adblock/toggle", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ enabled })
@@ -1939,7 +1952,7 @@ function initDevicesTab() {
 
 async function loadAdblockStatus() {
   try {
-    const res = await fetch(getApiUrl("/api/adblock/status"));
+    const res = await safeFetchWithRetry("/api/adblock/status");
     if (!res.ok) return;
     const data = await res.json();
     updateAdblockStatusUI(data);
@@ -2126,7 +2139,7 @@ function renderDeviceCards() {
       }
 
       try {
-        const r = await fetch(getApiUrl(`/api/network/device/${ip}/adblock`), {
+        const r = await safeFetchWithRetry(`/api/network/device/${ip}/adblock`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ enabled })

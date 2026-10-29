@@ -133,6 +133,7 @@ class AsusRouterController:
             "action_wait": "3",
             "current_page": "Advanced_DHCP_Content.asp",
             "next_page": "Advanced_DHCP_Content.asp",
+            "dhcp_enable_x": "1",
             "dhcp_dns1_x": dns_server_ip
         }
         if token and token != "authenticated":
@@ -158,6 +159,12 @@ class AsusRouterController:
                         logger.info(f"Successfully posted DNS config to {url}")
                         success = True
                         break
+            except urllib.error.HTTPError as e:
+                if e.code in (200, 302, 303, 307):
+                    logger.info(f"Successfully posted DNS config (HTTP {e.code}) to {url}")
+                    success = True
+                    break
+                last_error = f"HTTP {e.code}"
             except Exception as e:
                 last_error = str(e)
                 logger.debug(f"Apply attempt at {url} returned: {e}")

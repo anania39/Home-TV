@@ -15,6 +15,13 @@ META_FILE = os.path.join(BLOCKLIST_DIR, "blocklists_meta.json")
 
 SOURCES = [
     {
+        "id": "adguard_dns",
+        "name": "AdGuard Official DNS Filter",
+        "url": "https://adguardteam.github.io/HostlistsRegistry/assets/filter_1.txt",
+        "category": "AdGuard Core DNS Filter",
+        "format": "adblock"
+    },
+    {
         "id": "stevenblack",
         "name": "StevenBlack Unified (Pi-hole Standard)",
         "url": "https://raw.githubusercontent.com/StevenBlack/hosts/master/hosts",

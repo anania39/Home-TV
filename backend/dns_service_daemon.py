@@ -84,6 +84,14 @@ class PersistentDNSDaemon:
                         self.adblocker.global_enabled = new_global
                         self.adblocker.device_rules = new_rules
                         logger.info(f"Updated rules from state file: Global No-Ads={new_global}, Device Rules={len(new_rules)}")
+
+                    loaded_stats = data.get("stats", {})
+                    if loaded_stats.get("reset_trigger") or (loaded_stats.get("queries_total", 0) == 0 and self.adblocker.stats.get("queries_total", 0) > 0):
+                        self.adblocker.stats["queries_total"] = 0
+                        self.adblocker.stats["ads_blocked"] = 0
+                        self.adblocker.stats["start_time"] = time.time()
+                        self.adblocker.recent_blocks.clear()
+                        logger.info("Reset query statistics and counters in daemon memory")
         except Exception as e:
             logger.debug(f"State check notice: {e}")
 
