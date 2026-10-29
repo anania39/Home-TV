@@ -17,7 +17,7 @@
   <link rel="dns-prefetch" href="https://i.postimg.cc">
   <link rel="dns-prefetch" href="https://uut-telecom.ru">
   <link rel="dns-prefetch" href="https://rutv.by">
-  <link rel="stylesheet" href="static/style.css?v=2.4">
+  <link rel="stylesheet" href="static/style.css?v=2.5">
 </head>
 <body>
 
@@ -410,6 +410,11 @@
               <div class="cyber-stat-title">Shield Rate</div>
             </div>
           </div>
+          <!-- Reset Stats Row -->
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 10px; padding: 0 4px;">
+            <span style="font-size: 11px; color: var(--text-dim);">Shield Rate = (Blocked Ads &divide; Total Queries) &times; 100%</span>
+            <button type="button" id="btn-reset-adblock-stats" class="btn-mini-reset" title="Reset query counters">Reset Counters</button>
+          </div>
         </div>
 
         <!-- Enterprise Community Blocklists (Pi-hole & AdGuard) -->
@@ -797,6 +802,6 @@
     </div>
   </div>
 
-  <script src="static/app.js?v=2.4"></script>
+  <script src="static/app.js?v=2.5"></script>
 </body>
 </html>

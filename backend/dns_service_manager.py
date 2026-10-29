@@ -268,3 +268,14 @@ def get_status() -> Dict:
         "recent_blocks": state.get("recent_blocks", [])[-25:],
         "repositories": get_repositories_meta()
     }
+
+
+def reset_stats() -> Dict:
+    state = read_state()
+    state["stats"] = {
+        "queries_total": 0,
+        "ads_blocked": 0,
+        "start_time": time.time()
+    }
+    state["recent_blocks"] = []
+    return update_state(state)

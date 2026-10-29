@@ -511,6 +511,13 @@ async def get_adblock_repositories():
     except Exception as e:
         return {"status": "error", "message": str(e)}
 
+
+@app.post("/api/adblock/stats/reset")
+async def reset_adblock_stats():
+    from .dns_service_manager import reset_stats
+    reset_stats()
+    return {"status": "ok", "message": "Ad-block statistics reset successfully"}
+
 @app.post("/api/adblock/repositories/sync")
 async def sync_adblock_repositories():
     try:

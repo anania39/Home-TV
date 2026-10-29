@@ -1,10 +1,53 @@
+
+AD_TAG_PREFIXES = (
+    "#EXT-X-CUE-OUT",
+    "#EXT-X-CUE-IN",
+    "#EXT-X-CUE-OUT-CONT",
+    "#EXT-OATCLS-SCTE35",
+    "#EXT-X-SCTE35",
+    "#EXT-X-SPLICEPOINT",
+)
+
+AD_URL_PATTERNS = (
+    "/ad/", "/ads/", "/ad_", "/adv/", "/advert/", "/preroll/", "/midroll/",
+    "ad-segment", "adserver", "adsystem", "doubleclick", "yandex.ru/ads",
+    "googleads", "spotxchange", "smartadserver", "vidazoo", "springserve", "teads"
+)
+
+def is_ad_segment_or_tag(line: str) -> bool:
+    s = line.strip()
+    if not s:
+        return False
+    if any(s.startswith(prefix) for prefix in AD_TAG_PREFIXES):
+        return True
+    if s.startswith("#EXT-X-DATERANGE:") and any(x in s.lower() for x in ("ad", "google", "scte")):
+        return True
+    if not s.startswith("#"):
+        lower = s.lower()
+        if any(pat in lower for pat in AD_URL_PATTERNS):
+            return True
+        try:
+            from .blocklist_manager import blocklist_manager
+            if blocklist_manager and blocklist_manager.blocked_domains:
+                parsed = urlparse(s)
+                host = parsed.netloc.lower().split(":")[0]
+                if host in blocklist_manager.blocked_domains:
+                    return True
+                parts = host.split(".")
+                for i in range(len(parts) - 1):
+                    if ".".join(parts[i:]) in blocklist_manager.blocked_domains:
+                        return True
+        except Exception:
+            pass
+    return False
+
 import asyncio
 import time
 import gzip
 import re
 import uuid
 import httpx
-from urllib.parse import urljoin, quote, urlsplit
+from urllib.parse import urljoin, quote, urlsplit, urlparse
 from starlette.responses import StreamingResponse, Response
 from fastapi import Request
 import logging
@@ -305,6 +348,27 @@ class SegmentCache:
             # Check if this is a master playlist pointing to a sub-variant
             variant_url = None
             is_master = False
+
+            # Intelligent HLS Stream-Level Ad Stripping (eliminates audio/video PTS desync)
+            filtered_lines = []
+            skip_ad_block = False
+            for line in lines:
+                s = line.strip()
+                if not s:
+                    continue
+                if s.startswith(("#EXT-X-CUE-OUT", "#EXT-OATCLS-SCTE35", "#EXT-X-SCTE35")):
+                    skip_ad_block = True
+                    continue
+                elif s.startswith("#EXT-X-CUE-IN"):
+                    skip_ad_block = False
+                    continue
+                if skip_ad_block and not s.startswith("#"):
+                    continue
+                if is_ad_segment_or_tag(s):
+                    continue
+                filtered_lines.append(line)
+            lines = filtered_lines
+
             for line in lines:
                 if line.startswith("#EXT-X-STREAM-INF"):
                     is_master = True

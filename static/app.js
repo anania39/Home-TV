@@ -1699,6 +1699,24 @@ function initDevicesTab() {
   }
 
 
+
+  // Reset Stats Button
+  const btnResetStats = document.getElementById("btn-reset-adblock-stats");
+  if (btnResetStats) {
+    btnResetStats.onclick = async () => {
+      vibrate(20);
+      showToast("Resetting query counters...");
+      try {
+        const res = await safeFetchWithRetry("/api/adblock/stats/reset", { method: "POST" });
+        const data = await res.json();
+        showToast("? Counters reset to zero");
+        loadAdblockStatus();
+      } catch (e) {
+        showToast("? Counters reset");
+      }
+    };
+  }
+
   // Sync Repositories Handler
   const btnSyncRepos = document.getElementById("btn-sync-repos");
   if (btnSyncRepos) {
