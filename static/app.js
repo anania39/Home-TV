@@ -1638,6 +1638,26 @@ let currentDeviceFilter = "all";
 let deviceSearchTerm = "";
 
 function initDevicesTab() {
+  // 1-Click This PC Activation
+  const btnProtectPC = document.getElementById("btn-protect-this-pc");
+  if (btnProtectPC) {
+    btnProtectPC.onclick = async () => {
+      vibrate(25);
+      showToast("Launching Windows UAC Prompt...");
+      try {
+        const res = await fetch(getApiUrl("/api/adblock/protect_this_pc"), { method: "POST" });
+        const data = await res.json();
+        if (data.status === "ok") {
+          showToast("✓ Click 'Yes' on the Windows prompt to finish!");
+        } else {
+          showToast(data.message || "Failed to launch UAC");
+        }
+      } catch (e) {
+        showToast("Error invoking PC protection");
+      }
+    };
+  }
+
   // 1. Password visibility toggle
   const btnTogglePwd = document.getElementById("btn-toggle-pwd");
   const inputPwd = document.getElementById("router-password");

@@ -2665,3 +2665,32 @@ header {
 .btn-mini-action:hover {
   background: rgba(0, 242, 254, 0.25);
 }
+
+.btn-protect-this-pc {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  width: 100%;
+  background: rgba(0, 242, 254, 0.12);
+  border: 1px solid rgba(0, 242, 254, 0.4);
+  color: var(--accent-cyan);
+  font-weight: 700;
+  font-size: 13px;
+  padding: 10px 16px;
+  border-radius: 10px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.btn-protect-this-pc:hover {
+  background: rgba(0, 242, 254, 0.25);
+  border-color: var(--accent-cyan);
+  box-shadow: 0 0 15px rgba(0, 242, 254, 0.25);
+}
+
+.btn-protect-this-pc svg {
+  width: 16px;
+  height: 16px;
+  fill: var(--accent-cyan);
+}

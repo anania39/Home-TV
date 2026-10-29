@@ -9,9 +9,20 @@ from typing import Dict, List, Optional, Tuple, Set
 
 logger = logging.getLogger("adblocker")
 
-# Curated High-Impact Ad, Tracking & Smart TV Ad Domains
+# Curated High-Impact Ad, Tracking, YouTube & Smart TV Ad Domains
 AD_DOMAINS = {
-    # General Ad Networks
+    # YouTube & Google Video Ads & Telemetry
+    "googleads.g.doubleclick.net", "pubads.g.doubleclick.net", "securepubads.g.doubleclick.net",
+    "ad.youtube.com", "ads.youtube.com", "s.youtube.com", "video-stats.l.google.com",
+    "youtube-ui.l.google.com", "yt3.ggpht.com", "ep1.adtrafficquality.google",
+    "ep2.adtrafficquality.google", "adtrafficquality.google", "fundingchoicesmessages.google.com",
+    "pagead.l.google.com", "partnerad.l.google.com", "pagead-googlehosted.l.google.com",
+    "afs.googlesyndication.com", "2mdn.net", "invitemedia.com", "admeld.com",
+    
+    # DoH Bypass Prevention (forces browsers to use local port 53)
+    "dns.google", "dns.google.com", "cloudflare-dns.com", "dns.quad9.net", "doh.opendns.com",
+
+    # General Ad Networks & Tracking
     "doubleclick.net", "googleadservices.com", "googlesyndication.com",
     "adservice.google.com", "pagead2.googlesyndication.com", "adclick.g.doubleclick.net",
     "adnxs.com", "criteo.com", "criteo.net", "scorecardresearch.com",
@@ -21,6 +32,8 @@ AD_DOMAINS = {
     "unityads.unity3d.com", "vungle.com", "inmobi.com", "chartboost.com",
     "serving-sys.com", "smartadserver.com", "spotxchange.com",
     "yandex.ru/ads", "an.yandex.ru", "ad.mail.ru", "target.my.com",
+    "aax.amazon-adsystem.com", "c.amazon-adsystem.com", "s.amazon-adsystem.com",
+    "bidswitch.net", "mgid.com", "popcash.net", "popads.net", "propellerads.com",
     
     # Smart TV Ad & Telemetry Domains (Hisense VIDAA, Xiaomi, TCL, Samsung, LG)
     "ads.hisense.com", "log.hisense.com", "tracking.hisense.com", "vidaahub.hisense.com",
@@ -42,7 +55,8 @@ AD_DOMAINS = {
 AD_KEYWORDS = [
     "googleads", "pagead", "doubleclick", "adservice", "adsystem",
     "adnxs", "popads", "popcash", "propellerads", "adserver",
-    "adclick", "adform", "smartad", "adtech", "serving-sys"
+    "adclick", "adform", "smartad", "adtech", "serving-sys",
+    "adtrafficquality", "youtube-ads"
 ]
 
 class DNSAdBlocker:
@@ -155,6 +169,15 @@ class DNSAdBlocker:
             qtype = struct.unpack("!H", data[curr:curr+2])[0]
         return qname, qtype, curr + 4
 
+    def _build_nxdomain_response(self, req_data: bytes) -> bytes:
+        """Returns standard NXDOMAIN (Name Error) response for DoH canary."""
+        txid = req_data[:2]
+        flags = b"\x81\x83" # Standard response, NXDOMAIN
+        counts = b"\x00\x01\x00\x00\x00\x00\x00\x00"
+        _, _, end_offset = self._parse_qname(req_data, 12)
+        question = req_data[12:end_offset]
+        return txid + flags + counts + question
+
     def _build_sinkhole_response(self, req_data: bytes, qname: str, qtype: int) -> bytes:
         txid = req_data[:2]
         flags = b"\x81\x80" # Standard query response, No error
@@ -187,6 +210,11 @@ class DNSAdBlocker:
             qname, qtype = "unknown", 1
 
         is_blocked_device = self.is_blocking_enabled_for_ip(client_ip)
+
+        # DoH Canary domain check: forces Chrome & Firefox to disable DoH and use system DNS
+        if qname == "use-application-dns.net":
+            logger.info(f"[DoH CANARY] {client_ip} -> returning NXDOMAIN to enforce local DNS")
+            return self._build_nxdomain_response(data)
 
         # 1. Check if domain is blocked for this device
         if is_blocked_device and self.is_ad_domain(qname):

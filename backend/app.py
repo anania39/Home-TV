@@ -1,4 +1,5 @@
 import os
+import subprocess
 import re
 import json
 import shutil
@@ -521,6 +522,17 @@ async def auto_configure_router(req: RouterAutoConfigRequest):
         dns_server_ip=SERVER_IP
     )
     return result
+
+@app.post("/api/adblock/protect_this_pc")
+async def protect_this_pc():
+    bat_path = os.path.join(BASE_DIR, "protect_this_pc.bat")
+    try:
+        if sys.platform == "win32":
+            subprocess.Popen(["powershell", "-NoProfile", "-Command", f"Start-Process '{bat_path}' -Verb RunAs"])
+            return {"status": "ok", "message": "UAC prompt launched! Click 'Yes' to enable ad-blocking on this PC."}
+    except Exception as e:
+        return {"status": "error", "message": str(e)}
+    return {"status": "error", "message": "Only available on Windows host"}
 
 @app.post("/api/cast")
 async def cast_media(req: CastRequest, request: Request, client_ip: str = Depends(verify_local_network)):
