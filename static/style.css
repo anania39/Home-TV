@@ -2694,3 +2694,152 @@ header {
   height: 16px;
   fill: var(--accent-cyan);
 }
+
+
+/* Community Blocklists & Mobile Card */
+.community-repos-card {
+  background: rgba(13, 23, 42, 0.75);
+  border: 1px solid rgba(0, 242, 254, 0.2);
+  border-radius: 14px;
+  padding: 16px;
+  margin-top: 14px;
+  backdrop-filter: blur(12px);
+}
+
+.repos-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 12px;
+}
+
+.repos-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 10px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.8px;
+  color: var(--accent-cyan);
+  background: rgba(0, 242, 254, 0.1);
+  padding: 3px 8px;
+  border-radius: 6px;
+  margin-bottom: 6px;
+}
+
+.repos-badge svg {
+  width: 12px;
+  height: 12px;
+  fill: var(--accent-cyan);
+}
+
+.repos-title {
+  font-size: 16px;
+  font-weight: 800;
+  color: #fff;
+  letter-spacing: -0.3px;
+}
+
+.repos-desc {
+  font-size: 12px;
+  color: var(--text-dim);
+  margin-top: 4px;
+  line-height: 1.4;
+}
+
+.btn-sync-repos {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: rgba(0, 242, 254, 0.12);
+  border: 1px solid rgba(0, 242, 254, 0.35);
+  color: var(--accent-cyan);
+  font-size: 12px;
+  font-weight: 700;
+  padding: 8px 12px;
+  border-radius: 8px;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: all 0.2s;
+}
+
+.btn-sync-repos:hover {
+  background: rgba(0, 242, 254, 0.25);
+  border-color: var(--accent-cyan);
+}
+
+.btn-sync-repos.syncing svg {
+  animation: spinRadar 1s linear infinite;
+}
+
+.btn-sync-repos svg {
+  width: 14px;
+  height: 14px;
+  stroke: currentColor;
+  stroke-width: 2.5;
+  fill: none;
+}
+
+.repos-list-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 14px;
+}
+
+.repo-pill {
+  font-size: 11px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  padding: 6px 10px;
+  border-radius: 6px;
+  color: var(--text-main);
+}
+
+.mobile-setup-card {
+  background: rgba(245, 158, 11, 0.08);
+  border: 1px solid rgba(245, 158, 11, 0.25);
+  border-radius: 14px;
+  padding: 14px 16px;
+  margin-top: 14px;
+}
+
+.mobile-setup-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  color: #fbbf24;
+  margin-bottom: 10px;
+}
+
+.mobile-setup-steps {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.mobile-step {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  font-size: 12px;
+  color: var(--text-muted);
+  line-height: 1.45;
+}
+
+.step-num {
+  width: 18px;
+  height: 18px;
+  min-width: 18px;
+  border-radius: 50%;
+  background: rgba(245, 158, 11, 0.2);
+  color: #fbbf24;
+  font-weight: 800;
+  font-size: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-top: 1px;
+}

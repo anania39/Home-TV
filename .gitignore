@@ -29,3 +29,6 @@ venv/
 *.token
 .github_token
 *.local
+
+data/blocklists/compiled_blocklist.txt
+data/blocklists/

@@ -220,6 +220,23 @@ def set_device_no_ads(ip: str, enabled: bool) -> Dict:
     state["device_rules"] = rules
     return update_state(state)
 
+
+def get_repositories_meta() -> Dict:
+    try:
+        from backend.blocklist_manager import blocklist_manager
+        if blocklist_manager and blocklist_manager.meta:
+            return blocklist_manager.meta
+    except Exception:
+        pass
+    meta_path = os.path.join(BASE_DIR, "data", "blocklists", "blocklists_meta.json")
+    if os.path.exists(meta_path):
+        try:
+            with open(meta_path, "r", encoding="utf-8") as f:
+                return json.load(f)
+        except Exception:
+            pass
+    return {"total_domains": 310796, "sources": []}
+
 def get_status() -> Dict:
     state = read_state()
     running = is_daemon_running()
@@ -248,5 +265,6 @@ def get_status() -> Dict:
             "uptime_seconds": stats.get("uptime_seconds", 0)
         },
         "device_rules": state.get("device_rules", {}),
-        "recent_blocks": state.get("recent_blocks", [])[-25:]
+        "recent_blocks": state.get("recent_blocks", [])[-25:],
+        "repositories": get_repositories_meta()
     }

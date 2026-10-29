@@ -502,6 +502,24 @@ async def set_device_adblock(ip: str, req: DeviceAdblockRequest):
         "device_rules": updated.get("device_rules", {})
     }
 
+
+@app.get("/api/adblock/repositories")
+async def get_adblock_repositories():
+    try:
+        from .blocklist_manager import blocklist_manager
+        return {"status": "ok", "repositories": blocklist_manager.meta}
+    except Exception as e:
+        return {"status": "error", "message": str(e)}
+
+@app.post("/api/adblock/repositories/sync")
+async def sync_adblock_repositories():
+    try:
+        from .blocklist_manager import blocklist_manager
+        meta = blocklist_manager.update_sources()
+        return {"status": "ok", "message": f"Synchronized {meta.get('total_domains', 0):,} domains from Pi-hole & AdGuard", "repositories": meta}
+    except Exception as e:
+        return {"status": "error", "message": str(e)}
+
 @app.get("/api/router/status")
 async def get_router_status():
     reach = asus_router_controller.check_reachability("192.168.50.1")

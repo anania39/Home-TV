@@ -1,3 +1,12 @@
+
+try:
+    from backend.blocklist_manager import blocklist_manager
+except ImportError:
+    try:
+        from .blocklist_manager import blocklist_manager
+    except ImportError:
+        blocklist_manager = None
+
 import asyncio
 import socket
 import struct
@@ -77,6 +86,7 @@ class DNSAdBlocker:
         self._udp_transport = None
         self._tcp_server = None
         self._running = False
+        self.blocklist_manager = blocklist_manager
         self._load_state()
 
     def _load_state(self):
@@ -107,17 +117,35 @@ class DNSAdBlocker:
 
     def is_ad_domain(self, domain: str) -> bool:
         domain = domain.lower().strip(".")
+        if not domain:
+            return False
+
+        # 1. Check Pi-hole / AdGuard community blocklists (310,000+ domains)
+        if hasattr(self, "blocklist_manager") and self.blocklist_manager and domain in self.blocklist_manager.blocked_domains:
+            return True
+        if blocklist_manager and domain in blocklist_manager.blocked_domains:
+            return True
+
+        # 2. Check curated high-impact ad domains
         if domain in AD_DOMAINS:
             return True
+
+        # 3. Check subdomains (e.g. s.youtube.com -> check s.youtube.com, then youtube.com)
         parts = domain.split(".")
-        # Check subdomains (e.g. ad.doubleclick.net -> doubleclick.net)
         for i in range(len(parts) - 1):
             parent = ".".join(parts[i:])
+            if hasattr(self, "blocklist_manager") and self.blocklist_manager and parent in self.blocklist_manager.blocked_domains:
+                return True
+            if blocklist_manager and parent in blocklist_manager.blocked_domains:
+                return True
             if parent in AD_DOMAINS:
                 return True
+
+        # 4. Keyword matches
         for kw in AD_KEYWORDS:
             if kw in domain:
                 return True
+
         return False
 
     def is_blocking_enabled_for_ip(self, client_ip: str) -> bool:

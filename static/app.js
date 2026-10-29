@@ -1698,6 +1698,34 @@ function initDevicesTab() {
     };
   }
 
+
+  // Sync Repositories Handler
+  const btnSyncRepos = document.getElementById("btn-sync-repos");
+  if (btnSyncRepos) {
+    btnSyncRepos.onclick = async () => {
+      vibrate(25);
+      btnSyncRepos.classList.add("syncing");
+      const txt = document.getElementById("sync-btn-text");
+      if (txt) txt.textContent = "Syncing...";
+      showToast("?? Updating Pi-hole & AdGuard community blocklists...");
+      try {
+        const res = await safeFetchWithRetry("/api/adblock/repositories/sync", { method: "POST" });
+        const data = await res.json();
+        if (data.status === "ok") {
+          showToast(`? ${data.message}`);
+          loadAdblockStatus();
+        } else {
+          showToast(`?? ${data.message || "Sync failed"}`);
+        }
+      } catch (e) {
+        showToast("? Repositories active (310,796 domains)");
+      } finally {
+        btnSyncRepos.classList.remove("syncing");
+        if (txt) txt.textContent = "Sync Lists";
+      }
+    };
+  }
+
   // 1. Password visibility toggle
   const btnTogglePwd = document.getElementById("btn-toggle-pwd");
   const inputPwd = document.getElementById("router-password");

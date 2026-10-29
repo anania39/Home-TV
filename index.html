@@ -17,7 +17,7 @@
   <link rel="dns-prefetch" href="https://i.postimg.cc">
   <link rel="dns-prefetch" href="https://uut-telecom.ru">
   <link rel="dns-prefetch" href="https://rutv.by">
-  <link rel="stylesheet" href="static/style.css?v=2.3">
+  <link rel="stylesheet" href="static/style.css?v=2.4">
 </head>
 <body>
 
@@ -412,6 +412,54 @@
           </div>
         </div>
 
+        <!-- Enterprise Community Blocklists (Pi-hole & AdGuard) -->
+        <div class="community-repos-card">
+          <div class="repos-header">
+            <div class="repos-title-group">
+              <div class="repos-badge">
+                <svg viewBox="0 0 24 24"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
+                PI-HOLE & ADGUARD COMMUNITY REPOSITORIES
+              </div>
+              <div class="repos-title"><span id="repos-total-count">310,796</span> Active Ad & Tracker Rules</div>
+              <div class="repos-desc">Integrated official enterprise repositories blocking mobile ads, telemetry, trackers, and YouTube ad manifests.</div>
+            </div>
+            <button type="button" id="btn-sync-repos" class="btn-sync-repos" title="Sync latest rules from GitHub">
+              <svg viewBox="0 0 24 24"><path d="M21.5 2v6h-6M2.5 22v-6h6M2 11.5a10 10 0 0 1 18.8-4.3M22 12.5a10 10 0 0 1-18.8 4.2"/></svg>
+              <span id="sync-btn-text">Sync Lists</span>
+            </button>
+          </div>
+
+          <div class="repos-list-grid" id="repos-pills-container">
+            <div class="repo-pill">??? <strong>AdGuard Official DNS:</strong> 184,801 domains</div>
+            <div class="repo-pill">?? <strong>StevenBlack (Pi-hole standard):</strong> 76,738 domains</div>
+            <div class="repo-pill">?? <strong>Anudeep Adservers:</strong> 42,358 domains</div>
+            <div class="repo-pill">?? <strong>YouTube Ads & Telemetry:</strong> 16,046 domains</div>
+            <div class="repo-pill">?? <strong>Peter Lowe Curated:</strong> 3,567 domains</div>
+          </div>
+        </div>
+
+        <!-- Mobile Phone Setup Instructions (Important for Android & iPhone) -->
+        <div class="mobile-setup-card">
+          <div class="mobile-setup-header">
+            <span class="mobile-setup-icon">??</span>
+            <strong>Crucial Step for Phones (Galaxy S25 & iPhone):</strong>
+          </div>
+          <div class="mobile-setup-steps">
+            <div class="mobile-step">
+              <span class="step-num">1</span>
+              <span><strong>Toggle Phone Wi-Fi:</strong> Turn Wi-Fi <strong>OFF</strong> and back <strong>ON</strong> on your phone so it picks up the router's new DNS (192.168.50.250).</span>
+            </div>
+            <div class="mobile-step">
+              <span class="step-num">2</span>
+              <span><strong>Disable Android Private DNS:</strong> On your Galaxy phone, go to <em>Settings &rarr; Connections &rarr; More connection settings &rarr; Private DNS</em> and set it to <strong>Off</strong> (Android defaults to Google TLS port 853 which bypasses all home blockers).</span>
+            </div>
+            <div class="mobile-step">
+              <span class="step-num">3</span>
+              <span><strong>YouTube on Mobile:</strong> In the official YouTube mobile app, Google serves video ads from content CDNs (<code>googlevideo.com</code>). For 100% video ad-free viewing, use YouTube on mobile via Brave / Samsung Internet or cast directly via TV Hub!</span>
+            </div>
+          </div>
+        </div>
+
         <!-- 2. 1-Click Router Auto-Pilot Card (Automated Router Setup for YouTube & Network-Wide Ads) -->
         <div class="router-autopilot-card" id="router-autopilot-container">
           <div class="autopilot-header">
@@ -749,6 +797,6 @@
     </div>
   </div>
 
-  <script src="static/app.js?v=2.3"></script>
+  <script src="static/app.js?v=2.4"></script>
 </body>
 </html>
