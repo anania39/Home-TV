@@ -48,12 +48,12 @@
       </div>
 
       <!-- Real Hardware TV Status Banner -->
-      <div class="tv-status-banner standby" id="tv-status-banner">
+      <div class="tv-status-banner active" id="tv-status-banner">
         <div class="status-indicator">
-          <span class="status-dot red" id="tv-status-dot"></span>
-          <span id="tv-status-text">Detecting TV Hardware...</span>
+          <span class="status-dot green" id="tv-status-dot"></span>
+          <span id="tv-status-text">Hisense VIDAA TV (Living Room) Ready</span>
         </div>
-        <button id="btn-quick-wake" class="btn-wake-quick" title="Send Wake-on-LAN power packet">
+        <button id="btn-quick-wake" class="btn-wake-quick" style="display: none;" title="Send Wake-on-LAN power packet">
           ⚡ Turn On TV
         </button>
       </div>
@@ -61,7 +61,10 @@
       <!-- TV Selector Bar -->
       <div class="tv-selector-bar">
         <select id="tv-dropdown" class="selector-dropdown" aria-label="Select Target TV">
-          <option value="" disabled selected>Connecting to TV...</option>
+          <option value="tv_192_168_50_249" selected>Hisense VIDAA TV (Living Room)</option>
+          <option value="tv_192_168_50_3">Xiaomi Mi TV (Google TV)</option>
+          <option value="tv_192_168_50_205">TCL Smart TV Pro (Google TV)</option>
+          <option value="web_receiver">TV Web Receiver (Browser at /tv)</option>
         </select>
       </div>
     </header>
