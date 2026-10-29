@@ -496,8 +496,19 @@ async def proxy_stream(url: str, request: Request, server_host: str):
     requested_url = url
     domain = urlsplit(url).netloc
 
-    if url_clean.endswith(".m3u8") or "mpegurl" in request.headers.get("accept", "").lower():
-        # 1. RFC 8216 Manifest Cache (2.0s - 2.5s TTL): Serve immediately from RAM to prevent TV spin-locking
+    is_m3u8_target = url_clean.endswith(".m3u8") or "mpegurl" in request.headers.get("accept", "").lower()
+    if is_m3u8_target:
+        # Debounce hyper-aggressive TV manifest polling (prevents spin loops and upstream 429)
+        now_ts = time.time()
+        client_key = f"{client_ip}:{url_clean}"
+        last_poll = _client_manifest_poll.get(client_key, 0.0)
+        time_since_last = now_ts - last_poll
+        if time_since_last < 0.75:
+            # TV client is polling faster than 750ms; gentle sleep throttles GStreamer/CE-HTML spin loop
+            await asyncio.sleep(0.75 - time_since_last)
+        _client_manifest_poll[client_key] = time.time()
+
+        # 1. RFC 8216 Manifest Cache (2.0s - 2.5s TTL): Serve immediately from RAM
         cached_m3u8 = segment_engine.get_manifest(url, min_ttl=2.0)
         if cached_m3u8 is not None:
             return Response(
@@ -508,7 +519,8 @@ async def proxy_stream(url: str, request: Request, server_host: str):
                     "Access-Control-Allow-Origin": "*",
                     "Access-Control-Allow-Headers": "*",
                     "Cache-Control": "public, max-age=2, stale-while-revalidate=2",
-                    "Pragma": "no-cache",
+                    "Accept-Ranges": "bytes",
+                    "Connection": "keep-alive",
                     "X-Cache": "HIT"
                 }
             )
@@ -526,7 +538,8 @@ async def proxy_stream(url: str, request: Request, server_host: str):
                         "Access-Control-Allow-Origin": "*",
                         "Access-Control-Allow-Headers": "*",
                         "Cache-Control": "public, max-age=3, stale-while-revalidate=3",
-                        "Pragma": "no-cache",
+                        "Accept-Ranges": "bytes",
+                        "Connection": "keep-alive",
                         "X-Cache": "BACKOFF-SHIELD-200"
                     }
                 )
@@ -677,7 +690,8 @@ async def proxy_stream(url: str, request: Request, server_host: str):
                     "Access-Control-Allow-Origin": "*",
                     "Access-Control-Allow-Headers": "*",
                     "Cache-Control": f"public, max-age={max_age_val}, stale-while-revalidate=2",
-                    "Pragma": "no-cache",
+                    "Accept-Ranges": "bytes",
+                    "Connection": "keep-alive",
                     "X-Cache": "MISS"
                 }
             )

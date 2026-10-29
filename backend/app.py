@@ -540,13 +540,39 @@ async def cast_media(req: CastRequest, request: Request, client_ip: str = Depend
             if is_stale():
                 return {"status": "superseded", "version": my_version, "mode": mode}
 
-            # Step 1: Seamlessly set new URI directly (avoids Hisense VIDAA exiting DLNA app to HDMI 1)
-            set_ok = await dlna_controller.set_av_transport_uri(av_url, tv_stream_url, title, req.mime_type)
-            if not set_ok:
-                # If TV renderer requires STOP transition first, stop and retry
+            # Clean Hardware TV Pipeline Transition:
+            # Check if TV is actively playing a stream from a previous channel
+            try:
+                cur_info = await dlna_controller.get_transport_info(av_url)
+                cur_state = cur_info.get("state", "STOPPED")
+            except Exception:
+                cur_state = "STOPPED"
+
+            # If TV is currently PLAYING, TRANSITIONING or PAUSED from a previous channel,
+            # cleanly stop it and wait for STOPPED state (up to 1.2s) so the TV's GStreamer demuxer
+            # and hardware decoder ring buffers are 100% flushed.
+            # This completely eliminates channel switching oscillation and audio/video desync.
+            if cur_state in ("PLAYING", "TRANSITIONING", "PAUSED_PLAYBACK"):
                 try:
                     await dlna_controller.stop(av_url)
-                    await asyncio.sleep(0.15)
+                    for _ in range(8):
+                        await asyncio.sleep(0.12)
+                        if is_stale():
+                            return {"status": "superseded", "version": my_version, "mode": mode}
+                        chk = await dlna_controller.get_transport_info(av_url)
+                        if chk.get("state") in ("STOPPED", "NO_MEDIA_PRESENT"):
+                            break
+                except Exception as e:
+                    logger.debug(f"DLNA clean stop notice: {e}")
+
+            if is_stale():
+                return {"status": "superseded", "version": my_version, "mode": mode}
+
+            set_ok = await dlna_controller.set_av_transport_uri(av_url, tv_stream_url, title, req.mime_type)
+            if not set_ok:
+                try:
+                    await dlna_controller.stop(av_url)
+                    await asyncio.sleep(0.2)
                 except Exception as e:
                     logger.debug(f"DLNA stop notice: {e}")
 
@@ -559,7 +585,7 @@ async def cast_media(req: CastRequest, request: Request, client_ip: str = Depend
 
             if set_ok:
                 tv_is_active = True
-                await asyncio.sleep(0.08)
+                await asyncio.sleep(0.12)
                 if is_stale():
                     return {"status": "superseded", "version": my_version, "mode": mode}
                 await dlna_controller.play(av_url)
