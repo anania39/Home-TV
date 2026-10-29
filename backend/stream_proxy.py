@@ -69,7 +69,7 @@ class ActiveStreamSessionManager:
     halt the old player process and prevent overlapping/interleaved playback.
     """
     def __init__(self):
-        # Map client_ip -> {"sid": str, "stream_url": str, "timestamp": float}
+        # Map client_ip -> {"sid": str, "stream_url": str, "timestamp": float, "headers": dict}
         self._device_sessions: Dict[str, Dict[str, Any]] = {}
         # Global latest session ID
         self._latest_sid: str = f"s_init_{int(time.time())}"
@@ -78,8 +78,10 @@ class ActiveStreamSessionManager:
         self._invalidated_sids: set = set()
         self._obsolete_urls: set = set()
         self._channel_switch_time: float = 0.0
+        self._sid_headers: Dict[str, Dict[str, str]] = {}
+        self._latest_headers: Dict[str, str] = {}
 
-    def start_session(self, target_ip: Optional[str], stream_url: str) -> str:
+    def start_session(self, target_ip: Optional[str], stream_url: str, headers: Optional[Dict[str, str]] = None) -> str:
         sid = f"s_{int(time.time())}_{uuid.uuid4().hex[:6]}"
         clean_url = stream_url.split("?")[0]
         now = time.time()
@@ -100,11 +102,15 @@ class ActiveStreamSessionManager:
         self._latest_sid = sid
         self._latest_stream_url = clean_url
         self._channel_switch_time = now
+        custom_hdrs = headers or {}
+        self._latest_headers = custom_hdrs
+        self._sid_headers[sid] = custom_hdrs
 
         info = {
             "sid": sid,
             "stream_url": clean_url,
-            "timestamp": now
+            "timestamp": now,
+            "headers": custom_hdrs
         }
         if target_ip and target_ip != "web_receiver":
             old_dev_sid = self._device_sessions.get(target_ip, {}).get("sid")
@@ -117,6 +123,13 @@ class ActiveStreamSessionManager:
 
         logger.info(f"Stream session started: sid={sid} target={target_ip} url={clean_url}")
         return sid
+
+    def get_session_headers(self, sid: Optional[str] = None, client_ip: Optional[str] = None) -> Dict[str, str]:
+        if sid and sid in self._sid_headers:
+            return self._sid_headers[sid]
+        if client_ip and client_ip in self._device_sessions:
+            return self._device_sessions[client_ip].get("headers", {})
+        return self._latest_headers
 
     def get_session_id_for_url(self, manifest_url: str, client_ip: str) -> str:
         dev_info = self._device_sessions.get(client_ip)
@@ -440,6 +453,13 @@ async def proxy_stream(url: str, request: Request, server_host: str):
         headers["Origin"] = "https://www.televizia.org"
     elif "cinerama" in url:
         headers["Referer"] = "https://cinerama.uz/"
+
+    # Forward custom headers from movie/stream session (e.g. embed referrers)
+    req_sid = request.query_params.get("sid")
+    client_addr = request.client.host if request.client else "127.0.0.1"
+    session_custom_headers = session_manager.get_session_headers(req_sid, client_addr)
+    if session_custom_headers:
+        headers.update(session_custom_headers)
 
     # Check if request is for a TS segment or an M3U8 manifest
     url_clean = url.split("?")[0].lower()

@@ -27,7 +27,7 @@ class GoogleCastController:
             logger.warning(f"Failed to connect to Google TV at {ip}: {e}")
             return None
 
-    def cast_media(self, ip: str, url: str, title: str = "Live Stream", mime_type: str = "video/mp4") -> bool:
+    def cast_media(self, ip: str, url: str, title: str = "Live Stream", mime_type: str = "video/mp4", subtitles: Optional[str] = None) -> bool:
         """Cast media stream to Android TV / Google TV."""
         try:
             cast = self.get_cast(ip)
@@ -37,15 +37,16 @@ class GoogleCastController:
             mc = cast.media_controller
             is_m3u8 = ".m3u8" in url or "mpegurl" in mime_type.lower()
             content_type = "application/x-mpegurl" if is_m3u8 else (mime_type or "video/mp4")
-            stream_type = "LIVE" if is_m3u8 else "BUFFERED"
+            stream_type = "BUFFERED" if ("vod" in url.lower() or "movie" in url.lower() or ".mp4" in url.lower()) else ("LIVE" if is_m3u8 else "BUFFERED")
 
-            logger.info(f"Casting to {cast.name} ({ip}): {title} [{content_type}]")
+            logger.info(f"Casting to {cast.name} ({ip}): {title} [{content_type}] (stream_type={stream_type})")
             mc.play_media(
                 url=url,
                 content_type=content_type,
                 title=title,
                 autoplay=True,
-                stream_type=stream_type
+                stream_type=stream_type,
+                subtitles=subtitles
             )
             return True
         except Exception as e:
@@ -143,19 +144,8 @@ class GoogleCastController:
         """Query real status from Google TV / Android TV."""
         try:
             cast = self.get_cast(ip)
-            if not cast or not cast.status:
+            if not cast or not cast.status or not cast.socket_client or not cast.socket_client.is_connected:
                 return {"tv_online": False, "state": "STANDBY", "volume": 20, "muted": False, "title": ""}
-
-            is_standby = getattr(cast.status, "is_stand_by", False)
-            if is_standby:
-                return {
-                    "tv_online": False,
-                    "state": "STANDBY",
-                    "status_text": f"{cast.name} is in Standby",
-                    "volume": int(round((cast.status.volume_level or 0.2) * 100)),
-                    "muted": getattr(cast.status, "volume_muted", False),
-                    "title": ""
-                }
 
             mc = cast.media_controller
             p_state = "IDLE"

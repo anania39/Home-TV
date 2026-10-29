@@ -552,6 +552,16 @@ function updateHardwareStatus(data) {
   state.tvOnline = isOnline;
   state.playbackState = pState;
 
+  if (data.selected_device_id) {
+    const dropdown = document.getElementById("tv-dropdown");
+    if (dropdown && dropdown.value !== data.selected_device_id) {
+      dropdown.value = data.selected_device_id;
+      state.currentTvId = data.selected_device_id;
+      const opt = dropdown.options[dropdown.selectedIndex];
+      if (opt) state.currentTvName = opt.textContent;
+    }
+  }
+
   if (!isOnline || pState === "STANDBY") {
     // TV Standby
     banner.className = "tv-status-banner standby";
@@ -944,7 +954,8 @@ async function handleCastUrlInput(val) {
             castPreviewBox.style.display = "flex";
             if (castPreviewTitle) castPreviewTitle.textContent = data.title || "Ready to Stream";
             if (castPreviewTag) {
-              castPreviewTag.textContent = data.is_ad_free ? `✓ Ad-Free Direct Stream Ready (${data.duration_str || ""})` : "✓ Stream Ready";
+              const subCount = (data.subtitles && data.subtitles.length > 0) ? ` • ${data.subtitles.length} Subtitles` : "";
+              castPreviewTag.textContent = data.is_ad_free ? `✓ Ad-Free Stream Ready (${data.duration_str || "Movie"}${subCount})` : "✓ Stream Ready";
             }
             if (castPreviewThumb && data.thumbnail) {
               castPreviewThumb.src = data.thumbnail;
@@ -1034,7 +1045,8 @@ if (btnSubmitCast) {
           quality_urls: data.quality_urls
         });
       } else {
-        showToast(data.message || "Cast sent to TV");
+        vibrate([60, 60, 60]);
+        showToast("⚠️ " + (data.message || "Could not extract video stream from this webpage."));
       }
     } catch (e) {
       showToast("Cast command sent to TV");

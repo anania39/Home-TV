@@ -55,8 +55,9 @@ async def monitor_tv_status_loop():
                 try:
                     cast_status = await asyncio.to_thread(google_cast_controller.get_status, dev["ip"])
                     ws_manager.update_state({
+                        "selected_device_id": selected_id,
                         "tv_online": cast_status.get("tv_online", False),
-                        "state": cast_status.get("state", "STANDBY"),
+                        "state": cast_status.get("state", "IDLE"),
                         "status_text": cast_status.get("status_text", f"{dev['name']} Ready"),
                         "volume": cast_status.get("volume", 20),
                         "muted": cast_status.get("muted", False)
@@ -91,6 +92,7 @@ async def monitor_tv_status_loop():
 
                         vol = await dlna_controller.get_volume(rc_url) if rc_url else -1
                         updates = {
+                            "selected_device_id": selected_id,
                             "tv_online": True,
                             "state": display_state,
                             "status_text": status_text,
@@ -446,7 +448,40 @@ async def select_device(req: DeviceSelectRequest):
         dev = device_manager.get_device(req.device_id)
         name = dev["name"] if dev else ("TV Web Receiver" if req.device_id == "web_receiver" else req.device_id)
         ip = dev["ip"] if dev else SERVER_IP
-        ws_manager.update_state({"selected_tv_name": name, "selected_tv_ip": ip})
+        
+        # Immediate status probe for newly selected TV so UI updates instantly
+        updates = {"selected_tv_name": name, "selected_tv_ip": ip}
+        if dev and dev.get("is_google_tv"):
+            try:
+                cast_status = await asyncio.to_thread(google_cast_controller.get_status, dev["ip"])
+                updates.update({
+                    "tv_online": cast_status.get("tv_online", False),
+                    "state": cast_status.get("state", "IDLE"),
+                    "status_text": cast_status.get("status_text", f"{name} Ready"),
+                    "volume": cast_status.get("volume", 20),
+                    "muted": cast_status.get("muted", False)
+                })
+            except Exception:
+                pass
+        elif dev and dev.get("av_transport_url"):
+            try:
+                transport = await dlna_controller.get_transport_info(dev["av_transport_url"])
+                raw_state = transport.get("state", "STANDBY")
+                is_online = raw_state not in ["STANDBY", "UNKNOWN", "ERROR"]
+                updates.update({
+                    "tv_online": is_online,
+                    "state": "IDLE" if raw_state in ["STOPPED", "NO_MEDIA_PRESENT"] else raw_state,
+                    "status_text": f"{name} Ready" if is_online else f"{name} is in Standby"
+                })
+            except Exception:
+                updates.update({
+                    "tv_online": False,
+                    "state": "STANDBY",
+                    "status_text": f"{name} is in Standby"
+                })
+
+        ws_manager.update_state(updates)
+        await ws_manager.broadcast_to_controllers("tv_status_sync", ws_manager.current_state)
         await ws_manager.broadcast_to_controllers("tv_selected", {"device_id": req.device_id, "name": name, "ip": ip})
         return {"status": "ok", "selected_device_id": req.device_id, "name": name}
     raise HTTPException(status_code=404, detail="Device not found")
@@ -624,6 +659,12 @@ async def cast_media(req: CastRequest, request: Request, client_ip: str = Depend
                 title = resolved.get("title") or title
             if resolved.get("mime_type"):
                 req.mime_type = resolved["mime_type"]
+        elif not media_resolver.is_direct_stream(raw_stream_url):
+            logger.warning(f"Could not extract video stream from webpage: {raw_stream_url}")
+            return {
+                "status": "error",
+                "message": resolved.get("error") or "Could not extract video from this webpage. Please paste the direct video or embed player link."
+            }
     except Exception as e:
         logger.warning(f"Media resolution notice: {e}")
 
@@ -634,7 +675,8 @@ async def cast_media(req: CastRequest, request: Request, client_ip: str = Depend
     is_stale = lambda: my_version != ws_manager.cast_version
 
     target_tv_ip = dev.get("ip") if dev else None
-    active_sid = session_manager.start_session(target_tv_ip, raw_stream_url)
+    custom_headers = resolved.get("headers") if ('resolved' in locals() and isinstance(resolved, dict)) else None
+    active_sid = session_manager.start_session(target_tv_ip, raw_stream_url, headers=custom_headers)
 
     # Proxied URLs:
     relative_proxy_url = f"/api/stream/proxy?url={quote(raw_stream_url, safe='')}&sid={active_sid}"
@@ -732,7 +774,8 @@ async def cast_media(req: CastRequest, request: Request, client_ip: str = Depend
                 pass
             if is_stale():
                 return {"status": "superseded", "version": my_version, "mode": mode}
-            ok = await asyncio.to_thread(google_cast_controller.cast_media, dev["ip"], tv_stream_url, title, req.mime_type or "video/mp4")
+            first_sub = (resolved.get("subtitles") or [{}])[0].get("url") if ('resolved' in locals() and isinstance(resolved, dict)) else None
+            ok = await asyncio.to_thread(google_cast_controller.cast_media, dev["ip"], tv_stream_url, title, req.mime_type or "video/mp4", first_sub)
             tv_is_active = ok
             if not ok:
                 logger.warning(f"Google Cast to {dev['name']} at {dev['ip']} returned false")

@@ -2,14 +2,24 @@
 Universal Media Resolver for TV Hub
 Extracts clean, ad-free direct video streams (MP4/HLS) from YouTube,
 movie platforms, streaming sites, web players, and direct media URLs.
+Equipped with browser TLS impersonation to bypass Cloudflare and anti-bot systems.
 """
 
 import asyncio
+import html
+import json
 import logging
 import re
 import urllib.parse
-from typing import Dict, Any, Optional, List
+from typing import Dict, Any, Optional, List, Tuple
 import httpx
+
+try:
+    from curl_cffi import requests as cffi_requests
+    HAS_CURL_CFFI = True
+except ImportError:
+    cffi_requests = None
+    HAS_CURL_CFFI = False
 
 try:
     import yt_dlp
@@ -24,16 +34,32 @@ DIRECT_EXTENSIONS = (
 
 STREAM_PROTOCOLS = ("rtsp://", "rtmp://", "mms://")
 
+LANG_NAMES = {
+    "en": "English", "eng": "English",
+    "ka": "Georgian (ქართული)", "geo": "Georgian (ქართული)",
+    "ru": "Russian (Русский)", "rus": "Russian (Русский)",
+    "es": "Spanish (Español)", "spa": "Spanish (Español)",
+    "de": "German (Deutsch)", "ger": "German (Deutsch)", "deu": "German (Deutsch)",
+    "fr": "French (Français)", "fre": "French (Français)", "fra": "French (Français)",
+    "it": "Italian (Italiano)", "ita": "Italian (Italiano)",
+    "tr": "Turkish (Türkçe)", "tur": "Turkish (Türkçe)",
+    "uk": "Ukrainian (Українська)", "ukr": "Ukrainian (Українська)",
+    "pt": "Portuguese (Português)", "por": "Portuguese (Português)",
+    "ja": "Japanese (日本語)", "jpn": "Japanese (日本語)",
+    "zh": "Chinese (中文)", "chi": "Chinese (中文)", "zho": "Chinese (中文)",
+    "ar": "Arabic (العربية)", "ara": "Arabic (العربية)"
+}
+
 class MediaResolver:
     def __init__(self):
         self.http_client = httpx.AsyncClient(
-            timeout=8.0,
+            timeout=10.0,
             follow_redirects=True,
             verify=False,
             headers={
                 "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
-                "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
-                "Accept-Language": "en-US,en;q=0.9",
+                "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8",
+                "Accept-Language": "en-US,en;q=0.9,ka;q=0.8,ru;q=0.7",
             }
         )
 
@@ -50,21 +76,25 @@ class MediaResolver:
         return f"{m:02d}:{s:02d}"
 
     @staticmethod
+    def _clean_extracted_url(raw_url: str) -> str:
+        if not raw_url:
+            return ""
+        # 1. Unescape unicode escapes like \u0026, \/
+        cleaned = raw_url.replace(r"\/", "/")
+        cleaned = re.sub(r'\\u([0-9a-fA-F]{4})', lambda m: chr(int(m.group(1), 16)), cleaned)
+        # 2. Unescape HTML entities like &amp;, &#39;
+        cleaned = html.unescape(cleaned)
+        return cleaned.strip()
+
+    @staticmethod
     def _extract_subtitles_and_qualities(info: Dict[str, Any]):
         subs_list = []
         all_subs = {**info.get("subtitles", {}), **info.get("automatic_captions", {})}
-        lang_names = {
-            "en": "English", "ka": "Georgian (ქართული)", "ru": "Russian (Русский)",
-            "es": "Spanish (Español)", "de": "German (Deutsch)", "fr": "French (Français)",
-            "it": "Italian (Italiano)", "tr": "Turkish (Türkçe)", "uk": "Ukrainian (Українська)",
-            "pt": "Portuguese (Português)", "ja": "Japanese (日本語)", "zh": "Chinese (中文)",
-            "ar": "Arabic (العربية)"
-        }
         for code, entries in all_subs.items():
             short_code = code.split("-")[0].lower()
             vtts = [e.get("url") for e in entries if e.get("ext") == "vtt" or "vtt" in e.get("url", "")]
             if vtts and not any(s["code"] == short_code for s in subs_list):
-                name = lang_names.get(short_code, code.upper())
+                name = LANG_NAMES.get(short_code, code.upper())
                 subs_list.append({"code": short_code, "name": name, "url": vtts[0]})
 
         # Qualities
@@ -79,6 +109,39 @@ class MediaResolver:
                     quality_urls[q_label] = f["url"]
 
         return subs_list, qualities, quality_urls
+
+    async def fetch_page(self, url: str, referer: Optional[str] = None) -> Tuple[int, str]:
+        """
+        Fetches a web page with browser TLS impersonation to bypass Cloudflare/anti-bot challenges.
+        """
+        headers = {
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
+            "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8",
+            "Accept-Language": "en-US,en;q=0.9,ka;q=0.8,ru;q=0.7",
+        }
+        if referer:
+            headers["Referer"] = referer
+            parsed = urllib.parse.urlparse(referer)
+            headers["Origin"] = f"{parsed.scheme}://{parsed.netloc}"
+
+        if HAS_CURL_CFFI:
+            def _fetch_cffi():
+                try:
+                    r = cffi_requests.get(url, headers=headers, impersonate="chrome124", timeout=12)
+                    return r.status_code, r.text
+                except Exception as e:
+                    logger.debug(f"cffi fetch error for {url}: {e}")
+                    return 0, ""
+            status, text = await asyncio.to_thread(_fetch_cffi)
+            if status == 200 and text:
+                return status, text
+
+        try:
+            resp = await self.http_client.get(url, headers=headers)
+            return resp.status_code, resp.text
+        except Exception as e:
+            logger.debug(f"httpx fetch error for {url}: {e}")
+            return 0, ""
 
     async def search_youtube(self, query: str, limit: int = 6) -> List[Dict[str, Any]]:
         """
@@ -167,18 +230,18 @@ class MediaResolver:
             if yt_res.get("resolved"):
                 return yt_res
 
-        # 3. Universal yt-dlp extractor (Vimeo, Dailymotion, Twitch, Movie Hosts)
+        # 3. Webpage / HTML5 / Iframe Scraper for movie sites & embedded web players (with Cloudflare bypass)
+        scraped_res = await self.scrape_web_player(url, preferred_title)
+        if scraped_res.get("resolved"):
+            return scraped_res
+
+        # 4. Universal yt-dlp extractor (Vimeo, Dailymotion, Twitch, Movie Hosts)
         if yt_dlp:
             ytdlp_res = await self.resolve_with_ytdlp(url, preferred_title)
             if ytdlp_res.get("resolved"):
                 return ytdlp_res
 
-        # 4. Webpage / HTML5 / Iframe Scraper for movie sites & embedded web players
-        scraped_res = await self.scrape_web_player(url, preferred_title)
-        if scraped_res.get("resolved"):
-            return scraped_res
-
-        # Fallback: return as-is
+        # Fallback: strictly mark resolved as False
         return {
             "resolved": False,
             "stream_url": url,
@@ -248,20 +311,21 @@ class MediaResolver:
 
     async def resolve_with_ytdlp(self, url: str, preferred_title: Optional[str] = None) -> Dict[str, Any]:
         """
-        Generic yt-dlp resolver for supported video platforms.
+        Generic yt-dlp resolver for supported video platforms with fast timeout.
         """
         def _extract():
             ydl_opts = {
                 'quiet': True,
                 'no_warnings': True,
                 'noplaylist': True,
+                'socket_timeout': 3.5,
                 'format': 'best[protocol^=http]/best[ext=mp4]/best',
             }
             with yt_dlp.YoutubeDL(ydl_opts) as ydl:
                 return ydl.extract_info(url, download=False)
 
         try:
-            info = await asyncio.to_thread(_extract)
+            info = await asyncio.wait_for(asyncio.to_thread(_extract), timeout=4.5)
             stream_url = info.get("url")
             if stream_url:
                 title = preferred_title or info.get("title") or "Video Stream"
@@ -290,28 +354,135 @@ class MediaResolver:
 
         return {"resolved": False}
 
-    async def scrape_web_player(self, url: str, preferred_title: Optional[str] = None, depth: int = 0) -> Dict[str, Any]:
+    def _parse_subtitles(self, sub_str: str) -> List[Dict[str, str]]:
+        subs = []
+        if not sub_str:
+            return subs
+        matches = re.findall(r'\[([a-zA-Z0-9_\-]+)\](https?://[^\s,\[\]]+)', sub_str)
+        for code, vtt_url in matches:
+            short = code.lower().strip()
+            name = LANG_NAMES.get(short, code.upper())
+            subs.append({"code": short, "name": name, "url": vtt_url})
+        return subs
+
+    async def _resolve_playerjs_playlist(self, pl_url: str, base_url: str, title: str) -> Optional[Dict[str, Any]]:
+        """
+        Resolves PlayerJS playlist file (.plist, .txt, .json) into media stream, subtitles & thumbnail.
+        """
+        full_pl_url = urllib.parse.urljoin(base_url, pl_url)
+        status, text = await self.fetch_page(full_pl_url, referer=base_url)
+        if status != 200 or not text:
+            return None
+
+        # Clean JSON playlist
+        try:
+            data = json.loads(text)
+            if isinstance(data, list) and len(data) > 0:
+                item = data[0]
+                stream_url = item.get("file")
+                if stream_url:
+                    item_title = item.get("title") or title
+                    poster = item.get("poster") or ""
+                    sub_str = item.get("subtitle") or ""
+                    subs = self._parse_subtitles(sub_str)
+                    mime = "application/vnd.apple.mpegurl" if ".m3u8" in stream_url.lower() else "video/mp4"
+                    return {
+                        "resolved": True,
+                        "stream_url": stream_url,
+                        "title": item_title,
+                        "thumbnail": poster,
+                        "duration": 0,
+                        "duration_str": "Movie",
+                        "source_type": "movie_platform",
+                        "is_ad_free": True,
+                        "mime_type": mime,
+                        "subtitles": subs,
+                        "qualities": ["Auto", "1080p", "720p", "480p"],
+                        "headers": {
+                            "Referer": base_url,
+                            "Origin": urllib.parse.urlsplit(base_url).scheme + "://" + urllib.parse.urlsplit(base_url).netloc
+                        }
+                    }
+        except Exception:
+            pass
+
+        # Text/encoded playlist
+        m3u8_m = re.findall(r'(https?://[^\s"\'<>]+\.m3u8[^\s"\'<>]*)', text)
+        if m3u8_m:
+            return {
+                "resolved": True,
+                "stream_url": m3u8_m[0],
+                "title": title,
+                "thumbnail": "",
+                "duration": 0,
+                "duration_str": "Movie",
+                "source_type": "movie_platform",
+                "is_ad_free": True,
+                "mime_type": "application/vnd.apple.mpegurl",
+                "subtitles": [],
+                "qualities": ["Auto"],
+                "headers": {"Referer": base_url}
+            }
+
+        return None
+
+    async def scrape_web_player(self, url: str, preferred_title: Optional[str] = None, depth: int = 0, referer: Optional[str] = None) -> Dict[str, Any]:
         """
         Deep HTML and iframe scraper for movie sites, web players, and embed portals.
+        Uses Cloudflare-bypassing client and unescapes nested iframes.
         """
-        if depth > 2:
+        if depth > 3:
             return {"resolved": False}
 
         try:
-            resp = await self.http_client.get(url)
-            if resp.status_code != 200:
+            status, html_text = await self.fetch_page(url, referer=referer)
+            if status != 200 or not html_text:
                 return {"resolved": False}
-
-            html_text = resp.text
 
             # Extract title if not provided
             page_title = preferred_title
             if not page_title:
                 m_title = re.search(r"<title>(.*?)</title>", html_text, re.IGNORECASE | re.DOTALL)
                 if m_title:
-                    page_title = re.sub(r"\s+", " ", m_title.group(1)).strip()
+                    raw_title = html.unescape(m_title.group(1))
+                    page_title = re.sub(r"\s+", " ", raw_title).strip()
+                    # Clean up common portal prefixes/suffixes
+                    for remove_term in (" - GE.MOVIE", " - Watch Online", " Free Full Movie", " HD 1080p", " | GE.MOVIE"):
+                        page_title = page_title.replace(remove_term, "")
 
-            # Pattern 1: Direct HLS or MP4 in HTML or JS variables
+            # PlayerJS Pattern: new Playerjs({ ... pl: "...", file: "..." })
+            pl_match = re.search(r'Playerjs\s*\(\s*\{[^}]*?pl\s*:\s*["\']([^"\']+)["\']', html_text, re.IGNORECASE)
+            if pl_match:
+                pl_path = self._clean_extracted_url(pl_match.group(1))
+                res = await self._resolve_playerjs_playlist(pl_path, url, page_title or "Movie Stream")
+                if res and res.get("resolved"):
+                    return res
+
+            file_match = re.search(r'Playerjs\s*\(\s*\{[^}]*?file\s*:\s*["\']([^"\']+)["\']', html_text, re.IGNORECASE)
+            if file_match:
+                f_path = self._clean_extracted_url(file_match.group(1))
+                if any(ext in f_path for ext in (".m3u8", ".mp4")):
+                    mime = "application/vnd.apple.mpegurl" if ".m3u8" in f_path else "video/mp4"
+                    return {
+                        "resolved": True,
+                        "stream_url": f_path,
+                        "title": page_title or "Movie Stream",
+                        "thumbnail": "",
+                        "duration": 0,
+                        "duration_str": "Movie",
+                        "source_type": "movie_platform",
+                        "is_ad_free": True,
+                        "mime_type": mime,
+                        "subtitles": [],
+                        "qualities": ["Auto"],
+                        "headers": {"Referer": url}
+                    }
+                elif any(ext in f_path for ext in (".plist", ".txt", ".json")):
+                    res = await self._resolve_playerjs_playlist(f_path, url, page_title or "Movie Stream")
+                    if res and res.get("resolved"):
+                        return res
+
+            # Direct HLS or MP4 in HTML or JS variables
             m3u8_matches = re.findall(r'["\'](https?://[^"\'<>]+\.m3u8[^"\'<>]*)["\']', html_text)
             if m3u8_matches:
                 stream_url = m3u8_matches[0]
@@ -321,9 +492,13 @@ class MediaResolver:
                     "title": page_title or "Movie Stream",
                     "thumbnail": "",
                     "duration": 0,
+                    "duration_str": "Movie",
                     "source_type": "movie_platform",
                     "is_ad_free": True,
-                    "mime_type": "application/vnd.apple.mpegurl"
+                    "mime_type": "application/vnd.apple.mpegurl",
+                    "subtitles": [],
+                    "qualities": ["Auto"],
+                    "headers": {"Referer": url}
                 }
 
             mp4_matches = re.findall(r'["\'](https?://[^"\'<>]+\.mp4[^"\'<>]*)["\']', html_text)
@@ -335,12 +510,16 @@ class MediaResolver:
                     "title": page_title or "Movie Stream",
                     "thumbnail": "",
                     "duration": 0,
+                    "duration_str": "Movie",
                     "source_type": "movie_platform",
                     "is_ad_free": True,
-                    "mime_type": "video/mp4"
+                    "mime_type": "video/mp4",
+                    "subtitles": [],
+                    "qualities": ["Auto"],
+                    "headers": {"Referer": url}
                 }
 
-            # Pattern 2: HTML5 <video> or <source> tag
+            # HTML5 <video> or <source> tag
             video_src = re.findall(r'<video[^>]+src=["\'](https?://[^"\']+)["\']', html_text, re.IGNORECASE)
             if video_src:
                 return {
@@ -349,31 +528,47 @@ class MediaResolver:
                     "title": page_title or "Movie Video",
                     "thumbnail": "",
                     "duration": 0,
+                    "duration_str": "Movie",
                     "source_type": "movie_platform",
                     "is_ad_free": True,
-                    "mime_type": "video/mp4"
+                    "mime_type": "video/mp4",
+                    "subtitles": [],
+                    "qualities": ["Auto"],
+                    "headers": {"Referer": url}
                 }
 
             source_src = re.findall(r'<source[^>]+src=["\'](https?://[^"\']+)["\']', html_text, re.IGNORECASE)
             if source_src:
+                s_url = source_src[0]
+                mime = "application/vnd.apple.mpegurl" if ".m3u8" in s_url else "video/mp4"
                 return {
                     "resolved": True,
-                    "stream_url": source_src[0],
+                    "stream_url": s_url,
                     "title": page_title or "Movie Video",
                     "thumbnail": "",
                     "duration": 0,
+                    "duration_str": "Movie",
                     "source_type": "movie_platform",
                     "is_ad_free": True,
-                    "mime_type": "video/mp4"
+                    "mime_type": mime,
+                    "subtitles": [],
+                    "qualities": ["Auto"],
+                    "headers": {"Referer": url}
                 }
 
-            # Pattern 3: Embedded iframes (follow embeds like player.vidsrc, streamtape, etc.)
-            iframes = re.findall(r'<iframe[^>]+src=["\'](https?://[^"\']+)["\']', html_text, re.IGNORECASE)
-            for iframe_url in iframes[:3]:
-                # Avoid tracking/ad iframes
-                if any(x in iframe_url.lower() for x in ("google", "facebook", "disqus", "doubleclick", "ads")):
+            # Embedded iframes: unescape &amp; and join relative links
+            raw_iframes = re.findall(r'<iframe[^>]+src=["\']([^"\']+)["\']', html_text, re.IGNORECASE)
+            for raw_iframe_url in raw_iframes[:5]:
+                iframe_url = html.unescape(raw_iframe_url)
+                if not iframe_url.startswith("http"):
+                    iframe_url = urllib.parse.urljoin(url, iframe_url)
+
+                # Avoid tracking / ad iframes
+                if any(x in iframe_url.lower() for x in ("google", "facebook", "disqus", "doubleclick", "adnxs", "mc.yandex", "clarity")):
                     continue
-                nested_res = await self.scrape_web_player(iframe_url, page_title, depth=depth + 1)
+
+                logger.info(f"Following movie embed iframe: {iframe_url}")
+                nested_res = await self.scrape_web_player(iframe_url, page_title, depth=depth + 1, referer=url)
                 if nested_res.get("resolved"):
                     return nested_res
 
