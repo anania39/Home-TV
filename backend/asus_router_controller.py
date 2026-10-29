@@ -8,6 +8,7 @@ import urllib.request
 import urllib.parse
 import http.cookiejar
 import base64
+import re
 import json
 import logging
 import time
@@ -84,6 +85,17 @@ class AsusRouterController:
                         token = cookie.value
                         break
 
+                if not token:
+                    set_cookie = res.headers.get("Set-Cookie", "")
+                    m = re.search(r'(?:asus_token|token)=([^;,\s]+)', set_cookie)
+                    if m:
+                        token = m.group(1)
+
+                if not token:
+                    m = re.search(r"(?:asus_token|token)[=:](\w+)", body)
+                    if m:
+                        token = m.group(1)
+
                 # Asuswrt indicates failed login with error_status=1 or 'Invalid username or password'
                 if "error_status=1" in body or "Invalid username or password" in body:
                     return False, "Invalid router username or password", None, None
@@ -102,7 +114,7 @@ class AsusRouterController:
         except Exception as e:
             return False, f"Connection error: {str(e)}", None, None
 
-    def apply_dns_adblocker(self, ip: str, dns_server_ip: str, opener: urllib.request.OpenerDirector, cj: http.cookiejar.CookieJar) -> Tuple[bool, str]:
+    def apply_dns_adblocker(self, ip: str, dns_server_ip: str, opener: urllib.request.OpenerDirector, cj: http.cookiejar.CookieJar, token: Optional[str] = None) -> Tuple[bool, str]:
         """
         Applies primary DHCP DNS server setting to point to TV Hub (dns_server_ip).
         Triggers dnsmasq restart on the router.
@@ -123,6 +135,8 @@ class AsusRouterController:
             "next_page": "Advanced_DHCP_Content.asp",
             "dhcp_dns1_x": dns_server_ip
         }
+        if token and token != "authenticated":
+            payload["asus_token"] = token
 
         encoded_payload = urllib.parse.urlencode(payload).encode("utf-8")
         headers = {
@@ -176,14 +190,14 @@ class AsusRouterController:
 
         # Step 2: Login
         ok, token_or_err, opener, cj = self.login(router_ip, username, password)
-        if not ok or not opener or not cj:
+        if not ok or opener is None:
             return {
                 "status": "error",
                 "message": token_or_err or "Router authentication failed."
             }
 
         # Step 3: Apply DNS
-        ok_apply, msg = self.apply_dns_adblocker(router_ip, dns_server_ip, opener, cj)
+        ok_apply, msg = self.apply_dns_adblocker(router_ip, dns_server_ip, opener, cj, token=token_or_err if token_or_err != 'authenticated' else None)
         if ok_apply:
             # Save router config state (without persisting plaintext password)
             self._save_router_state(router_ip, username, dns_server_ip)
