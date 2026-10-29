@@ -4,9 +4,25 @@
     "192.168.50.237": true
   },
   "stats": {
-    "queries_total": 2,
-    "ads_blocked": 2,
-    "start_time": 1793299289.5441225
+    "queries_total": 6,
+    "ads_blocked": 4,
+    "start_time": 1793300182.0048954
   },
-  "updated_at": 1793299346
+  "updated_at": 1793300451,
+  "recent_blocks": [
+    {
+      "domain": "doubleclick.net",
+      "client_ip": "127.0.0.1",
+      "time": "22:56:48",
+      "timestamp": 1793300208.8645854
+    },
+    {
+      "domain": "doubleclick.net",
+      "client_ip": "127.0.0.1",
+      "time": "23:00:25",
+      "timestamp": 1793300425.969193
+    }
+  ],
+  "daemon_pid": 4920,
+  "daemon_alive": true
 }

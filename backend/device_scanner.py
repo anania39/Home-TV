@@ -226,12 +226,15 @@ class DeviceScanner:
         return self._enrich_devices(sorted_list, client_ip)
 
     def _enrich_devices(self, devices: List[Dict], client_ip: Optional[str]) -> List[Dict]:
-        from backend.dns_adblocker import dns_adblocker
+        from backend.dns_service_manager import read_state
+        state = read_state()
+        global_enabled = state.get('global_enabled', True)
+        device_rules = state.get('device_rules', {})
         enriched = []
         for d in devices:
             d_copy = dict(d)
             d_copy["is_current_device"] = (client_ip and (d["ip"] == client_ip or (client_ip in ("127.0.0.1", "localhost") and d["ip"] == "192.168.50.250")))
-            d_copy["adblock_enabled"] = dns_adblocker.is_blocking_enabled_for_ip(d["ip"])
+            d_copy["adblock_enabled"] = device_rules.get(d["ip"], global_enabled)
             enriched.append(d_copy)
         return enriched
 

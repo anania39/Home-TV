@@ -26,7 +26,7 @@ from .websocket_manager import ws_manager
 from .tunnel import tunnel_manager
 from .google_cast_controller import google_cast_controller
 from .sports_scraper import sports_scraper, CATEGORIES
-from .dns_adblocker import dns_adblocker
+from .dns_service_manager import is_daemon_running, start_daemon, get_status as get_dns_service_status, set_global_no_ads, set_device_no_ads
 from .device_scanner import device_scanner
 
 import sys
@@ -178,12 +178,13 @@ async def lifespan(app: FastAPI):
     health_task = None
     mdns_zc = None
 
-    # Start High-Performance DNS Ad-Blocker on Port 53 (UDP)
+    # Ensure 24/7 Persistent Background DNS Ad-Blocker Daemon is active
     try:
-        await dns_adblocker.start(host="0.0.0.0", port=53)
-        logger.info(f"🛡️ High-Performance DNS Ad-Blocker active on port 53 (Server IP: {SERVER_IP})")
+        if not is_daemon_running():
+            start_daemon()
+        logger.info(f"🛡️ 24/7 Persistent DNS Ad-Blocker Daemon active on port 53 (Server IP: {SERVER_IP})")
     except Exception as e:
-        logger.warning(f"DNS Ad-Blocker startup notice: {e}")
+        logger.warning(f"DNS Daemon manager notice: {e}")
 
     if not NO_DEVICES:
         # Pre-register user's Hisense TV if not discovered yet
@@ -220,7 +221,6 @@ async def lifespan(app: FastAPI):
         health_task.cancel()
     if not NO_DEVICES:
         tunnel_manager.stop(kill_process=False)
-    dns_adblocker.stop()
 
 app = FastAPI(title="TV Hub", lifespan=lifespan)
 
@@ -474,25 +474,25 @@ async def scan_network(request: Request):
 
 @app.get("/api/adblock/status")
 async def get_adblock_status():
-    return dns_adblocker.get_status()
+    return get_dns_service_status()
 
 @app.post("/api/adblock/toggle")
 async def toggle_global_adblock(req: GlobalAdblockRequest):
-    dns_adblocker.set_global_enabled(req.enabled)
+    updated = set_global_no_ads(req.enabled)
     return {
         "status": "ok",
-        "global_enabled": dns_adblocker.global_enabled,
-        "adblock_status": dns_adblocker.get_status()
+        "global_enabled": updated.get("global_enabled", req.enabled),
+        "adblock_status": get_dns_service_status()
     }
 
 @app.post("/api/network/device/{ip}/adblock")
 async def set_device_adblock(ip: str, req: DeviceAdblockRequest):
-    dns_adblocker.set_device_enabled(ip, req.enabled)
+    updated = set_device_no_ads(ip, req.enabled)
     return {
         "status": "ok",
         "ip": ip,
         "enabled": req.enabled,
-        "device_rules": dns_adblocker.device_rules
+        "device_rules": updated.get("device_rules", {})
     }
 
 @app.post("/api/cast")

@@ -1718,10 +1718,10 @@ function updateAdblockStatusUI(data) {
   if (pill) {
     if (data.global_enabled) {
       pill.className = "dns-status-pill";
-      pill.innerHTML = `<span class="dns-status-dot"></span><span>DNS Sinkhole Active (192.168.50.250:53)</span>`;
+      pill.innerHTML = `<span class="dns-status-dot"></span><span>DNS Sinkhole Active (192.168.50.250:53) • 24/7 Protected</span>`;
     } else {
       pill.className = "dns-status-pill inactive";
-      pill.innerHTML = `<span class="dns-status-dot"></span><span>DNS Sinkhole Paused</span>`;
+      pill.innerHTML = `<span class="dns-status-dot"></span><span>No Ads Paused (Pass-Through Active)</span>`;
     }
   }
 

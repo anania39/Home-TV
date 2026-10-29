@@ -9,6 +9,9 @@ backend/.stream_health.json
 .stream_health.json
 .tunnel_cache.json
 *.log
+*.pid
+data/*.pid
+
 
 # Large binaries (auto-downloaded on demand)
 tools/cloudflared.exe
