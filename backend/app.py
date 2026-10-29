@@ -548,6 +548,16 @@ async def auto_configure_router(req: RouterAutoConfigRequest):
     )
     return result
 
+@app.post("/api/router/forget")
+async def forget_router():
+    state_file = BASE_DIR / "data" / "router_config.json"
+    if os.path.exists(state_file):
+        try:
+            os.remove(state_file)
+        except Exception:
+            pass
+    return {"status": "ok", "message": "Router configuration state reset"}
+
 @app.post("/api/adblock/protect_this_pc")
 async def protect_this_pc():
     bat_path = os.path.join(BASE_DIR, "protect_this_pc.bat")

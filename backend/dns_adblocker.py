@@ -21,12 +21,14 @@ logger = logging.getLogger("adblocker")
 # Curated High-Impact Ad, Tracking, YouTube & Smart TV Ad Domains
 AD_DOMAINS = {
     # YouTube & Google Video Ads & Telemetry
-    "googleads.g.doubleclick.net", "pubads.g.doubleclick.net", "securepubads.g.doubleclick.net",
+    "imasdk.googleapis.com", "googleads.g.doubleclick.net", "pubads.g.doubleclick.net", "securepubads.g.doubleclick.net",
     "ad.youtube.com", "ads.youtube.com", "s.youtube.com", "video-stats.l.google.com",
-    "youtube-ui.l.google.com", "yt3.ggpht.com", "ep1.adtrafficquality.google",
+    "youtube-ui.l.google.com", "yt3.ggpht.com", "yt4.ggpht.com", "ep1.adtrafficquality.google",
     "ep2.adtrafficquality.google", "adtrafficquality.google", "fundingchoicesmessages.google.com",
     "pagead.l.google.com", "partnerad.l.google.com", "pagead-googlehosted.l.google.com",
     "afs.googlesyndication.com", "2mdn.net", "invitemedia.com", "admeld.com",
+    "redirector.googlevideo.com", "stats.g.doubleclick.net", "ade.googlesyndication.com",
+    "youtube.googleapis.com", "youtubei.googleapis.com",
     
     # DoH Bypass Prevention (forces browsers to use local port 53)
     "dns.google", "dns.google.com", "cloudflare-dns.com", "dns.quad9.net", "doh.opendns.com",

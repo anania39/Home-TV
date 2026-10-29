@@ -22,6 +22,20 @@ SOURCES = [
         "format": "adblock"
     },
     {
+        "id": "easyprivacy",
+        "name": "EasyPrivacy Tracker & Ad Filter",
+        "url": "https://v.firebog.net/hosts/Easyprivacy.txt",
+        "category": "Telemetry & Web Trackers",
+        "format": "domains"
+    },
+    {
+        "id": "prigent_ads",
+        "name": "Prigent Video & Web Ads",
+        "url": "https://v.firebog.net/hosts/Prigent-Ads.txt",
+        "category": "Video & Popup Ads",
+        "format": "domains"
+    },
+    {
         "id": "stevenblack",
         "name": "StevenBlack Unified (Pi-hole Standard)",
         "url": "https://raw.githubusercontent.com/StevenBlack/hosts/master/hosts",

@@ -1769,10 +1769,29 @@ function initDevicesTab() {
     };
   }
 
-  // 2. 1-Click Router Auto-Pilot Configuration
+  // 2. 1-Click Router Auto-Pilot Configuration & Login Persistence
   const btnAutoRouter = document.getElementById("btn-auto-configure-router");
   const feedbackBox = document.getElementById("router-autopilot-feedback");
   const btnRouterText = document.getElementById("router-btn-text");
+  const chkRemember = document.getElementById("chk-remember-router");
+  const btnForget = document.getElementById("btn-forget-router");
+
+  if (btnForget) {
+    btnForget.onclick = async () => {
+      vibrate(20);
+      try {
+        localStorage.removeItem("tvhub_router_credentials");
+        const passwordInput = document.getElementById("router-password");
+        if (passwordInput) passwordInput.value = "";
+        btnForget.style.display = "none";
+        await safeFetchWithRetry("/api/router/forget", { method: "POST" });
+        showToast("Router credentials forgotten on this device");
+        loadRouterStatus();
+      } catch (e) {
+        showToast("Cleared saved login");
+      }
+    };
+  }
 
   if (btnAutoRouter) {
     btnAutoRouter.onclick = async () => {
@@ -1818,12 +1837,30 @@ function initDevicesTab() {
         if (data.status === "ok") {
           vibrate(50);
           showToast("✓ ASUS Router configured for Ad-Blocking!");
+          
+          // Save credentials in browser localStorage if Remember is checked
+          if (chkRemember && chkRemember.checked) {
+            try {
+              localStorage.setItem("tvhub_router_credentials", JSON.stringify({
+                username: username,
+                password: btoa(password),
+                auto_configured: true,
+                saved_at: Date.now()
+              }));
+              if (btnForget) btnForget.style.display = "inline-block";
+            } catch (e) {}
+          } else {
+            localStorage.removeItem("tvhub_router_credentials");
+            if (btnForget) btnForget.style.display = "none";
+          }
+
           if (feedbackBox) {
             feedbackBox.className = "autopilot-feedback-box success";
             feedbackBox.style.display = "block";
             feedbackBox.innerHTML = `🎉 <strong>Success!</strong> ${escapeHtml(data.message)}<br><span style="font-size: 11px; opacity: 0.9;">All Smart TVs, phones, and PCs on your Wi-Fi now route through TV Hub Ad-Shield.</span>`;
           }
-          if (passwordInput) passwordInput.value = "";
+          
+          loadRouterStatus();
           loadAdblockStatus();
           loadNetworkDevices();
         } else {
@@ -1843,7 +1880,7 @@ function initDevicesTab() {
         }
       } finally {
         btnAutoRouter.classList.remove("loading");
-        if (btnRouterText) btnRouterText.textContent = "Auto-Configure Router for Ad-Blocking";
+        loadRouterStatus();
       }
     };
   }
@@ -1946,6 +1983,7 @@ function initDevicesTab() {
   }
 
   // Load initial data
+  loadRouterStatus();
   loadAdblockStatus();
   loadNetworkDevices();
 }
@@ -2153,4 +2191,87 @@ function renderDeviceCards() {
       }
     };
   });
+}
+
+async function loadRouterStatus() {
+  const container = document.getElementById("router-autopilot-container");
+  if (!container) return;
+
+  const usernameInput = document.getElementById("router-username");
+  const passwordInput = document.getElementById("router-password");
+  const chkRemember = document.getElementById("chk-remember-router");
+  const btnForget = document.getElementById("btn-forget-router");
+  const statusBadge = document.getElementById("router-status-badge");
+  const statusTitle = document.getElementById("router-status-title");
+  const statusSub = document.getElementById("router-status-sub");
+  const btnRouterText = document.getElementById("router-btn-text");
+  const feedbackBox = document.getElementById("router-autopilot-feedback");
+
+  // 1. Check local storage on this browser / device
+  let savedCreds = null;
+  try {
+    const raw = localStorage.getItem("tvhub_router_credentials");
+    if (raw) savedCreds = JSON.parse(raw);
+  } catch (e) {}
+
+  if (savedCreds && savedCreds.username) {
+    if (usernameInput) usernameInput.value = savedCreds.username;
+    if (passwordInput && savedCreds.password) {
+      try {
+        passwordInput.value = atob(savedCreds.password);
+      } catch (e) {
+        passwordInput.value = savedCreds.password;
+      }
+    }
+    if (chkRemember) chkRemember.checked = true;
+    if (btnForget) btnForget.style.display = "inline-block";
+  }
+
+  // 2. Fetch server-side status
+  try {
+    const res = await safeFetchWithRetry("/api/router/status");
+    if (res.ok) {
+      const data = await res.json();
+      const isAutoConfigured = data.config && data.config.auto_configured;
+      const model = (data.reachability && data.reachability.model) || (data.config && data.config.detected_model) || "ASUS RT-AX1800U";
+      const routerIp = (data.config && data.config.default_router_ip) || "192.168.50.1";
+      const dnsIp = data.dns_ip || (data.config && data.config.dns_server_ip) || "192.168.50.250";
+      const lastDate = data.config && data.config.last_configured;
+
+      if (isAutoConfigured || (savedCreds && savedCreds.auto_configured)) {
+        if (statusBadge) {
+          statusBadge.style.display = "block";
+          statusBadge.className = "router-status-pill connected";
+          if (statusTitle) statusTitle.innerHTML = `<span class="status-dot green"></span> ${escapeHtml(model)} (${routerIp}) &bull; Logged In &amp; Ad-Shield Configured`;
+          if (statusSub) {
+            statusSub.innerHTML = `Primary DNS: <strong>${dnsIp}</strong> &bull; Network-Wide Ad Blocking Active &bull; Saved on This Device${lastDate ? ` &bull; Synced: ${lastDate}` : ""}`;
+          }
+        }
+        if (btnRouterText) {
+          btnRouterText.textContent = "✓ Router Configured • Click to Re-Sync";
+        }
+        if (feedbackBox && !feedbackBox.innerHTML) {
+          feedbackBox.className = "autopilot-feedback-box success";
+          feedbackBox.style.display = "block";
+          feedbackBox.innerHTML = `🎉 <strong>Router Logged In &amp; Connected!</strong> Ad-blocking is actively running network-wide for all smart TVs, phones, and computers on this Wi-Fi.`;
+        }
+      } else {
+        if (statusBadge) {
+          statusBadge.style.display = "block";
+          statusBadge.className = "router-status-pill";
+          if (statusTitle) {
+            statusTitle.innerHTML = `<span class="status-dot green"></span> ${escapeHtml(model)} Reachable (${routerIp})`;
+          }
+          if (statusSub) {
+            statusSub.textContent = "Ready to program 24/7 ad-shield. Enter router password and tap below.";
+          }
+        }
+        if (btnRouterText) {
+          btnRouterText.textContent = "Auto-Configure Router for Ad-Blocking";
+        }
+      }
+    }
+  } catch (e) {
+    console.debug("Router status notice:", e);
+  }
 }

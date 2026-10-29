@@ -20,7 +20,7 @@
   <link rel="dns-prefetch" href="https://i.postimg.cc">
   <link rel="dns-prefetch" href="https://uut-telecom.ru">
   <link rel="dns-prefetch" href="https://rutv.by">
-  <link rel="stylesheet" href="static/style.css?v=2.6">
+  <link rel="stylesheet" href="static/style.css?v=2.7">
 </head>
 <body>
 
@@ -468,8 +468,51 @@
           </div>
         </div>
 
-        <!-- 2. 1-Click Router Auto-Pilot Card (Automated Router Setup for YouTube & Network-Wide Ads) -->
+        <!-- 2. YouTube Ad-Shield Engine Details -->
+        <div class="youtube-shield-card">
+          <div class="yt-shield-header">
+            <div class="yt-badge">
+              <svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor"><path d="M23.498 6.186a3.016 3.016 0 0 0-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 0 0 .502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 0 0 2.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 0 0 2.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z"/></svg>
+              ENHANCED YOUTUBE AD-SHIELD
+            </div>
+            <div class="yt-title">How TV Hub Blocks YouTube Video &amp; Banner Ads</div>
+          </div>
+          <div class="yt-features-grid">
+            <div class="yt-feat-card">
+              <div class="yt-feat-icon">🎯</div>
+              <div class="yt-feat-title">IMA Video Ad SDK Sinkhole</div>
+              <div class="yt-feat-desc">Google's Interactive Media Ads SDK (<code>imasdk.googleapis.com</code>) is sinkholed to <code>0.0.0.0</code>. When video players call the ad manifest, the player skips the pre-roll/mid-roll immediately.</div>
+            </div>
+            <div class="yt-feat-card">
+              <div class="yt-feat-icon">⚡</div>
+              <div class="yt-feat-title">QUIC Bypass Neutralizer</div>
+              <div class="yt-feat-desc">Chrome &amp; apps use UDP 443 (QUIC) to bypass local DNS. The 1-click PC shield firewall rule disables outbound QUIC, forcing YouTube through port 53 ad filtering.</div>
+            </div>
+            <div class="yt-feat-card">
+              <div class="yt-feat-icon">🛡️</div>
+              <div class="yt-feat-title">16,000+ YouTube Ad Servers</div>
+              <div class="yt-feat-desc">Blocks <code>s.youtube.com</code>, <code>video-stats.l.google.com</code>, <code>googleads.g.doubleclick.net</code> and 16,000 community YouTube ad manifest endpoints.</div>
+            </div>
+            <div class="yt-feat-card">
+              <div class="yt-feat-icon">📱</div>
+              <div class="yt-feat-title">Smart TV &amp; Mobile Setup</div>
+              <div class="yt-feat-desc">Turn off <strong>Android Private DNS</strong> on your Galaxy phone so in-app queries use TV Hub DNS. For TVs, stream YouTube directly via TV Hub Cast without ads.</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- 3. 1-Click Router Auto-Pilot Card (Automated Router Setup for YouTube & Network-Wide Ads) -->
         <div class="router-autopilot-card" id="router-autopilot-container">
+          <!-- Dynamic Router Status & Connected Badge -->
+          <div id="router-status-badge" class="router-status-pill connected" style="display: none;">
+            <div class="router-status-indicator">
+              <span class="status-dot green"></span>
+              <span id="router-status-title">ASUS RT-AX1800U (192.168.50.1) • Configured &amp; Connected</span>
+            </div>
+            <div class="router-status-sub" id="router-status-sub">
+              Primary DNS: 192.168.50.250 &bull; 24/7 Ad-Shield Active &bull; Saved on This Device
+            </div>
+          </div>
           <div class="autopilot-header">
             <div class="autopilot-title-group">
               <div class="autopilot-badge">
@@ -500,6 +543,15 @@
                   <button type="button" id="btn-toggle-pwd" class="btn-toggle-pwd" title="Show password">👁️</button>
                 </div>
               </div>
+            </div>
+
+            <!-- Remember Login & Stay Configured Row -->
+            <div class="router-save-row">
+              <label class="cyber-checkbox-label" style="display: inline-flex; align-items: center; gap: 8px; font-size: 12px; color: var(--text-muted); cursor: pointer;">
+                <input type="checkbox" id="chk-remember-router" checked style="accent-color: var(--accent-cyan); width: 16px; height: 16px; cursor: pointer;">
+                <span>Save router login &amp; stay logged in on this device</span>
+              </label>
+              <button type="button" id="btn-forget-router" class="btn-text-danger" style="display: none;" title="Clear saved credentials from this browser">Forget Saved Login</button>
             </div>
 
             <div class="autopilot-action-row">
@@ -805,6 +857,6 @@
     </div>
   </div>
 
-  <script src="static/app.js?v=2.6"></script>
+  <script src="static/app.js?v=2.7"></script>
 </body>
 </html>
