@@ -1,0 +1,12 @@
+{
+  "global_enabled": true,
+  "device_rules": {
+    "192.168.50.237": true
+  },
+  "stats": {
+    "queries_total": 2,
+    "ads_blocked": 2,
+    "start_time": 1793299289.5441225
+  },
+  "updated_at": 1793299346
+}

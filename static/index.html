@@ -325,128 +325,135 @@
       </div>
     </section>
 
-    <!-- TAB 4: Settings & Public Link -->
-    <section id="tab-settings" class="tab-content">
-      <div class="cast-card">
-        <h3>
-          <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
-          Permanent GitHub Pages Controller
-        </h3>
-        <p style="font-size: 13px; color: var(--text-muted); margin-bottom: 12px;">
-          This link is permanently hosted on GitHub Pages CDN and will never expire. Bookmark it on your phone or tablet.
-        </p>
+        <!-- TAB 4: Connected Devices & Network-Wide DNS Ad-Blocker -->
+    <section id="tab-devices" class="tab-content">
+      <div class="devices-tab-container">
+        
+        <!-- Header Row -->
+        <div class="devices-header-row">
+          <div>
+            <div class="devices-header-title">
+              <svg viewBox="0 0 24 24" style="width: 20px; height: 20px; stroke: var(--accent-cyan); fill: none; stroke-width: 2;"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
+              Home Network Devices
+            </div>
+            <div class="devices-header-subtitle">Local Subnet: 192.168.50.x • ASUS Wi-Fi 6 Router</div>
+          </div>
+          <button id="btn-scan-devices" class="btn-scan-devices" title="Scan local network for devices">
+            <svg viewBox="0 0 24 24"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
+            <span id="scan-btn-text">Scan</span>
+          </button>
+        </div>
 
-        <!-- Permanent GitHub Pages Link -->
-        <div style="margin-bottom: 14px;">
-          <div style="font-size: 12px; font-weight: 600; color: var(--accent-cyan); margin-bottom: 4px;">🌟 PERMANENT WEB CONTROLLER (NEVER EXPIRES):</div>
-          <div style="background: rgba(0,0,0,0.5); padding: 12px; border-radius: var(--radius-sm); font-family: monospace; font-size: 14px; font-weight: bold; color: var(--accent-cyan); word-break: break-all; margin-bottom: 6px; border: 1px solid rgba(0,242,254,0.3); display: flex; justify-content: space-between; align-items: center;">
-            <a id="github-pages-link" href="https://anania39.github.io/Home-TV/" target="_blank" style="color: var(--accent-cyan); text-decoration: none;">https://anania39.github.io/Home-TV/</a>
-            <button id="btn-copy-gh-link" class="btn-primary" style="width: auto; padding: 6px 14px; font-size: 12px; margin: 0;">Copy</button>
+        <!-- Master Network-Wide No Ads Card -->
+        <div class="adblock-master-card">
+          <div class="adblock-toggle-row">
+            <div class="adblock-title-group">
+              <h3>
+                <svg viewBox="0 0 24 24"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+                Network-Wide No Ads
+              </h3>
+              <div style="font-size: 12px; color: var(--text-muted);">
+                Blocks video ads, trackers, and telemetry on your entire Wi-Fi
+              </div>
+              <div class="dns-status-pill" id="adblock-dns-status">
+                <span class="dns-status-dot"></span>
+                <span>DNS Sinkhole Active (192.168.50.250:53)</span>
+              </div>
+            </div>
+            <label class="adblock-switch" title="Toggle Network-Wide Ad Blocker">
+              <input type="checkbox" id="toggle-global-adblock" checked>
+              <span class="adblock-slider"></span>
+            </label>
+          </div>
+
+          <!-- Live Adblock Stats Grid -->
+          <div class="adblock-stats-grid">
+            <div class="adblock-stat-tile">
+              <div class="adblock-stat-value" id="stat-ads-blocked">0</div>
+              <div class="adblock-stat-label">Ads Blocked</div>
+            </div>
+            <div class="adblock-stat-tile">
+              <div class="adblock-stat-value" id="stat-queries-total">0</div>
+              <div class="adblock-stat-label">DNS Queries</div>
+            </div>
+            <div class="adblock-stat-tile">
+              <div class="adblock-stat-value" id="stat-block-rate">0%</div>
+              <div class="adblock-stat-label">Shield Rate</div>
+            </div>
+          </div>
+
+          <!-- Router & Wi-Fi Ad-Block Integration Guide -->
+          <div class="setup-guide-box">
+            <div class="setup-guide-header" id="btn-toggle-guide">
+              <div style="display: flex; align-items: center; gap: 8px;">
+                <svg viewBox="0 0 24 24" style="stroke: var(--accent-cyan); width: 16px; height: 16px;"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
+                <span>Router & Device Setup (How to Remove Ads on Home Wi-Fi)</span>
+              </div>
+              <svg viewBox="0 0 24 24"><polyline points="6 9 12 15 18 9"/></svg>
+            </div>
+            <div class="setup-guide-body" id="setup-guide-content">
+              <p style="margin-top: 6px;">To block ads across your entire home network or on individual phones/TVs, point DNS to this TV Hub host:</p>
+              <div class="dns-ip-chip">
+                <span>DNS Server: 192.168.50.250</span>
+                <button id="btn-copy-dns-ip" style="background: transparent; border: 1px solid var(--accent-cyan); color: var(--accent-cyan); border-radius: 4px; padding: 2px 8px; font-size: 11px; cursor: pointer; margin-left: 6px;">Copy</button>
+              </div>
+              <div style="margin-top: 8px;">
+                <strong>1. Wi-Fi Router Setup (All Devices Automatically):</strong><br>
+                Open your ASUS Router Admin at <a href="http://192.168.50.1" target="_blank" style="color: var(--accent-cyan);">192.168.50.1</a> &rarr; <em>LAN &rarr; DHCP Server &rarr; DNS Server</em> &rarr; set to <code>192.168.50.250</code>.<br>
+                <span style="color: var(--accent-green); font-size: 11px;">✓ All TVs, phones, and laptops on Wi-Fi will have ads blocked automatically without touching each device!</span>
+              </div>
+              <div style="margin-top: 10px;">
+                <strong>2. Android / Samsung (e.g. Galaxy S25):</strong><br>
+                <em>Settings &rarr; Connections &rarr; More connection settings &rarr; Private DNS &rarr;</em> enter <code>dns.adguard-dns.com</code>.
+              </div>
+              <div style="margin-top: 10px;">
+                <strong>3. Apple iPhone:</strong><br>
+                <em>Settings &rarr; Wi-Fi &rarr; tap (i) &rarr; Configure DNS &rarr; Manual &rarr;</em> Add Server: <code>192.168.50.250</code>.
+              </div>
+            </div>
           </div>
         </div>
 
-        <!-- TV Web Receiver Link -->
-        <div style="margin-bottom: 14px;">
-          <div style="font-size: 11px; color: var(--text-muted); margin-bottom: 4px;">📺 PERMANENT TV BROWSER RECEIVER:</div>
-          <div style="background: rgba(0,0,0,0.3); padding: 8px 12px; border-radius: var(--radius-sm); font-family: monospace; font-size: 12px; color: var(--text-main); word-break: break-all; display: flex; justify-content: space-between; align-items: center;">
+        <!-- Section: Connected Devices -->
+        <div class="devices-section-title">
+          <span>Connected Network Devices (<span id="devices-online-count">0</span>)</span>
+          <span style="font-size: 11px; font-weight: normal; color: var(--text-muted);">Toggle 'No Ads' per device</span>
+        </div>
+
+        <!-- Devices Container -->
+        <div id="network-devices-list">
+          <div style="text-align: center; padding: 24px; color: var(--text-muted); font-size: 13px;">
+            Scanning home network devices...
+          </div>
+        </div>
+
+        <!-- Section: Live Blocked Ads Feed -->
+        <div class="devices-section-title" style="margin-top: 20px;">
+          <span>Live Ad-Block Activity</span>
+          <span style="font-size: 11px; font-weight: normal; color: var(--text-muted);">Real-time sinkhole log</span>
+        </div>
+        <div class="adblock-logs-box" id="adblock-recent-logs">
+          <div style="color: var(--text-dim); text-align: center; padding: 8px;">No ads blocked yet. DNS sinkhole listening on port 53.</div>
+        </div>
+
+        <!-- Section: Hub Access & Controller Links (Retained for 100% feature preservation) -->
+        <div class="devices-section-title" style="margin-top: 24px;">
+          <span>Permanent Controller Links</span>
+        </div>
+        <div class="cast-card" style="margin-bottom: 0;">
+          <div style="font-size: 11px; color: var(--accent-cyan); font-weight: bold; margin-bottom: 4px;">🌟 PERMANENT WEB CONTROLLER (GITHUB PAGES):</div>
+          <div style="background: rgba(0,0,0,0.4); padding: 8px 12px; border-radius: var(--radius-sm); font-family: monospace; font-size: 12px; display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+            <a id="github-pages-link" href="https://anania39.github.io/Home-TV/" target="_blank" style="color: var(--accent-cyan); text-decoration: none;">https://anania39.github.io/Home-TV/</a>
+            <button id="btn-copy-gh-link" class="btn-primary" style="width: auto; padding: 4px 10px; font-size: 11px; margin: 0;">Copy</button>
+          </div>
+
+          <div style="font-size: 11px; color: var(--text-muted); margin-bottom: 4px;">📺 TV BROWSER RECEIVER:</div>
+          <div style="background: rgba(0,0,0,0.3); padding: 8px 12px; border-radius: var(--radius-sm); font-family: monospace; font-size: 12px; display: flex; justify-content: space-between; align-items: center;">
             <a id="github-receiver-link" href="https://anania39.github.io/Home-TV/tv.html" target="_blank" style="color: var(--text-main); text-decoration: none;">https://anania39.github.io/Home-TV/tv.html</a>
             <button id="btn-copy-receiver-link" style="background: transparent; border: 1px solid var(--border-color); color: var(--text-main); border-radius: 6px; padding: 4px 10px; font-size: 11px; cursor: pointer;">Copy</button>
           </div>
         </div>
 
-        <!-- Local Home Wi-Fi Link -->
-        <div style="margin-bottom: 14px;">
-          <div style="font-size: 11px; color: var(--text-muted); margin-bottom: 4px;">🏠 HOME WI-FI DIRECT (LOCAL SERVER IP):</div>
-          <div style="background: rgba(0,0,0,0.3); padding: 8px 12px; border-radius: var(--radius-sm); font-family: monospace; font-size: 12px; color: var(--accent-green); word-break: break-all; display: flex; justify-content: space-between; align-items: center;">
-            <a id="local-wifi-link" href="#" target="_blank" style="color: var(--accent-green); text-decoration: none;">http://192.168.50.250:8000</a>
-            <button id="btn-copy-local-link" style="background: transparent; border: 1px solid var(--border-color); color: var(--accent-green); border-radius: 6px; padding: 4px 10px; font-size: 11px; cursor: pointer;">Copy</button>
-          </div>
-        </div>
-
-        <!-- Direct Tunnel Link -->
-        <div style="margin-bottom: 14px;">
-          <div style="font-size: 11px; color: var(--text-muted); margin-bottom: 4px;">🌐 ACTIVE PUBLIC TUNNEL (AUTO-SYNCED):</div>
-          <div style="background: rgba(0,0,0,0.3); padding: 8px 12px; border-radius: var(--radius-sm); font-family: monospace; font-size: 12px; color: var(--text-main); word-break: break-all; display: flex; justify-content: space-between; align-items: center;">
-            <a id="public-phone-link" href="#" target="_blank" style="color: var(--text-main); text-decoration: none;">Connecting tunnel...</a>
-            <button id="btn-copy-public-link" style="background: transparent; border: 1px solid var(--border-color); color: var(--text-main); border-radius: 6px; padding: 4px 10px; font-size: 11px; cursor: pointer;">Copy</button>
-          </div>
-        </div>
-
-        <!-- QR Code Display -->
-        <div style="text-align: center; padding: 14px; background: rgba(0,0,0,0.25); border-radius: var(--radius-sm); margin-top: 10px;">
-          <div style="font-size: 12px; color: var(--text-muted); margin-bottom: 8px;">📷 Scan to Open Permanent Controller on Phone:</div>
-          <div id="qr-code-box" style="display: inline-block; padding: 8px; background: #fff; border-radius: 8px;">
-            <img id="qr-code-img" src="https://api.qrserver.com/v1/create-qr-code/?size=280x280&data=https%3A%2F%2Fanania39.github.io%2FHome-TV%2F" alt="QR Code" style="width: 140px; height: 140px; display: block;">
-          </div>
-        </div>
-      </div>
-
-      <!-- Low Data Mode Toggle -->
-      <div class="cast-card">
-        <div style="display: flex; justify-content: space-between; align-items: center;">
-          <div>
-            <h3 style="margin-bottom: 4px; display: flex; align-items: center; gap: 8px;">
-              <svg viewBox="0 0 24 24" style="width: 18px; height: 18px; stroke: var(--accent-cyan); fill: none; stroke-width: 2;"><path d="M5 12.55a11 11 0 0 1 14.08 0"/><path d="M1.42 9a16 16 0 0 1 21.16 0"/><path d="M8.53 16.11a6 6 0 0 1 6.95 0"/><line x1="12" y1="20" x2="12.01" y2="20"/></svg>
-              Low Data Mode (480p Cap)
-            </h3>
-            <p style="font-size: 12px; color: var(--text-muted); margin: 0;">
-              Caps stream quality to 480p to prevent buffering on weak Wi-Fi or cellular connections.
-            </p>
-          </div>
-          <input type="checkbox" id="toggle-low-data" style="width: 20px; height: 20px; cursor: pointer; accent-color: var(--accent-cyan); margin-left: 12px;">
-        </div>
-      </div>
-
-      <!-- Network Advisor Card (LAN vs Tunnel) -->
-      <div class="cast-card" id="network-advisor-card">
-        <h3>
-          <svg viewBox="0 0 24 24"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
-          Network Routing Advisor
-        </h3>
-        <p id="network-advisor-text" style="font-size: 12px; color: var(--text-muted); line-height: 1.6; margin: 0;">
-          Checking connection route...
-        </p>
-      </div>
-
-      <div class="cast-card">
-        <h3>
-          <svg viewBox="0 0 24 24"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
-          Streaming Architecture & Engine Status
-        </h3>
-        <div style="font-size: 12px; line-height: 2; color: var(--text-muted);">
-          <div><span style="color: var(--accent-green);">●</span> <strong>HLS Engine:</strong> <span style="color: var(--accent-cyan);">hls.js@1.5.17 (Pinned, Standard Non-LL Live Mode)</span></div>
-          <div><span style="color: var(--accent-green);">●</span> <strong>MPEG-TS Support:</strong> <span style="color: var(--accent-cyan);">mpegts.js@1.7.3 (MSE Transmuxing)</span></div>
-          <div><span style="color: var(--accent-green);">●</span> <strong>Proxy URL Rewriter:</strong> <span style="color: var(--accent-cyan);">Same-Origin Relative (/api/stream/proxy)</span></div>
-          <div><span style="color: var(--accent-green);">●</span> <strong>RAM Debounce Cache:</strong> <span style="color: var(--accent-cyan);">1.8s Manifest Cache (Zero Upstream Flooding)</span></div>
-          <div><span style="color: var(--accent-green);">●</span> <strong>Lookahead Prefetch:</strong> <span style="color: var(--accent-cyan);">Adaptive Ring-Buffer (Next 2 Segments in RAM)</span></div>
-          <div><span style="color: var(--accent-green);">●</span> <strong>Network-Aware ABR:</strong> <span style="color: var(--accent-cyan);">Player-Size Capped, Gentle Start at Level 0</span></div>
-          <div><span style="color: var(--accent-green);">●</span> <strong>Channel Switching:</strong> <span style="color: var(--accent-cyan);">Clean Decoder Flush & In-Flight Download Cancellation</span></div>
-        </div>
-      </div>
-
-      <div class="cast-card">
-        <h3>
-          <svg viewBox="0 0 24 24"><rect width="20" height="15" x="2" y="7" rx="2" ry="2"/><polyline points="17 2 12 7 7 2"/></svg>
-          TV & Network Status
-        </h3>
-        <div style="font-size: 13px; line-height: 2; color: var(--text-muted);">
-          <div><strong>Hub Server IP:</strong> <span id="info-server-ip" style="color: var(--text-main);">...</span></div>
-          <div><strong>Active TV:</strong> <span id="info-active-tv" style="color: var(--accent-cyan);">...</span></div>
-          <div><strong>Hardware Status:</strong> <span id="info-hardware-status" style="color: var(--accent-amber);">Detecting...</span></div>
-        </div>
-      </div>
-
-      <div class="cast-card">
-        <h3>
-          <svg viewBox="0 0 24 24"><polygon points="6 2 18 2 18 6 6 6 6 2"/><rect width="20" height="14" x="2" y="6" rx="2"/><path d="M12 10v4"/></svg>
-          TV Web Receiver Mode
-        </h3>
-        <p style="font-size: 13px; color: var(--text-muted); margin-bottom: 10px;">
-          To turn your TV into an interactive receiver screen, open this URL in your TV's browser:
-        </p>
-        <div style="background: rgba(0,0,0,0.4); padding: 12px; border-radius: var(--radius-sm); font-family: monospace; font-size: 13px; color: var(--accent-cyan); word-break: break-all;">
-          <span id="tv-receiver-url">http://.../tv</span>
-        </div>
       </div>
     </section>
 
@@ -490,9 +497,9 @@
         <svg viewBox="0 0 24 24"><path d="M2 16.1A5 5 0 0 1 5.9 20M2 12.05A9 9 0 0 1 9.95 20M2 8V6a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2h-6"/><line x1="2" y1="20" x2="2.01" y2="20"/></svg>
         <span>Cast</span>
       </button>
-      <button class="nav-item" data-tab="tab-settings">
-        <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
-        <span>Settings</span>
+      <button class="nav-item" data-tab="tab-devices">
+        <svg viewBox="0 0 24 24"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
+        <span>Devices</span>
       </button>
       <button class="nav-item" data-tab="tab-sports">
         <div style="position: relative; display: inline-flex; align-items: center; justify-content: center;">

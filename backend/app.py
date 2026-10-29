@@ -26,6 +26,8 @@ from .websocket_manager import ws_manager
 from .tunnel import tunnel_manager
 from .google_cast_controller import google_cast_controller
 from .sports_scraper import sports_scraper, CATEGORIES
+from .dns_adblocker import dns_adblocker
+from .device_scanner import device_scanner
 
 import sys
 if sys.platform == "win32":
@@ -176,6 +178,13 @@ async def lifespan(app: FastAPI):
     health_task = None
     mdns_zc = None
 
+    # Start High-Performance DNS Ad-Blocker on Port 53 (UDP)
+    try:
+        await dns_adblocker.start(host="0.0.0.0", port=53)
+        logger.info(f"🛡️ High-Performance DNS Ad-Blocker active on port 53 (Server IP: {SERVER_IP})")
+    except Exception as e:
+        logger.warning(f"DNS Ad-Blocker startup notice: {e}")
+
     if not NO_DEVICES:
         # Pre-register user's Hisense TV if not discovered yet
         device_manager.add_manual_device(
@@ -211,6 +220,7 @@ async def lifespan(app: FastAPI):
         health_task.cancel()
     if not NO_DEVICES:
         tunnel_manager.stop(kill_process=False)
+    dns_adblocker.stop()
 
 app = FastAPI(title="TV Hub", lifespan=lifespan)
 
@@ -262,6 +272,12 @@ class VolumeRequest(BaseModel):
 class RemoteKeyRequest(BaseModel):
     key: str
     device_id: Optional[str] = None
+
+class GlobalAdblockRequest(BaseModel):
+    enabled: bool
+
+class DeviceAdblockRequest(BaseModel):
+    enabled: bool
 
 class DeviceSelectRequest(BaseModel):
     device_id: str
@@ -430,6 +446,54 @@ async def select_device(req: DeviceSelectRequest):
 async def add_manual_device(req: ManualDeviceRequest):
     dev = device_manager.add_manual_device(req.ip, req.port, req.name)
     return {"status": "ok", "device": dev}
+
+# --- Network Devices & Enterprise DNS Ad-Blocker Endpoints ---
+
+@app.get("/api/network/devices")
+async def get_network_devices(request: Request):
+    client_ip = request.client.host if request.client else None
+    devices = device_scanner.scan(client_ip=client_ip, force_refresh=False)
+    return {
+        "status": "ok",
+        "devices": devices,
+        "count": len(devices),
+        "client_ip": client_ip,
+        "dns_ip": SERVER_IP
+    }
+
+@app.post("/api/network/scan")
+async def scan_network(request: Request):
+    client_ip = request.client.host if request.client else None
+    devices = device_scanner.scan(client_ip=client_ip, force_refresh=True)
+    return {
+        "status": "ok",
+        "devices": devices,
+        "count": len(devices),
+        "client_ip": client_ip
+    }
+
+@app.get("/api/adblock/status")
+async def get_adblock_status():
+    return dns_adblocker.get_status()
+
+@app.post("/api/adblock/toggle")
+async def toggle_global_adblock(req: GlobalAdblockRequest):
+    dns_adblocker.set_global_enabled(req.enabled)
+    return {
+        "status": "ok",
+        "global_enabled": dns_adblocker.global_enabled,
+        "adblock_status": dns_adblocker.get_status()
+    }
+
+@app.post("/api/network/device/{ip}/adblock")
+async def set_device_adblock(ip: str, req: DeviceAdblockRequest):
+    dns_adblocker.set_device_enabled(ip, req.enabled)
+    return {
+        "status": "ok",
+        "ip": ip,
+        "enabled": req.enabled,
+        "device_rules": dns_adblocker.device_rules
+    }
 
 @app.post("/api/cast")
 async def cast_media(req: CastRequest, request: Request, client_ip: str = Depends(verify_local_network)):
