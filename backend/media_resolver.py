@@ -8,7 +8,7 @@ import asyncio
 import logging
 import re
 import urllib.parse
-from typing import Dict, Any, Optional
+from typing import Dict, Any, Optional, List
 import httpx
 
 try:
@@ -36,6 +36,91 @@ class MediaResolver:
                 "Accept-Language": "en-US,en;q=0.9",
             }
         )
+
+    @staticmethod
+    def _format_duration(seconds: int) -> str:
+        seconds = max(0, int(seconds or 0))
+        if seconds <= 0:
+            return "Live"
+        h = seconds // 3600
+        m = (seconds % 3600) // 60
+        s = seconds % 60
+        if h > 0:
+            return f"{h:02d}:{m:02d}:{s:02d}"
+        return f"{m:02d}:{s:02d}"
+
+    @staticmethod
+    def _extract_subtitles_and_qualities(info: Dict[str, Any]):
+        subs_list = []
+        all_subs = {**info.get("subtitles", {}), **info.get("automatic_captions", {})}
+        lang_names = {
+            "en": "English", "ka": "Georgian (ქართული)", "ru": "Russian (Русский)",
+            "es": "Spanish (Español)", "de": "German (Deutsch)", "fr": "French (Français)",
+            "it": "Italian (Italiano)", "tr": "Turkish (Türkçe)", "uk": "Ukrainian (Українська)",
+            "pt": "Portuguese (Português)", "ja": "Japanese (日本語)", "zh": "Chinese (中文)",
+            "ar": "Arabic (العربية)"
+        }
+        for code, entries in all_subs.items():
+            short_code = code.split("-")[0].lower()
+            vtts = [e.get("url") for e in entries if e.get("ext") == "vtt" or "vtt" in e.get("url", "")]
+            if vtts and not any(s["code"] == short_code for s in subs_list):
+                name = lang_names.get(short_code, code.upper())
+                subs_list.append({"code": short_code, "name": name, "url": vtts[0]})
+
+        # Qualities
+        qualities = ["Auto"]
+        quality_urls = {}
+        for f in info.get("formats", []):
+            h = f.get("height")
+            if h and f.get("url"):
+                q_label = f"{h}p"
+                if q_label not in qualities:
+                    qualities.append(q_label)
+                    quality_urls[q_label] = f["url"]
+
+        return subs_list, qualities, quality_urls
+
+    async def search_youtube(self, query: str, limit: int = 6) -> List[Dict[str, Any]]:
+        """
+        Search YouTube directly without ads and return clean video items for 1-tap playback.
+        """
+        if not yt_dlp or not query or not query.strip():
+            return []
+
+        def _search():
+            ydl_opts = {
+                "quiet": True,
+                "extract_flat": True,
+                "skip_download": True,
+                "no_warnings": True,
+            }
+            with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+                return ydl.extract_info(f"ytsearch{limit}:{query.strip()}", download=False)
+
+        try:
+            res = await asyncio.to_thread(_search)
+            items = []
+            for entry in res.get("entries", []):
+                vid_id = entry.get("id")
+                if not vid_id:
+                    continue
+                title = entry.get("title") or "YouTube Video"
+                dur = entry.get("duration") or 0
+                dur_str = self._format_duration(dur)
+                thumb = entry.get("thumbnails", [{}])[-1].get("url") if entry.get("thumbnails") else f"https://i.ytimg.com/vi/{vid_id}/hqdefault.jpg"
+                items.append({
+                    "id": vid_id,
+                    "title": title,
+                    "url": f"https://www.youtube.com/watch?v={vid_id}",
+                    "thumbnail": thumb,
+                    "duration": dur,
+                    "duration_str": dur_str,
+                    "channel": entry.get("channel") or entry.get("uploader") or ""
+                })
+            return items
+        except Exception as e:
+            logger.warning(f"YouTube search error for '{query}': {e}")
+            return []
 
     def is_direct_stream(self, url: str) -> bool:
         if not url:
@@ -139,16 +224,22 @@ class MediaResolver:
                 duration = info.get("duration") or 0
                 ext = info.get("ext") or "mp4"
                 mime = "application/vnd.apple.mpegurl" if ".m3u8" in stream_url else ("video/mp4" if ext == "mp4" else "video/webm")
-                logger.info(f"Successfully resolved YouTube stream: {title} (Zero Ads)")
+                subs_list, qualities, quality_urls = self._extract_subtitles_and_qualities(info)
+                dur_str = self._format_duration(duration)
+                logger.info(f"Successfully resolved YouTube stream: {title} (Zero Ads, {len(subs_list)} subs)")
                 return {
                     "resolved": True,
                     "stream_url": stream_url,
                     "title": title,
                     "thumbnail": thumbnail,
                     "duration": duration,
+                    "duration_str": dur_str,
                     "source_type": "youtube",
                     "is_ad_free": True,
-                    "mime_type": mime
+                    "mime_type": mime,
+                    "subtitles": subs_list,
+                    "qualities": qualities,
+                    "quality_urls": quality_urls
                 }
         except Exception as e:
             logger.warning(f"YouTube extraction error for {url}: {e}")
@@ -178,15 +269,21 @@ class MediaResolver:
                 duration = info.get("duration") or 0
                 ext = info.get("ext") or "mp4"
                 mime = "application/vnd.apple.mpegurl" if ".m3u8" in stream_url else f"video/{ext}"
+                subs_list, qualities, quality_urls = self._extract_subtitles_and_qualities(info)
+                dur_str = self._format_duration(duration)
                 return {
                     "resolved": True,
                     "stream_url": stream_url,
                     "title": title,
                     "thumbnail": thumbnail,
                     "duration": duration,
+                    "duration_str": dur_str,
                     "source_type": "platform",
                     "is_ad_free": True,
-                    "mime_type": mime
+                    "mime_type": mime,
+                    "subtitles": subs_list,
+                    "qualities": qualities,
+                    "quality_urls": quality_urls
                 }
         except Exception:
             pass

@@ -83,9 +83,9 @@ class DLNAController:
             logger.error(f"SetAVTransportURI failed: {e}")
             return False
 
-    async def play(self, control_url: str) -> bool:
+    async def play(self, control_url: str, speed: str = "1") -> bool:
         service = "urn:schemas-upnp-org:service:AVTransport:1"
-        body = '<InstanceID>0</InstanceID><Speed>1</Speed>'
+        body = f'<InstanceID>0</InstanceID><Speed>{speed}</Speed>'
         try:
             resp = await self._send_soap(control_url, service, "Play", body)
             return "PlayResponse" in resp
@@ -113,13 +113,67 @@ class DLNAController:
             logger.error(f"Stop failed: {e}")
             return False
 
+    @staticmethod
+    def _parse_time_str(time_str: str) -> int:
+        time_str = (time_str or "").strip()
+        if not time_str:
+            return 0
+        parts = time_str.split(":")
+        if len(parts) == 3:
+            try:
+                return int(float(parts[0])) * 3600 + int(float(parts[1])) * 60 + int(float(parts[2]))
+            except Exception:
+                return 0
+        elif len(parts) == 2:
+            try:
+                return int(float(parts[0])) * 60 + int(float(parts[1]))
+            except Exception:
+                return 0
+        try:
+            return int(float(time_str))
+        except Exception:
+            return 0
+
+    @staticmethod
+    def _format_time_str(seconds: int) -> str:
+        seconds = max(0, int(seconds))
+        h = seconds // 3600
+        m = (seconds % 3600) // 60
+        s = seconds % 60
+        return f"{h:02d}:{m:02d}:{s:02d}"
+
     async def seek(self, control_url: str, target_time: str) -> bool:
-        """Seek to target_time in HH:MM:SS format."""
         service = "urn:schemas-upnp-org:service:AVTransport:1"
+        target_str = str(target_time).strip()
+        formatted_target = "00:00:00"
+
+        if target_str.startswith("+") or target_str.startswith("-"):
+            try:
+                delta = int(float(target_str))
+                pos_info = await self.get_position_info(control_url)
+                cur_sec = self._parse_time_str(pos_info.get("position", "00:00:00"))
+                dur_sec = self._parse_time_str(pos_info.get("duration", "00:00:00"))
+                new_sec = max(0, cur_sec + delta)
+                if dur_sec > 0:
+                    new_sec = min(new_sec, dur_sec - 1)
+                formatted_target = self._format_time_str(new_sec)
+                logger.info(f"DLNA relative seek {target_str}s: {cur_sec}s -> {new_sec}s ({formatted_target})")
+            except Exception as e:
+                logger.warning(f"Error calculating relative seek: {e}")
+                formatted_target = target_str
+        elif ":" in target_str:
+            formatted_target = target_str
+        else:
+            try:
+                sec = int(float(target_str))
+                formatted_target = self._format_time_str(sec)
+            except Exception:
+                formatted_target = target_str
+
         body = (
             f'<InstanceID>0</InstanceID>'
             f'<Unit>REL_TIME</Unit>'
-            f'<Target>{target_time}</Target>'
+            f'<Target>{formatted_target}</Target>'
         )
         try:
             resp = await self._send_soap(control_url, service, "Seek", body)

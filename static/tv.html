@@ -19,7 +19,97 @@
   <link rel="dns-prefetch" href="https://bloomberg.com">
 
   <!-- Pinned Hls.js version (1.5.17) for stable IPTV playback -->
-  <script src="https://cdn.jsdelivr.net/npm/hls.js@1.5.17"></script>
+  <script src="https://cdn.jsdelivr.net/npm/hls.js@1.5.17">
+    // Subtitles Management
+    function setSubtitles(vttUrl, lang) {
+      const tracks = video.querySelectorAll("track");
+      tracks.forEach(t => t.remove());
+      if (!vttUrl || vttUrl === "off") {
+        showOSD(currentTitle, "Subtitles: Off");
+        return;
+      }
+      const hubBase = getHubBase();
+      const proxiedVtt = `${hubBase}/api/media/subtitle?url=${encodeURIComponent(vttUrl)}`;
+      const track = document.createElement("track");
+      track.kind = "subtitles";
+      track.label = lang || "Subtitles";
+      track.srclang = (lang || "en").toLowerCase();
+      track.src = proxiedVtt;
+      track.default = true;
+      video.appendChild(track);
+      if (video.textTracks && video.textTracks[0]) {
+        video.textTracks[0].mode = "showing";
+      }
+      showOSD(currentTitle, `Subtitles: ${lang || "On"}`);
+    }
+
+    // Physical TV Remote Control & Keyboard Listeners (TV Side)
+    const SPEED_CYCLE = [1.0, 1.25, 1.5, 2.0, 0.75];
+    let speedCycleIdx = 0;
+
+    document.addEventListener("keydown", (e) => {
+      const key = e.key;
+      // 1. Play / Pause
+      if (key === " " || key === "Enter" || key === "MediaPlayPause" || key === "Play" || key === "Pause") {
+        e.preventDefault();
+        if (video.paused) {
+          video.play();
+          showOSD(currentTitle, "Playing");
+        } else {
+          video.pause();
+          showOSD(currentTitle, "Paused");
+        }
+      }
+      // 2. Rewind -10s
+      else if (key === "ArrowLeft" || key === "MediaRewind" || key === "MediaTrackPrevious") {
+        e.preventDefault();
+        video.currentTime = Math.max(0, video.currentTime - 10);
+        showOSD(currentTitle, "⏪ Rewind -10s");
+      }
+      // 3. Fast Forward +10s
+      else if (key === "ArrowRight" || key === "MediaFastForward" || key === "MediaTrackNext") {
+        e.preventDefault();
+        video.currentTime = video.currentTime + 10;
+        showOSD(currentTitle, "⏩ Fast Forward +10s");
+      }
+      // 4. Volume Up / Down
+      else if (key === "ArrowUp") {
+        e.preventDefault();
+        video.volume = Math.min(1.0, video.volume + 0.05);
+        video.muted = false;
+        showVolume(Math.round(video.volume * 100), false);
+      }
+      else if (key === "ArrowDown") {
+        e.preventDefault();
+        video.volume = Math.max(0.0, video.volume - 0.05);
+        showVolume(Math.round(video.volume * 100), video.muted);
+      }
+      // 5. Speed Toggle (S key)
+      else if (key === "s" || key === "S") {
+        e.preventDefault();
+        speedCycleIdx = (speedCycleIdx + 1) % SPEED_CYCLE.length;
+        const newSpeed = SPEED_CYCLE[speedCycleIdx];
+        video.playbackRate = newSpeed;
+        showOSD(currentTitle, `Playback Speed: ${newSpeed}x`);
+      }
+      // 6. Subtitles Toggle (C key)
+      else if (key === "c" || key === "C") {
+        e.preventDefault();
+        if (video.textTracks && video.textTracks.length > 0) {
+          const t = video.textTracks[0];
+          t.mode = (t.mode === "showing") ? "hidden" : "showing";
+          showOSD(currentTitle, `Subtitles: ${t.mode === "showing" ? "On" : "Off"}`);
+        }
+      }
+      // 7. Mute (M key)
+      else if (key === "m" || key === "M") {
+        e.preventDefault();
+        video.muted = !video.muted;
+        showVolume(Math.round(video.volume * 100), video.muted);
+      }
+    });
+
+  </script>
   <!-- Pinned mpegts.js version (1.7.3) for raw MPEG-TS transmuxing -->
   <script src="https://cdn.jsdelivr.net/npm/mpegts.js@1.7.3/dist/mpegts.js"></script>
 
@@ -161,6 +251,18 @@
     #volume-indicator.visible {
       opacity: 1;
     }
+  
+    ::cue {
+      background: rgba(0, 0, 0, 0.78);
+      color: #ffffff;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      font-size: 28px;
+      line-height: 1.4;
+      border-radius: 6px;
+      padding: 4px 12px;
+      text-shadow: 0 2px 4px rgba(0, 0, 0, 0.9);
+    }
+
   </style>
 </head>
 <body>
@@ -767,11 +869,22 @@
                 video.muted = msg.mute;
               }
               showVolume(Math.round(video.volume * 100), video.muted);
-            } else if (action === "seek" && msg.value) {
-              const delta = parseFloat(msg.value);
-              if (!isNaN(delta)) {
-                video.currentTime += delta;
+            } else if (action === "seek" && msg.value !== undefined) {
+              if (msg.is_absolute) {
+                const sec = parseFloat(msg.value);
+                if (!isNaN(sec)) video.currentTime = Math.max(0, sec);
+              } else {
+                const delta = parseFloat(msg.value);
+                if (!isNaN(delta)) video.currentTime += delta;
               }
+            } else if (action === "speed" || action === "rate") {
+              const spd = parseFloat(msg.value);
+              if (!isNaN(spd) && spd > 0) {
+                video.playbackRate = spd;
+                showOSD(currentTitle, `Playback Speed: ${spd}x`);
+              }
+            } else if (action === "subtitles") {
+              setSubtitles(msg.url || msg.value, msg.lang);
             }
           } else if (msg.type === "abr_hint") {
             // Quality cap from smartphone controller (e.g. Low Data Mode)

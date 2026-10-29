@@ -28,7 +28,7 @@ AD_DOMAINS = {
     "pagead.l.google.com", "partnerad.l.google.com", "pagead-googlehosted.l.google.com",
     "afs.googlesyndication.com", "2mdn.net", "invitemedia.com", "admeld.com",
     "redirector.googlevideo.com", "stats.g.doubleclick.net", "ade.googlesyndication.com",
-    "youtube.googleapis.com", "youtubei.googleapis.com",
+    "pagead2.google.com", "pagead-tpc.l.google.com",
     
     # DoH Bypass Prevention (forces browsers to use local port 53)
     "dns.google", "dns.google.com", "cloudflare-dns.com", "dns.quad9.net", "doh.opendns.com",

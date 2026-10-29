@@ -93,16 +93,29 @@ class GoogleCastController:
             logger.debug(f"Google Cast quit_app failed on {ip}: {e}")
         return False
 
-    def seek(self, ip: str, seconds: float) -> bool:
+    def seek(self, ip: str, seconds: float, is_absolute: bool = False) -> bool:
         try:
             cast = self.get_cast(ip)
             if cast and cast.media_controller:
                 mc = cast.media_controller
-                curr = mc.status.current_time or 0
-                mc.seek(max(0, curr + seconds))
+                if is_absolute:
+                    mc.seek(max(0.0, float(seconds)))
+                else:
+                    curr = mc.status.current_time or 0
+                    mc.seek(max(0.0, curr + seconds))
                 return True
         except Exception as e:
             logger.debug(f"Google Cast seek failed on {ip}: {e}")
+        return False
+
+    def set_playback_rate(self, ip: str, rate: float) -> bool:
+        try:
+            cast = self.get_cast(ip)
+            if cast and cast.media_controller:
+                cast.media_controller.set_playback_rate(float(rate))
+                return True
+        except Exception as e:
+            logger.debug(f"Google Cast set_playback_rate failed on {ip}: {e}")
         return False
 
     def set_volume(self, ip: str, volume_percent: int) -> bool:

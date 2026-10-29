@@ -20,7 +20,7 @@
   <link rel="dns-prefetch" href="https://i.postimg.cc">
   <link rel="dns-prefetch" href="https://uut-telecom.ru">
   <link rel="dns-prefetch" href="https://rutv.by">
-  <link rel="stylesheet" href="static/style.css?v=2.9">
+  <link rel="stylesheet" href="static/style.css?v=3.0">
 </head>
 <body>
 
@@ -282,6 +282,103 @@
 
     <!-- TAB 3: Universal Ad-Free Cast -->
     <section id="tab-cast" class="tab-content">
+      <!-- Active Cast Playback Control Deck -->
+      <div id="active-cast-deck" class="active-cast-deck" style="display: none;">
+        <div class="deck-header">
+          <div class="deck-badge">
+            <span class="cyber-shield-dot"></span>
+            <span id="deck-status-text">ACTIVE PLAYBACK ON TV</span>
+          </div>
+          <button type="button" id="btn-deck-stop" class="btn-deck-stop" title="Stop Casting">⏹ Stop</button>
+        </div>
+
+        <div class="deck-media-info">
+          <img id="deck-thumb" class="deck-thumb" src="" alt="Thumbnail" style="display: none;">
+          <div class="deck-title-box">
+            <div id="deck-title" class="deck-title">Video Stream</div>
+            <div id="deck-target-tv" class="deck-target-tv">Smart TV • 100% Ad-Free</div>
+          </div>
+        </div>
+
+        <!-- Scrub / Timeline Bar -->
+        <div class="deck-timeline">
+          <span id="deck-time-current" class="time-text">00:00</span>
+          <input type="range" id="deck-scrubber" class="deck-scrub-slider" min="0" max="100" value="0" step="1">
+          <span id="deck-time-total" class="time-text">--:--</span>
+        </div>
+
+        <!-- Transport Controls (Rewind / Fast-Forward / Play / Pause) -->
+        <div class="deck-transport-row">
+          <button type="button" class="btn-deck-transport" id="btn-seek-back-30" title="Rewind 30s">
+            <span style="font-size: 15px;">⏪</span> <span>-30s</span>
+          </button>
+          <button type="button" class="btn-deck-transport" id="btn-seek-back-10" title="Rewind 10s">
+            <span style="font-size: 15px;">⏪</span> <span>-10s</span>
+          </button>
+          <button type="button" class="btn-deck-playpause" id="btn-deck-play" title="Play / Pause">
+            <svg id="deck-play-icon" viewBox="0 0 24 24"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+          </button>
+          <button type="button" class="btn-deck-transport" id="btn-seek-fwd-10" title="Forward 10s">
+            <span>+10s</span> <span style="font-size: 15px;">⏩</span>
+          </button>
+          <button type="button" class="btn-deck-transport" id="btn-seek-fwd-30" title="Forward 30s">
+            <span>+30s</span> <span style="font-size: 15px;">⏩</span>
+          </button>
+        </div>
+
+        <!-- Controls Grid: Speed, Quality, Subtitles, Volume -->
+        <div class="deck-controls-grid">
+          
+          <!-- Playback Speed -->
+          <div class="deck-control-block">
+            <label class="deck-label">⚡ Playback Speed</label>
+            <div class="speed-pill-group">
+              <button type="button" class="speed-pill" data-speed="0.5">0.5x</button>
+              <button type="button" class="speed-pill" data-speed="0.75">0.75x</button>
+              <button type="button" class="speed-pill active" data-speed="1.0">1.0x</button>
+              <button type="button" class="speed-pill" data-speed="1.25">1.25x</button>
+              <button type="button" class="speed-pill" data-speed="1.5">1.5x</button>
+              <button type="button" class="speed-pill" data-speed="2.0">2.0x</button>
+            </div>
+          </div>
+
+          <!-- Quality & Subtitles Row -->
+          <div class="deck-inline-row">
+            <div class="deck-control-block" style="flex: 1;">
+              <label class="deck-label" for="deck-quality-select">📺 Quality</label>
+              <select id="deck-quality-select" class="deck-select">
+                <option value="auto">Auto (Best Quality)</option>
+                <option value="1080p">1080p Full HD</option>
+                <option value="720p">720p HD</option>
+                <option value="480p">480p SD</option>
+                <option value="360p">360p</option>
+              </select>
+            </div>
+
+            <div class="deck-control-block" style="flex: 1;">
+              <label class="deck-label" for="deck-subs-select">💬 Subtitles (CC)</label>
+              <select id="deck-subs-select" class="deck-select">
+                <option value="off">Subtitles Off</option>
+                <option value="en">English</option>
+                <option value="ka">Georgian (ქართული)</option>
+                <option value="ru">Russian (Русский)</option>
+                <option value="es">Spanish (Español)</option>
+              </select>
+            </div>
+          </div>
+
+          <!-- Volume Slider Row -->
+          <div class="deck-control-block">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
+              <label class="deck-label" style="margin: 0;">🔊 TV Volume (<span id="deck-vol-label">50%</span>)</label>
+              <button type="button" id="btn-deck-mute" class="deck-mute-btn" title="Toggle Mute">🔊 Mute</button>
+            </div>
+            <input type="range" id="deck-vol-slider" class="deck-vol-slider" min="0" max="100" value="50">
+          </div>
+
+        </div>
+      </div>
+
       <div class="cast-card universal-cast-card">
         <div class="cast-card-header">
           <div class="cast-badge-highlight">
@@ -328,6 +425,28 @@
           <svg viewBox="0 0 24 24" style="width: 18px; height: 18px; stroke: #fff;"><path d="m22 2-7 20-4-9-9-4Z"/><path d="M22 2 11 13"/></svg>
           <span id="btn-cast-text">Cast Ad-Free to TV</span>
         </button>
+      </div>
+
+            <!-- YouTube 100% Ad-Free Search & Quick Cast -->
+      <div class="cast-card yt-search-card">
+        <div class="cast-card-header">
+          <div class="cast-badge-highlight" style="background: rgba(239, 68, 68, 0.15); color: #f87171; border-color: rgba(239, 68, 68, 0.3);">
+            🔴 YOUTUBE AD-FREE SEARCH
+          </div>
+          <h3>Search &amp; Play Any YouTube Video Without Ads</h3>
+          <p style="font-size: 13px; color: var(--text-muted); margin-bottom: 12px; line-height: 1.45;">
+            Search for any song, video, podcast, or movie. TV Hub retrieves and casts it directly to your TV with <strong>100% Zero Ads</strong>.
+          </p>
+        </div>
+
+        <div class="input-with-action">
+          <input type="text" id="yt-search-input" class="form-input" placeholder="Search YouTube (e.g. Coldplay, Joe Rogan, Movie trailer)...">
+          <button type="button" id="btn-yt-search" class="btn-primary" style="width: auto; padding: 10px 18px; margin: 0; white-space: nowrap;">
+            🔍 Search
+          </button>
+        </div>
+
+        <div id="yt-search-results" class="yt-results-grid" style="display: none; margin-top: 14px;"></div>
       </div>
 
       <div class="cast-card">
@@ -877,6 +996,6 @@
     </div>
   </div>
 
-  <script src="static/app.js?v=2.9"></script>
+  <script src="static/app.js?v=3.0"></script>
 </body>
 </html>

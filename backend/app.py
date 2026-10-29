@@ -261,8 +261,10 @@ class CastRequest(BaseModel):
     source_index: Optional[int] = 0
 
 class PlaybackActionRequest(BaseModel):
-    action: str  # play, pause, stop, seek
+    action: str  # play, pause, stop, seek, speed, rate, subtitles, quality
     value: Optional[str] = None
+    lang: Optional[str] = None
+    is_absolute: Optional[bool] = False
     device_id: Optional[str] = None
 
 class VolumeRequest(BaseModel):
@@ -569,6 +571,35 @@ async def protect_this_pc():
         return {"status": "error", "message": str(e)}
     return {"status": "error", "message": "Only available on Windows host"}
 
+@app.get("/api/youtube/search")
+async def search_youtube_endpoint(q: str):
+    from .media_resolver import media_resolver
+    items = await media_resolver.search_youtube(q, limit=8)
+    return {"status": "ok", "query": q, "results": items}
+
+@app.get("/api/media/subtitle")
+async def proxy_subtitle(url: str):
+    """Proxies remote WebVTT subtitle track with proper CORS and MIME headers."""
+    try:
+        async with httpx.AsyncClient(timeout=8.0, verify=False) as client:
+            resp = await client.get(url, headers={"User-Agent": "Mozilla/5.0"})
+            if resp.status_code == 200:
+                vtt_text = resp.text
+                if not vtt_text.startswith("WEBVTT"):
+                    vtt_text = "WEBVTT\n\n" + vtt_text
+                return Response(
+                    content=vtt_text.encode("utf-8"),
+                    media_type="text/vtt; charset=utf-8",
+                    headers={
+                        "Access-Control-Allow-Origin": "*",
+                        "Content-Type": "text/vtt; charset=utf-8",
+                        "Cache-Control": "public, max-age=3600"
+                    }
+                )
+    except Exception as e:
+        logger.warning(f"Subtitle proxy error: {e}")
+    return Response(content="WEBVTT\n\n", media_type="text/vtt")
+
 @app.get("/api/media/resolve")
 async def resolve_media_url(url: str):
     from .media_resolver import media_resolver
@@ -630,7 +661,7 @@ async def cast_media(req: CastRequest, request: Request, client_ip: str = Depend
     mode = "google_tv" if (dev and dev.get("is_google_tv")) else ("dlna" if (dev and dev.get("av_transport_url")) else "web_receiver")
 
     # Update state immediately at entry (BEFORE any await)
-    ws_manager.update_state({
+    state_payload = {
         "channel_id": req.channel_id,
         "url": web_stream_url,
         "title": title,
@@ -639,7 +670,18 @@ async def cast_media(req: CastRequest, request: Request, client_ip: str = Depend
         "source_index": req.source_index or 0,
         "version": my_version,
         "state": "PLAYING"
-    })
+    }
+    if 'resolved' in locals() and isinstance(resolved, dict):
+        if resolved.get("duration"):
+            state_payload["duration"] = resolved["duration"]
+            state_payload["duration_str"] = resolved.get("duration_str", "Live")
+        if resolved.get("thumbnail"):
+            state_payload["thumbnail"] = resolved["thumbnail"]
+        if resolved.get("subtitles"):
+            state_payload["subtitles"] = resolved["subtitles"]
+        if resolved.get("qualities"):
+            state_payload["qualities"] = resolved["qualities"]
+    ws_manager.update_state(state_payload)
 
     # Clear old prefetched chunks so channel switch is 100% clean with zero overlap
     segment_engine.clear_for_channel_switch()
@@ -805,14 +847,22 @@ async def playback_action(req: PlaybackActionRequest):
         elif action == "seek" and req.value:
             try:
                 sec = float(req.value)
-                await asyncio.to_thread(google_cast_controller.seek, dev["ip"], sec)
+                await asyncio.to_thread(google_cast_controller.seek, dev["ip"], sec, req.is_absolute or False)
+            except Exception:
+                pass
+        elif action in ("speed", "rate") and req.value:
+            try:
+                rate = float(req.value)
+                await asyncio.to_thread(google_cast_controller.set_playback_rate, dev["ip"], rate)
+                ws_manager.update_state({"speed": rate})
             except Exception:
                 pass
 
     elif dev and dev.get("av_transport_url"):
         av_url = dev["av_transport_url"]
         if action == "play":
-            await dlna_controller.play(av_url)
+            speed_val = req.value if req.value else "1"
+            await dlna_controller.play(av_url, speed=speed_val)
             ws_manager.update_state({"state": "PLAYING"})
         elif action == "pause":
             await dlna_controller.pause(av_url)
@@ -822,12 +872,26 @@ async def playback_action(req: PlaybackActionRequest):
             ws_manager.update_state({"state": "STOPPED"})
         elif action == "seek" and req.value:
             await dlna_controller.seek(av_url, req.value)
+        elif action in ("speed", "rate") and req.value:
+            await dlna_controller.play(av_url, speed=str(req.value))
+            ws_manager.update_state({"speed": float(req.value)})
 
-    # Forward to Web Receiver
-    await ws_manager.send_to_receivers(action, {"value": req.value})
-    await ws_manager.broadcast_to_controllers("playback_action", {"action": action, "value": req.value})
+    # Forward to Web Receiver & Controller WebSockets
+    payload = {
+        "value": req.value,
+        "lang": req.lang,
+        "is_absolute": req.is_absolute
+    }
+    await ws_manager.send_to_receivers(action, payload)
+    await ws_manager.broadcast_to_controllers("playback_action", {"action": action, **payload})
 
-    return {"status": "ok", "action": action}
+    if action in ("speed", "rate") and req.value:
+        try:
+            ws_manager.update_state({"speed": float(req.value)})
+        except Exception:
+            pass
+
+    return {"status": "ok", "action": action, "value": req.value}
 
 @app.post("/api/playback/volume")
 async def adjust_volume(req: VolumeRequest):
