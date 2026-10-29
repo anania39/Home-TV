@@ -28,6 +28,7 @@ from .google_cast_controller import google_cast_controller
 from .sports_scraper import sports_scraper, CATEGORIES
 from .dns_service_manager import is_daemon_running, start_daemon, get_status as get_dns_service_status, set_global_no_ads, set_device_no_ads
 from .device_scanner import device_scanner
+from .asus_router_controller import asus_router_controller
 
 import sys
 if sys.platform == "win32":
@@ -279,6 +280,11 @@ class GlobalAdblockRequest(BaseModel):
 class DeviceAdblockRequest(BaseModel):
     enabled: bool
 
+class RouterAutoConfigRequest(BaseModel):
+    router_ip: Optional[str] = '192.168.50.1'
+    username: Optional[str] = 'admin'
+    password: str
+
 class DeviceSelectRequest(BaseModel):
     device_id: str
 
@@ -494,6 +500,27 @@ async def set_device_adblock(ip: str, req: DeviceAdblockRequest):
         "enabled": req.enabled,
         "device_rules": updated.get("device_rules", {})
     }
+
+@app.get("/api/router/status")
+async def get_router_status():
+    reach = asus_router_controller.check_reachability("192.168.50.1")
+    cfg = asus_router_controller.get_router_status()
+    return {
+        "status": "ok",
+        "reachability": reach,
+        "config": cfg,
+        "dns_ip": SERVER_IP
+    }
+
+@app.post("/api/router/auto_configure")
+async def auto_configure_router(req: RouterAutoConfigRequest):
+    result = asus_router_controller.auto_configure(
+        router_ip=req.router_ip or "192.168.50.1",
+        username=req.username or "admin",
+        password=req.password,
+        dns_server_ip=SERVER_IP
+    )
+    return result
 
 @app.post("/api/cast")
 async def cast_media(req: CastRequest, request: Request, client_ip: str = Depends(verify_local_network)):

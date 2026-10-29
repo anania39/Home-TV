@@ -326,137 +326,210 @@
     </section>
 
         <!-- TAB 4: Connected Devices & Network-Wide DNS Ad-Blocker -->
+        <!-- TAB 4: Network Devices & Wi-Fi Ad-Shield -->
     <section id="tab-devices" class="tab-content">
       <div class="devices-tab-container">
         
-        <!-- Header Row -->
-        <div class="devices-header-row">
-          <div>
-            <div class="devices-header-title">
-              <svg viewBox="0 0 24 24" style="width: 20px; height: 20px; stroke: var(--accent-cyan); fill: none; stroke-width: 2;"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
-              Home Network Devices
+        <!-- Top App Bar / Status Header -->
+        <div class="devices-header-hero">
+          <div class="devices-header-meta">
+            <div class="devices-title-text">
+              <span class="cyber-shield-dot"></span>
+              Network Shield & Devices
             </div>
-            <div class="devices-header-subtitle">Local Subnet: 192.168.50.x • ASUS Wi-Fi 6 Router</div>
+            <div class="devices-subtitle-text">
+              <span class="router-model-badge">
+                <svg viewBox="0 0 24 24" style="width: 12px; height: 12px; stroke: currentColor; fill: none; stroke-width: 2.5;"><rect x="2" y="14" width="20" height="8" rx="2"/><polyline points="7 14 12 3 17 14"/></svg>
+                ASUS RT-AX1800U
+              </span>
+              <span class="subnet-badge">192.168.50.x</span>
+              <span class="devices-count-pill" id="badge-online-count"><span id="devices-online-count">9</span> Devices Online</span>
+            </div>
           </div>
-          <button id="btn-scan-devices" class="btn-scan-devices" title="Scan local network for devices">
-            <svg viewBox="0 0 24 24"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
-            <span id="scan-btn-text">Scan</span>
+          <button id="btn-scan-devices" class="btn-cyber-scan" title="Rescan local network">
+            <svg class="scan-radar-svg" viewBox="0 0 24 24"><path d="M12 2a10 10 0 1 0 10 10A10 10 0 0 0 12 2zm0 18a8 8 0 1 1 8-8 8 8 0 0 1-8 8z"/><path d="M12 6a6 6 0 1 0 6 6 6 6 0 0 0-6-6zm0 10a4 4 0 1 1 4-4 4 4 0 0 1-4 4z"/><circle cx="12" cy="12" r="2"/></svg>
+            <span id="scan-btn-text">Scan Network</span>
           </button>
         </div>
 
-        <!-- Master Network-Wide No Ads Card -->
-        <div class="adblock-master-card">
-          <div class="adblock-toggle-row">
-            <div class="adblock-title-group">
-              <h3>
+        <!-- 1. Master Wi-Fi Ad Shield Card (Cyber Hero Widget) -->
+        <div class="cyber-shield-card">
+          <div class="shield-card-glow-bg"></div>
+          <div class="shield-card-top">
+            <div class="shield-icon-container">
+              <div class="shield-icon-circle">
                 <svg viewBox="0 0 24 24"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
-                Network-Wide No Ads
-              </h3>
-              <div style="font-size: 12px; color: var(--text-muted);">
-                Blocks video ads, trackers, and telemetry on your entire Wi-Fi
-              </div>
-              <div class="dns-status-pill" id="adblock-dns-status">
-                <span class="dns-status-dot"></span>
-                <span>DNS Sinkhole Active (192.168.50.250:53)</span>
               </div>
             </div>
-            <label class="adblock-switch" title="Toggle Network-Wide Ad Blocker">
-              <input type="checkbox" id="toggle-global-adblock" checked>
-              <span class="adblock-slider"></span>
-            </label>
-          </div>
-
-          <!-- 24/7 Background Persistence Badge -->
-          <div class="adblock-persistence-badge" style="margin-top: 12px; font-size: 11px; color: #a0aec0; display: flex; align-items: center; gap: 8px; background: rgba(0,242,254,0.06); border: 1px solid rgba(0,242,254,0.18); border-radius: var(--radius-sm); padding: 8px 12px;">
-            <svg viewBox="0 0 24 24" style="width: 15px; height: 15px; stroke: var(--accent-cyan); fill: none; stroke-width: 2; flex-shrink: 0;"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
-            <div><strong>24/7 Persistent Service:</strong> Stays active on your home network even if TV Hub is completely closed. Only turns off if you reconnect and switch it off here.</div>
-          </div>
-
-          <!-- Live Adblock Stats Grid -->
-          <div class="adblock-stats-grid">
-            <div class="adblock-stat-tile">
-              <div class="adblock-stat-value" id="stat-ads-blocked">0</div>
-              <div class="adblock-stat-label">Ads Blocked</div>
+            <div class="shield-info-col">
+              <div class="shield-headline">Home Wi-Fi Ad-Shield</div>
+              <div class="shield-description">Blocks video ads, trackers, telemetry & popups across your smart TVs, phones & computers.</div>
+              <div class="shield-status-indicator" id="adblock-dns-status">
+                <span class="pulse-indicator-dot"></span>
+                <span id="adblock-dns-text">24/7 Protection Active (Port 53 Sinkhole)</span>
+              </div>
             </div>
-            <div class="adblock-stat-tile">
-              <div class="adblock-stat-value" id="stat-queries-total">0</div>
-              <div class="adblock-stat-label">DNS Queries</div>
-            </div>
-            <div class="adblock-stat-tile">
-              <div class="adblock-stat-value" id="stat-block-rate">0%</div>
-              <div class="adblock-stat-label">Shield Rate</div>
+            <div class="shield-switch-col">
+              <label class="cyber-switch" title="Toggle Home Wi-Fi Ad Blocker">
+                <input type="checkbox" id="toggle-global-adblock" checked>
+                <span class="cyber-switch-slider"></span>
+              </label>
             </div>
           </div>
 
-          <!-- Router & Wi-Fi Ad-Block Integration Guide -->
-          <div class="setup-guide-box">
-            <div class="setup-guide-header" id="btn-toggle-guide">
-              <div style="display: flex; align-items: center; gap: 8px;">
-                <svg viewBox="0 0 24 24" style="stroke: var(--accent-cyan); width: 16px; height: 16px;"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
-                <span>Router & Device Setup (How to Remove Ads on Home Wi-Fi)</span>
-              </div>
-              <svg viewBox="0 0 24 24"><polyline points="6 9 12 15 18 9"/></svg>
+          <!-- Persistence Reassurance Banner -->
+          <div class="shield-persistence-banner">
+            <svg viewBox="0 0 24 24"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><polyline points="9 12 11 14 15 10"/></svg>
+            <span><strong>24/7 Autonomous Background Service:</strong> Stays active on your Wi-Fi even when TV Hub app is closed. Only pauses if you switch it off here.</span>
+          </div>
+
+          <!-- High-Tech Stat Counter Tiles -->
+          <div class="cyber-stats-grid">
+            <div class="cyber-stat-card">
+              <div class="cyber-stat-icon red">⛔</div>
+              <div class="cyber-stat-number" id="stat-ads-blocked">0</div>
+              <div class="cyber-stat-title">Ads Blocked</div>
             </div>
-            <div class="setup-guide-body" id="setup-guide-content">
-              <p style="margin-top: 6px;">To block ads across your entire home network or on individual phones/TVs, point DNS to this TV Hub host:</p>
-              <div class="dns-ip-chip">
-                <span>DNS Server: 192.168.50.250</span>
-                <button id="btn-copy-dns-ip" style="background: transparent; border: 1px solid var(--accent-cyan); color: var(--accent-cyan); border-radius: 4px; padding: 2px 8px; font-size: 11px; cursor: pointer; margin-left: 6px;">Copy</button>
-              </div>
-              <div style="margin-top: 8px;">
-                <strong>1. Wi-Fi Router Setup (All Devices Automatically):</strong><br>
-                Open your ASUS Router Admin at <a href="http://192.168.50.1" target="_blank" style="color: var(--accent-cyan);">192.168.50.1</a> &rarr; <em>LAN &rarr; DHCP Server &rarr; DNS Server</em> &rarr; set to <code>192.168.50.250</code>.<br>
-                <span style="color: var(--accent-green); font-size: 11px;">✓ All TVs, phones, and laptops on Wi-Fi will have ads blocked automatically without touching each device!</span>
-              </div>
-              <div style="margin-top: 10px;">
-                <strong>2. Android / Samsung (e.g. Galaxy S25):</strong><br>
-                <em>Settings &rarr; Connections &rarr; More connection settings &rarr; Private DNS &rarr;</em> enter <code>dns.adguard-dns.com</code>.
-              </div>
-              <div style="margin-top: 10px;">
-                <strong>3. Apple iPhone:</strong><br>
-                <em>Settings &rarr; Wi-Fi &rarr; tap (i) &rarr; Configure DNS &rarr; Manual &rarr;</em> Add Server: <code>192.168.50.250</code>.
-              </div>
+            <div class="cyber-stat-card">
+              <div class="cyber-stat-icon cyan">🌐</div>
+              <div class="cyber-stat-number" id="stat-queries-total">0</div>
+              <div class="cyber-stat-title">DNS Queries</div>
+            </div>
+            <div class="cyber-stat-card">
+              <div class="cyber-stat-icon green">🛡️</div>
+              <div class="cyber-stat-number" id="stat-block-rate">100%</div>
+              <div class="cyber-stat-title">Shield Rate</div>
             </div>
           </div>
         </div>
 
-        <!-- Section: Connected Devices -->
-        <div class="devices-section-title">
-          <span>Connected Network Devices (<span id="devices-online-count">0</span>)</span>
-          <span style="font-size: 11px; font-weight: normal; color: var(--text-muted);">Toggle 'No Ads' per device</span>
-        </div>
+        <!-- 2. 1-Click Router Auto-Pilot Card (Automated Router Setup for YouTube & Network-Wide Ads) -->
+        <div class="router-autopilot-card" id="router-autopilot-container">
+          <div class="autopilot-header">
+            <div class="autopilot-title-group">
+              <div class="autopilot-badge">
+                <svg viewBox="0 0 24 24"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
+                1-CLICK ROUTER AUTO-PILOT
+              </div>
+              <div class="autopilot-title">Automate ASUS Router Ad-Blocking</div>
+              <div class="autopilot-desc">
+                Enter your ASUS router login once. TV Hub will automatically log in to <strong>192.168.50.1</strong> and program the router to block YouTube ads, website trackers, and Smart TV app ads network-wide.
+              </div>
+            </div>
+          </div>
 
-        <!-- Devices Container -->
-        <div id="network-devices-list">
-          <div style="text-align: center; padding: 24px; color: var(--text-muted); font-size: 13px;">
-            Scanning home network devices...
+          <form id="form-router-autopilot" class="autopilot-form" onsubmit="return false;">
+            <div class="autopilot-inputs-row">
+              <div class="cyber-input-group">
+                <label for="router-username">Router Username / Email</label>
+                <div class="input-with-icon">
+                  <svg viewBox="0 0 24 24"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+                  <input type="text" id="router-username" placeholder="admin" value="admin" autocomplete="username">
+                </div>
+              </div>
+              <div class="cyber-input-group">
+                <label for="router-password">Router Password</label>
+                <div class="input-with-icon">
+                  <svg viewBox="0 0 24 24"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+                  <input type="password" id="router-password" placeholder="Enter router password" autocomplete="current-password">
+                  <button type="button" id="btn-toggle-pwd" class="btn-toggle-pwd" title="Show password">👁️</button>
+                </div>
+              </div>
+            </div>
+
+            <div class="autopilot-action-row">
+              <button type="button" id="btn-auto-configure-router" class="btn-router-autopilot-submit">
+                <svg viewBox="0 0 24 24"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
+                <span id="router-btn-text">Auto-Configure Router for Ad-Blocking</span>
+              </button>
+              <div class="autopilot-hint">
+                <span class="safe-lock-icon">🔒</span>
+                <span>Credentials are used securely to program your router and never stored.</span>
+              </div>
+            </div>
+
+            <!-- Dynamic Feedback Box -->
+            <div id="router-autopilot-feedback" class="autopilot-feedback-box" style="display: none;"></div>
+          </form>
+
+          <!-- Collapsible Manual Fallback -->
+          <div class="manual-dns-accordion">
+            <button type="button" id="btn-toggle-manual-dns" class="manual-dns-toggle">
+              <span>Manual Router DNS Setup (Optional Alternative)</span>
+              <svg class="chevron-svg" viewBox="0 0 24 24"><polyline points="6 9 12 15 18 9"/></svg>
+            </button>
+            <div id="manual-dns-content" class="manual-dns-drawer">
+              <p style="margin: 0 0 6px 0;">If you prefer setting your router manually:</p>
+              <div class="manual-ip-row">
+                <span class="ip-code">192.168.50.250</span>
+                <button type="button" id="btn-copy-dns-ip" class="btn-copy-ip">Copy DNS IP</button>
+              </div>
+              <p class="manual-steps">Open <strong>http://192.168.50.1</strong> &rarr; LAN &rarr; DHCP Server &rarr; Set <strong>DNS Server 1</strong> to <strong>192.168.50.250</strong> &rarr; Apply.</p>
+            </div>
           </div>
         </div>
 
-        <!-- Section: Live Blocked Ads Feed -->
-        <div class="devices-section-title" style="margin-top: 20px;">
-          <span>Live Ad-Block Activity</span>
-          <span style="font-size: 11px; font-weight: normal; color: var(--text-muted);">Real-time sinkhole log</span>
-        </div>
-        <div class="adblock-logs-box" id="adblock-recent-logs">
-          <div style="color: var(--text-dim); text-align: center; padding: 8px;">No ads blocked yet. DNS sinkhole listening on port 53.</div>
-        </div>
-
-        <!-- Section: Hub Access & Controller Links (Retained for 100% feature preservation) -->
-        <div class="devices-section-title" style="margin-top: 24px;">
-          <span>Permanent Controller Links</span>
-        </div>
-        <div class="cast-card" style="margin-bottom: 0;">
-          <div style="font-size: 11px; color: var(--accent-cyan); font-weight: bold; margin-bottom: 4px;">🌟 PERMANENT WEB CONTROLLER (GITHUB PAGES):</div>
-          <div style="background: rgba(0,0,0,0.4); padding: 8px 12px; border-radius: var(--radius-sm); font-family: monospace; font-size: 12px; display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
-            <a id="github-pages-link" href="https://anania39.github.io/Home-TV/" target="_blank" style="color: var(--accent-cyan); text-decoration: none;">https://anania39.github.io/Home-TV/</a>
-            <button id="btn-copy-gh-link" class="btn-primary" style="width: auto; padding: 4px 10px; font-size: 11px; margin: 0;">Copy</button>
+        <!-- 3. Devices Section & Category Filter Bar -->
+        <div class="devices-section-head">
+          <div class="section-title-wrap">
+            <span class="section-heading">Connected Network Devices</span>
+            <span class="section-caption">Toggle ad blocking individually for any device on your Wi-Fi</span>
           </div>
+          
+          <!-- Category Filter Pills -->
+          <div class="devices-filter-bar">
+            <button class="device-filter-pill active" data-filter="all">All Devices</button>
+            <button class="device-filter-pill" data-filter="tv">Smart TVs</button>
+            <button class="device-filter-pill" data-filter="phone">Phones</button>
+            <button class="device-filter-pill" data-filter="computer">Computers</button>
+            <button class="device-filter-pill" data-filter="router">Router</button>
+          </div>
+        </div>
 
-          <div style="font-size: 11px; color: var(--text-muted); margin-bottom: 4px;">📺 TV BROWSER RECEIVER:</div>
-          <div style="background: rgba(0,0,0,0.3); padding: 8px 12px; border-radius: var(--radius-sm); font-family: monospace; font-size: 12px; display: flex; justify-content: space-between; align-items: center;">
-            <a id="github-receiver-link" href="https://anania39.github.io/Home-TV/tv.html" target="_blank" style="color: var(--text-main); text-decoration: none;">https://anania39.github.io/Home-TV/tv.html</a>
-            <button id="btn-copy-receiver-link" style="background: transparent; border: 1px solid var(--border-color); color: var(--text-main); border-radius: 6px; padding: 4px 10px; font-size: 11px; cursor: pointer;">Copy</button>
+        <!-- Search Bar -->
+        <div class="device-search-wrapper">
+          <svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+          <input type="text" id="input-device-search" placeholder="Search devices by name, IP (192.168.50.x) or vendor..." autocomplete="off">
+          <button id="btn-clear-device-search" class="btn-clear-search" style="display: none;">✕</button>
+        </div>
+
+        <!-- Device Cards Container -->
+        <div id="network-devices-list" class="cyber-devices-grid">
+          <div class="devices-loading-placeholder" style="text-align: center; padding: 24px; color: var(--text-muted);">
+            <span>Discovering network devices...</span>
+          </div>
+        </div>
+
+        <!-- 4. Real-Time Ad-Block Activity Feed -->
+        <div class="cyber-feed-card">
+          <div class="feed-header">
+            <div class="feed-title">
+              <span class="live-pulse-dot"></span>
+              Live Ad-Block Activity Stream
+            </div>
+            <span class="feed-badge">Real-Time UDP 53</span>
+          </div>
+          <div id="adblock-recent-logs" class="cyber-logs-box">
+            <div class="logs-empty" style="color: var(--text-dim); text-align: center; padding: 8px;">Listening for queries on 192.168.50.250:53...</div>
+          </div>
+        </div>
+
+        <!-- 5. Hub Access & Controller Links -->
+        <div class="hub-links-card">
+          <div class="hub-links-header">🌟 Permanent Controller Links</div>
+          <div class="hub-link-row">
+            <span class="hub-link-label">GITHUB PAGES CONTROLLER:</span>
+            <div class="hub-link-box">
+              <a href="https://anania39.github.io/Home-TV/" target="_blank">https://anania39.github.io/Home-TV/</a>
+              <button id="btn-copy-gh-link" class="btn-mini-action">Copy</button>
+            </div>
+          </div>
+          <div class="hub-link-row">
+            <span class="hub-link-label">TV WEB RECEIVER:</span>
+            <div class="hub-link-box">
+              <a href="https://anania39.github.io/Home-TV/tv.html" target="_blank">https://anania39.github.io/Home-TV/tv.html</a>
+              <button id="btn-copy-receiver-link" class="btn-mini-action">Copy</button>
+            </div>
           </div>
         </div>
 

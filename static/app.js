@@ -1633,17 +1633,114 @@ function initHubModal() {
 
 // --- Home Network Devices & Enterprise DNS Ad-Blocker Module ---
 let adblockPollingTimer = null;
+let cachedNetworkDevices = [];
+let currentDeviceFilter = "all";
+let deviceSearchTerm = "";
 
 function initDevicesTab() {
-  const guideHeader = document.getElementById("btn-toggle-guide");
-  const guideContent = document.getElementById("setup-guide-content");
-  if (guideHeader && guideContent) {
-    guideHeader.onclick = () => {
-      guideHeader.classList.toggle("open");
-      guideContent.classList.toggle("show");
+  // 1. Password visibility toggle
+  const btnTogglePwd = document.getElementById("btn-toggle-pwd");
+  const inputPwd = document.getElementById("router-password");
+  if (btnTogglePwd && inputPwd) {
+    btnTogglePwd.onclick = () => {
+      vibrate(15);
+      const isPwd = inputPwd.type === "password";
+      inputPwd.type = isPwd ? "text" : "password";
+      btnTogglePwd.textContent = isPwd ? "🙈" : "👁️";
     };
   }
 
+  // 2. 1-Click Router Auto-Pilot Configuration
+  const btnAutoRouter = document.getElementById("btn-auto-configure-router");
+  const feedbackBox = document.getElementById("router-autopilot-feedback");
+  const btnRouterText = document.getElementById("router-btn-text");
+
+  if (btnAutoRouter) {
+    btnAutoRouter.onclick = async () => {
+      vibrate(30);
+      const usernameInput = document.getElementById("router-username");
+      const passwordInput = document.getElementById("router-password");
+
+      const username = usernameInput ? usernameInput.value.trim() : "admin";
+      const password = passwordInput ? passwordInput.value.trim() : "";
+
+      if (!password) {
+        showToast("⚠️ Please enter your router password");
+        if (feedbackBox) {
+          feedbackBox.className = "autopilot-feedback-box error";
+          feedbackBox.style.display = "block";
+          feedbackBox.innerHTML = `⚠️ <strong>Router password is required</strong> to automatically program the DNS ad-blocker.`;
+        }
+        if (passwordInput) passwordInput.focus();
+        return;
+      }
+
+      // Show loading state
+      btnAutoRouter.classList.add("loading");
+      if (btnRouterText) btnRouterText.textContent = "Connecting to ASUS RT-AX1800U...";
+      if (feedbackBox) {
+        feedbackBox.className = "autopilot-feedback-box loading";
+        feedbackBox.style.display = "block";
+        feedbackBox.innerHTML = `🔄 <strong>Connecting to ASUS Router (192.168.50.1)...</strong><br><span style="font-size: 11px; opacity: 0.8;">Authenticating credentials and programming DHCP DNS server to 192.168.50.250...</span>`;
+      }
+
+      try {
+        const res = await fetch(getApiUrl("/api/router/auto_configure"), {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            router_ip: "192.168.50.1",
+            username: username || "admin",
+            password: password
+          })
+        });
+
+        const data = await res.json();
+        if (data.status === "ok") {
+          vibrate(50);
+          showToast("✓ ASUS Router configured for Ad-Blocking!");
+          if (feedbackBox) {
+            feedbackBox.className = "autopilot-feedback-box success";
+            feedbackBox.style.display = "block";
+            feedbackBox.innerHTML = `🎉 <strong>Success!</strong> ${escapeHtml(data.message)}<br><span style="font-size: 11px; opacity: 0.9;">All Smart TVs, phones, and PCs on your Wi-Fi now route through TV Hub Ad-Shield.</span>`;
+          }
+          if (passwordInput) passwordInput.value = "";
+          loadAdblockStatus();
+          loadNetworkDevices();
+        } else {
+          showToast(`❌ ${data.message || "Router configuration failed"}`);
+          if (feedbackBox) {
+            feedbackBox.className = "autopilot-feedback-box error";
+            feedbackBox.style.display = "block";
+            feedbackBox.innerHTML = `❌ <strong>Configuration Failed:</strong> ${escapeHtml(data.message || "Invalid router credentials or timeout.")}<br><span style="font-size: 11px; opacity: 0.8;">Make sure your password is correct. You can also use the manual setup below.</span>`;
+          }
+        }
+      } catch (err) {
+        showToast("Connection failed to router");
+        if (feedbackBox) {
+          feedbackBox.className = "autopilot-feedback-box error";
+          feedbackBox.style.display = "block";
+          feedbackBox.innerHTML = `❌ <strong>Connection Error:</strong> Could not communicate with TV Hub backend.`;
+        }
+      } finally {
+        btnAutoRouter.classList.remove("loading");
+        if (btnRouterText) btnRouterText.textContent = "Auto-Configure Router for Ad-Blocking";
+      }
+    };
+  }
+
+  // 3. Manual DNS Accordion Toggle
+  const btnToggleManual = document.getElementById("btn-toggle-manual-dns");
+  const manualContent = document.getElementById("manual-dns-content");
+  if (btnToggleManual && manualContent) {
+    btnToggleManual.onclick = () => {
+      vibrate(15);
+      btnToggleManual.classList.toggle("open");
+      manualContent.classList.toggle("show");
+    };
+  }
+
+  // 4. Copy DNS IP
   const btnCopyDns = document.getElementById("btn-copy-dns-ip");
   if (btnCopyDns) {
     btnCopyDns.onclick = () => {
@@ -1653,6 +1750,7 @@ function initDevicesTab() {
     };
   }
 
+  // 5. Master Adblock Toggle
   const globalToggle = document.getElementById("toggle-global-adblock");
   if (globalToggle) {
     globalToggle.onchange = async () => {
@@ -1666,7 +1764,7 @@ function initDevicesTab() {
         });
         if (res.ok) {
           const data = await res.json();
-          showToast(`🛡️ Network-Wide No Ads ${enabled ? "ACTIVATED" : "DEACTIVATED"}`);
+          showToast(`🛡️ Home Wi-Fi Ad-Shield ${enabled ? "ACTIVATED" : "PAUSED"}`);
           updateAdblockStatusUI(data.adblock_status);
           loadNetworkDevices();
         }
@@ -1676,6 +1774,7 @@ function initDevicesTab() {
     };
   }
 
+  // 6. Rescan Button
   const btnScan = document.getElementById("btn-scan-devices");
   if (btnScan) {
     btnScan.onclick = async () => {
@@ -1685,13 +1784,45 @@ function initDevicesTab() {
       if (scanText) scanText.textContent = "Scanning...";
       try {
         await loadNetworkDevices(true);
-        showToast("✓ Home network scan complete");
+        showToast("✓ Subnet scan complete");
       } catch (e) {
-        showToast("Scan completed");
+        showToast("Scan finished");
       } finally {
         btnScan.classList.remove("scanning");
-        if (scanText) scanText.textContent = "Scan";
+        if (scanText) scanText.textContent = "Scan Network";
       }
+    };
+  }
+
+  // 7. Category Filter Pills
+  const filterPills = document.querySelectorAll("#tab-devices .device-filter-pill");
+  filterPills.forEach(pill => {
+    pill.onclick = () => {
+      vibrate(15);
+      filterPills.forEach(p => p.classList.remove("active"));
+      pill.classList.add("active");
+      currentDeviceFilter = pill.getAttribute("data-filter") || "all";
+      renderDeviceCards();
+    };
+  });
+
+  // 8. Search Input
+  const searchInput = document.getElementById("input-device-search");
+  const btnClearSearch = document.getElementById("btn-clear-device-search");
+  if (searchInput) {
+    searchInput.oninput = () => {
+      deviceSearchTerm = searchInput.value.trim().toLowerCase();
+      if (btnClearSearch) btnClearSearch.style.display = deviceSearchTerm ? "block" : "none";
+      renderDeviceCards();
+    };
+  }
+  if (btnClearSearch && searchInput) {
+    btnClearSearch.onclick = () => {
+      searchInput.value = "";
+      deviceSearchTerm = "";
+      btnClearSearch.style.display = "none";
+      renderDeviceCards();
+      searchInput.focus();
     };
   }
 
@@ -1715,13 +1846,14 @@ function updateAdblockStatusUI(data) {
   if (toggle) toggle.checked = data.global_enabled;
 
   const pill = document.getElementById("adblock-dns-status");
+  const textEl = document.getElementById("adblock-dns-text");
   if (pill) {
     if (data.global_enabled) {
-      pill.className = "dns-status-pill";
-      pill.innerHTML = `<span class="dns-status-dot"></span><span>DNS Sinkhole Active (192.168.50.250:53) • 24/7 Protected</span>`;
+      pill.className = "shield-status-indicator";
+      if (textEl) textEl.textContent = "24/7 Protection Active (Port 53 Sinkhole)";
     } else {
-      pill.className = "dns-status-pill inactive";
-      pill.innerHTML = `<span class="dns-status-dot"></span><span>No Ads Paused (Pass-Through Active)</span>`;
+      pill.className = "shield-status-indicator inactive";
+      if (textEl) textEl.textContent = "Pass-Through Mode (Ads Allowed)";
     }
   }
 
@@ -1738,13 +1870,13 @@ function updateAdblockStatusUI(data) {
   const logsContainer = document.getElementById("adblock-recent-logs");
   if (logsContainer && data.recent_blocks) {
     if (data.recent_blocks.length === 0) {
-      logsContainer.innerHTML = `<div style="color: var(--text-dim); text-align: center; padding: 8px;">No ads blocked yet. DNS sinkhole listening on port 53.</div>`;
+      logsContainer.innerHTML = `<div style="color: var(--text-dim); text-align: center; padding: 12px; font-size: 11px;">Listening for queries on 192.168.50.250:53...</div>`;
     } else {
       logsContainer.innerHTML = data.recent_blocks.slice().reverse().map(b => `
-        <div class="adblock-log-item">
-          <span class="log-time">${b.time || "Now"}</span>
-          <span class="log-domain" title="${escapeHtml(b.domain)}">⛔ ${escapeHtml(b.domain)}</span>
-          <span class="log-ip">${b.client_ip}</span>
+        <div class="cyber-log-row">
+          <span class="cyber-log-time">${b.time || "Now"}</span>
+          <span class="cyber-log-domain" title="${escapeHtml(b.domain)}">⛔ ${escapeHtml(b.domain)}</span>
+          <span class="cyber-log-client">${b.client_ip}</span>
         </div>
       `).join("");
     }
@@ -1761,91 +1893,135 @@ async function loadNetworkDevices(force = false) {
     const res = await fetch(getApiUrl(url), { method });
     if (!res.ok) return;
     const data = await res.json();
-    const devices = data.devices || [];
+    cachedNetworkDevices = data.devices || [];
 
     const countSpan = document.getElementById("devices-online-count");
-    if (countSpan) countSpan.textContent = devices.length;
+    if (countSpan) countSpan.textContent = cachedNetworkDevices.length;
 
-    if (devices.length === 0) {
-      container.innerHTML = `<div style="text-align: center; padding: 24px; color: var(--text-muted); font-size: 13px;">No devices detected on subnet. Tap Scan to probe.</div>`;
-      return;
+    renderDeviceCards();
+  } catch (e) {
+    if (container) {
+      container.innerHTML = `<div style="text-align: center; padding: 24px; color: var(--text-muted); font-size: 13px;">Connect TV Hub host to inspect network clients.</div>`;
+    }
+  }
+}
+
+function renderDeviceCards() {
+  const container = document.getElementById("network-devices-list");
+  if (!container) return;
+
+  let filtered = cachedNetworkDevices.slice();
+
+  // Category filter
+  if (currentDeviceFilter !== "all") {
+    filtered = filtered.filter(d => {
+      const t = (d.type || "").toLowerCase();
+      if (currentDeviceFilter === "tv") return t === "tv";
+      if (currentDeviceFilter === "phone") return t === "phone" || t === "smartphone";
+      if (currentDeviceFilter === "computer") return t === "desktop" || t === "laptop" || t === "pc";
+      if (currentDeviceFilter === "router") return t === "router";
+      return true;
+    });
+  }
+
+  // Search filter
+  if (deviceSearchTerm) {
+    filtered = filtered.filter(d => {
+      const name = (d.name || "").toLowerCase();
+      const ip = (d.ip || "").toLowerCase();
+      const vendor = (d.vendor || "").toLowerCase();
+      return name.includes(deviceSearchTerm) || ip.includes(deviceSearchTerm) || vendor.includes(deviceSearchTerm);
+    });
+  }
+
+  if (filtered.length === 0) {
+    container.innerHTML = `
+      <div style="text-align: center; padding: 28px 16px; color: var(--text-muted); font-size: 13px; background: rgba(0,0,0,0.25); border-radius: 12px; border: 1px dashed rgba(255,255,255,0.08);">
+        <div>🔍 No devices found matching current filter.</div>
+        <div style="font-size: 11px; margin-top: 4px; color: var(--text-dim);">Tap 'All Devices' or clear search to view all ${cachedNetworkDevices.length} network clients.</div>
+      </div>
+    `;
+    return;
+  }
+
+  container.innerHTML = filtered.map(d => {
+    // Choose high-definition SVG icon
+    let iconSvg = "";
+    let iconClass = d.type || "other";
+    if (d.type === "tv") {
+      iconSvg = `<svg viewBox="0 0 24 24"><rect width="20" height="15" x="2" y="7" rx="2" ry="2"/><polyline points="17 2 12 7 7 2"/></svg>`;
+    } else if (d.type === "phone" || d.type === "smartphone") {
+      iconSvg = `<svg viewBox="0 0 24 24"><rect width="14" height="20" x="5" y="2" rx="2"/><circle cx="12" cy="18" r="1"/></svg>`;
+    } else if (d.type === "router") {
+      iconSvg = `<svg viewBox="0 0 24 24"><rect x="2" y="14" width="20" height="8" rx="2"/><line x1="6" y1="18" x2="6.01" y2="18"/><line x1="10" y1="18" x2="10.01" y2="18"/><line x1="14" y1="18" x2="14.01" y2="18"/><line x1="18" y1="18" x2="18.01" y2="18"/><polyline points="7 14 12 3 17 14"/></svg>`;
+    } else if (d.type === "desktop" || d.type === "laptop") {
+      iconSvg = `<svg viewBox="0 0 24 24"><rect width="20" height="14" x="2" y="3" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>`;
+    } else {
+      iconSvg = `<svg viewBox="0 0 24 24"><path d="M20 16V7a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v9m16 0H4m16 0 1.28 2.55a1 1 0 0 1-.9 1.45H3.62a1 1 0 0 1-.9-1.45L4 16"/></svg>`;
     }
 
-    container.innerHTML = devices.map(d => {
-      // Choose icon
-      let iconSvg = "";
-      let iconClass = d.type || "other";
-      if (d.type === "tv") {
-        iconSvg = `<svg viewBox="0 0 24 24"><rect width="20" height="15" x="2" y="7" rx="2" ry="2"/><polyline points="17 2 12 7 7 2"/></svg>`;
-      } else if (d.type === "phone") {
-        iconSvg = `<svg viewBox="0 0 24 24"><rect width="14" height="20" x="5" y="2" rx="2"/><circle cx="12" cy="18" r="1"/></svg>`;
-      } else if (d.type === "router") {
-        iconSvg = `<svg viewBox="0 0 24 24"><rect x="2" y="14" width="20" height="8" rx="2"/><line x1="6" y1="18" x2="6.01" y2="18"/><line x1="10" y1="18" x2="10.01" y2="18"/><line x1="14" y1="18" x2="14.01" y2="18"/><line x1="18" y1="18" x2="18.01" y2="18"/><polyline points="7 14 12 3 17 14"/></svg>`;
-      } else if (d.type === "desktop") {
-        iconSvg = `<svg viewBox="0 0 24 24"><rect width="20" height="14" x="2" y="3" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>`;
-      } else {
-        iconSvg = `<svg viewBox="0 0 24 24"><path d="M20 16V7a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v9m16 0H4m16 0 1.28 2.55a1 1 0 0 1-.9 1.45H3.62a1 1 0 0 1-.9-1.45L4 16"/></svg>`;
-      }
+    const thisBadge = d.is_current_device ? `<span class="badge-this-device">This Device</span>` : "";
+    const cardClass = d.is_current_device ? "cyber-device-card current-device" : "cyber-device-card";
+    const isAdblock = d.adblock_enabled === true;
 
-      const thisBadge = d.is_current_device ? `<span class="device-badge-this">This Device</span>` : "";
-      const cardClass = d.is_current_device ? "device-card current-device" : "device-card";
-      const isAdblock = d.adblock_enabled === true;
-
-      return `
-        <div class="${cardClass}">
-          <div class="device-info-left">
-            <div class="device-icon-box ${iconClass}">
-              ${iconSvg}
-            </div>
-            <div class="device-details">
-              <div class="device-name-row">
-                <span class="device-name" title="${escapeHtml(d.name)}">${escapeHtml(d.name)}</span>
-                ${thisBadge}
-                <span class="device-badge-type">${d.type}</span>
-              </div>
-              <div class="device-subtext">
-                <span>${d.ip}</span>
-                <span>•</span>
-                <span>${d.vendor || "Network Client"}</span>
-              </div>
-            </div>
+    return `
+      <div class="${cardClass}">
+        <div class="cyber-device-left">
+          <div class="device-avatar-box ${iconClass}">
+            ${iconSvg}
           </div>
-          <div class="device-toggle-right">
-            <span class="device-toggle-label" id="label-adblock-${d.ip.replace(/\./g, '_')}">${isAdblock ? "No Ads: ON" : "No Ads: OFF"}</span>
-            <label class="adblock-switch adblock-switch-sm" title="Toggle ad blocking for ${escapeHtml(d.name)}">
-              <input type="checkbox" class="device-adblock-chk" data-ip="${d.ip}" data-name="${escapeHtml(d.name)}" ${isAdblock ? "checked" : ""}>
-              <span class="adblock-slider"></span>
-            </label>
+          <div class="device-meta-content">
+            <div class="device-name-line">
+              <span class="device-title" title="${escapeHtml(d.name)}">${escapeHtml(d.name)}</span>
+              ${thisBadge}
+              <span class="badge-dev-type">${d.type}</span>
+            </div>
+            <div class="device-details-line">
+              <span class="device-ip-tag" title="Tap to copy IP" onclick="vibrate(15); navigator.clipboard.writeText('${d.ip}'); showToast('Copied ${d.ip}');">${d.ip}</span>
+              <span>•</span>
+              <span class="device-vendor-tag" title="${escapeHtml(d.vendor || 'Network Client')}">${escapeHtml(d.vendor || "Network Client")}</span>
+              <span>•</span>
+              <span style="color: #00e676; font-size: 10px;">● Online</span>
+            </div>
           </div>
         </div>
-      `;
-    }).join("");
+        <div class="cyber-device-right">
+          <span class="device-toggle-status-text ${isAdblock ? 'active' : ''}" id="label-adblock-${d.ip.replace(/\./g, '_')}">${isAdblock ? "No Ads: ON" : "No Ads: OFF"}</span>
+          <label class="cyber-switch cyber-switch-sm" title="Toggle ad blocking for ${escapeHtml(d.name)}">
+            <input type="checkbox" class="device-adblock-chk" data-ip="${d.ip}" data-name="${escapeHtml(d.name)}" ${isAdblock ? "checked" : ""}>
+            <span class="cyber-switch-slider"></span>
+          </label>
+        </div>
+      </div>
+    `;
+  }).join("");
 
-    // Bind individual toggles
-    container.querySelectorAll(".device-adblock-chk").forEach(chk => {
-      chk.onchange = async () => {
-        vibrate(20);
-        const ip = chk.getAttribute("data-ip");
-        const devName = chk.getAttribute("data-name") || ip;
-        const enabled = chk.checked;
-        const labelEl = document.getElementById(`label-adblock-${ip.replace(/\./g, '_')}`);
-        if (labelEl) labelEl.textContent = enabled ? "No Ads: ON" : "No Ads: OFF";
+  // Bind individual device toggles
+  container.querySelectorAll(".device-adblock-chk").forEach(chk => {
+    chk.onchange = async () => {
+      vibrate(20);
+      const ip = chk.getAttribute("data-ip");
+      const devName = chk.getAttribute("data-name") || ip;
+      const enabled = chk.checked;
+      const labelEl = document.getElementById(`label-adblock-${ip.replace(/\./g, '_')}`);
+      if (labelEl) {
+        labelEl.textContent = enabled ? "No Ads: ON" : "No Ads: OFF";
+        labelEl.className = enabled ? "device-toggle-status-text active" : "device-toggle-status-text";
+      }
 
-        try {
-          const r = await fetch(getApiUrl(`/api/network/device/${ip}/adblock`), {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ enabled })
-          });
-          if (r.ok) {
-            showToast(`🛡️ No Ads ${enabled ? "ENABLED" : "DISABLED"} for ${devName}`);
-            loadAdblockStatus();
-          }
-        } catch (e) {
-          showToast(`Failed to update ${devName}`);
+      try {
+        const r = await fetch(getApiUrl(`/api/network/device/${ip}/adblock`), {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ enabled })
+        });
+        if (r.ok) {
+          showToast(`🛡️ No Ads ${enabled ? "ENABLED" : "DISABLED"} for ${devName}`);
+          loadAdblockStatus();
         }
-      };
-    });
-
-  } catch (e) {}
+      } catch (e) {
+        showToast(`Failed to update ${devName}`);
+      }
+    };
+  });
 }
