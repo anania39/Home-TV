@@ -11,6 +11,8 @@ backend/.stream_health.json
 *.log
 *.pid
 data/*.pid
+data/*.json
+data/adblock_state.json
 
 
 # Large binaries (auto-downloaded on demand)
