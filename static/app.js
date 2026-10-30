@@ -144,7 +144,7 @@ async function autoDetectHub(forceRefresh = false) {
 
   if (endpointData) {
     // 2A. Probe Home Wi-Fi LAN direct connection first (0ms latency, maximum speed!)
-    const localUrl = endpointData.local_url || `http://${endpointData.local_ip || "192.168.50.250"}:${endpointData.port || 8000}`;
+    const localUrl = endpointData.local_url || `http://${endpointData.local_ip || window.location.hostname || "localhost"}:${endpointData.port || 8000}`;
     const localOk = await probeEndpoint(localUrl, 1200);
     if (localOk) {
       setHubBase(localUrl);
@@ -171,9 +171,9 @@ async function autoDetectHub(forceRefresh = false) {
 
 // TV Hub Modern Mobile Frontend Logic
 let state = {
-  currentTvId: null,
-  currentTvName: "Hisense VIDAA TV (Living Room)",
-  currentTvId: "tv_192_168_50_249",
+  currentTvId: "web_receiver",
+  currentTvName: "TV Web Receiver",
+  selectedDevice: null,
   tvOnline: false,
   playbackState: "STANDBY",
   currentTitle: "TV Hub Ready",
@@ -266,7 +266,7 @@ document.addEventListener("DOMContentLoaded", async () => {
   initTabs();
   initHubModal();
   await autoDetectHub();
-  populateDevicesList(DEFAULT_HOUSEHOLD_DEVICES, "tv_192_168_50_249");
+  populateDevicesList([{ id: "web_receiver", name: "TV Web Receiver (Browser at /tv)", type: "browser" }], "web_receiver");
   checkAuth();
   fetchDevices();
   fetchHardwareStatus();
@@ -421,13 +421,8 @@ document.getElementById("btn-copy-local-link")?.addEventListener("click", () => 
   }
 });
 
-// Known household TVs for instant zero-wait selection
-const DEFAULT_HOUSEHOLD_DEVICES = [
-  { id: "tv_192_168_50_249", name: "Hisense VIDAA TV (Living Room)", is_hisense: true },
-  { id: "tv_192_168_50_3", name: "Xiaomi Mi TV (Google TV)", is_google_tv: true },
-  { id: "tv_192_168_50_205", name: "TCL Smart TV Pro (Google TV)", is_google_tv: true },
-  { id: "web_receiver", name: "TV Web Receiver (Browser at /tv)", type: "browser" }
-];
+// Dynamic Wi-Fi TV Discovery
+let _isBackgroundScanning = false;
 
 function populateDevicesList(devices, selectedId) {
   const dropdown = document.getElementById("tv-dropdown");
@@ -470,17 +465,35 @@ async function fetchDevices() {
     const res = await fetch(getApiUrl("/api/devices"));
     if (res.ok) {
       const data = await res.json();
-      populateDevicesList(data.devices, data.selected_device_id || "tv_192_168_50_249");
+      populateDevicesList(data.devices, data.selected_device_id || "web_receiver");
       return;
     }
   } catch (e) {
     console.warn("Device fetch notice:", e);
   }
 
-  // Resilient fallback: ensure household TVs are always populated
-  const dropdown = document.getElementById("tv-dropdown");
-  if (dropdown && dropdown.options.length <= 1) {
-    populateDevicesList(DEFAULT_HOUSEHOLD_DEVICES, "tv_192_168_50_249");
+  // Background TV scan if only web receiver is available
+  triggerBackgroundTvScan();
+}
+
+async function triggerBackgroundTvScan() {
+  if (_isBackgroundScanning) return;
+  _isBackgroundScanning = true;
+  try {
+    const res = await fetch(getApiUrl("/api/devices/scan"), { method: "POST" });
+    if (res.ok) {
+      const data = await res.json();
+      if (data.devices && data.devices.length > 0) {
+        const devRes = await fetch(getApiUrl("/api/devices"));
+        if (devRes.ok) {
+          const devData = await devRes.json();
+          populateDevicesList(devData.devices, devData.selected_device_id);
+        }
+      }
+    }
+  } catch (e) {
+  } finally {
+    _isBackgroundScanning = false;
   }
 }
 
@@ -1898,7 +1911,7 @@ function initHubModal() {
 
   btnLocal?.addEventListener("click", () => {
     vibrate(15);
-    inputUrl.value = "http://192.168.50.250:8000";
+    inputUrl.value = `http://${window.location.hostname || "localhost"}:8000`;
     feedback.innerHTML = `<span style="color:var(--accent-green)">🏠 Local Wi-Fi endpoint set</span>`;
   });
 
@@ -1960,17 +1973,9 @@ function initHubModal() {
 let adblockPollingTimer = null;
 let cachedNetworkDevices = [];
 
-const DEFAULT_HOUSEHOLD_NETWORK_DEVICES = [
-  { ip: "192.168.50.1", mac: "c8:7f:54:df:c2:58", hostname: "RT-AX1800U-C258", name: "ASUS RT-AX1800U Router", type: "router", vendor: "ASUSTeK Computer", icon: "router", online: true, adblock_enabled: true },
-  { ip: "192.168.50.249", mac: "d4:ab:cd:50:e5:d3", hostname: "Hisense-SmartTV", name: "Hisense VIDAA TV (Living Room)", type: "tv", vendor: "Hisense Electric", icon: "tv", online: true, adblock_enabled: true },
-  { ip: "192.168.50.3", mac: "12:0a:9b:85:78:0b", hostname: "MiTV", name: "Xiaomi Mi TV (Google TV)", type: "tv", vendor: "Xiaomi Communications", icon: "tv", online: true, adblock_enabled: true },
-  { ip: "192.168.50.205", mac: "3c:c5:dd:a2:c2:ee", hostname: "TCL-BeyondTV", name: "TCL Smart TV Pro", type: "tv", vendor: "TCL King Electrical", icon: "tv", online: true, adblock_enabled: true },
-  { ip: "192.168.50.237", mac: "a6:cd:46:87:5c:88", hostname: "Anania-s-S25", name: "Anania's Galaxy S25", type: "phone", vendor: "Samsung Electronics", icon: "smartphone", online: true, adblock_enabled: true },
-  { ip: "192.168.50.71", mac: "9c:c3:94:9d:cd:66", hostname: "iPhone", name: "Apple iPhone", type: "phone", vendor: "Apple Inc.", icon: "smartphone", online: true, adblock_enabled: true },
-  { ip: "192.168.50.248", mac: "58:11:22:af:60:32", hostname: "Homelander", name: "Homelander PC", type: "laptop", vendor: "Micro-Star / Intel", icon: "laptop", online: true, adblock_enabled: true },
-  { ip: "192.168.50.23", mac: "9c:2a:70:54:12:7f", hostname: "DESKTOP-J9DOTC1", name: "Desktop PC (J9DOTC1)", type: "desktop", vendor: "Microsoft / Intel", icon: "monitor", online: true, adblock_enabled: true },
-  { ip: "192.168.50.250", mac: ":::", hostname: "DESKTOP-33HMKGL", name: "TV Hub Host (This PC)", type: "laptop", vendor: "Windows Host Server", icon: "laptop", online: true, adblock_enabled: true }
-];
+// Dynamic Wi-Fi Network Devices & Ad-Blocker State
+let detectedRouterIp = "192.168.1.1";
+let detectedDnsIp = window.location.hostname || "127.0.0.1";
 
 let currentDeviceFilter = "all";
 let deviceSearchTerm = "";
@@ -2104,7 +2109,7 @@ function initDevicesTab() {
       if (feedbackBox) {
         feedbackBox.className = "autopilot-feedback-box loading";
         feedbackBox.style.display = "block";
-        feedbackBox.innerHTML = `🔄 <strong>Connecting to ASUS Router (192.168.50.1)...</strong><br><span style="font-size: 11px; opacity: 0.8;">Authenticating credentials and programming DHCP DNS server to 192.168.50.250...</span>`;
+        feedbackBox.innerHTML = `🔄 <strong>Connecting to Gateway Router (${detectedRouterIp})...</strong><br><span style="font-size: 11px; opacity: 0.8;">Authenticating credentials and programming DHCP DNS server to ${detectedDnsIp}...</span>`;
       }
 
       try {
@@ -2112,7 +2117,7 @@ function initDevicesTab() {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
-            router_ip: "192.168.50.1",
+            router_ip: detectedRouterIp,
             username: username || "admin",
             password: password
           })
@@ -2186,8 +2191,8 @@ function initDevicesTab() {
   if (btnCopyDns) {
     btnCopyDns.onclick = () => {
       vibrate(20);
-      navigator.clipboard.writeText("192.168.50.250");
-      showToast("📋 DNS IP (192.168.50.250) copied to clipboard!");
+      navigator.clipboard.writeText(detectedDnsIp);
+      showToast(`📋 DNS IP (${detectedDnsIp}) copied to clipboard!`);
     };
   }
 
@@ -2312,7 +2317,7 @@ function updateAdblockStatusUI(data) {
   const logsContainer = document.getElementById("adblock-recent-logs");
   if (logsContainer && data.recent_blocks) {
     if (data.recent_blocks.length === 0) {
-      logsContainer.innerHTML = `<div style="color: var(--text-dim); text-align: center; padding: 12px; font-size: 11px;">Listening for queries on 192.168.50.250:53...</div>`;
+      logsContainer.innerHTML = `<div style="color: var(--text-dim); text-align: center; padding: 12px; font-size: 11px;">Listening for queries on port 53...</div>`;
     } else {
       logsContainer.innerHTML = data.recent_blocks.slice().reverse().map(b => `
         <div class="cyber-log-row">
@@ -2329,12 +2334,12 @@ async function loadNetworkDevices(force = false) {
   const container = document.getElementById("network-devices-list");
   if (!container) return;
 
-  // Immediate rendering of known household devices so screen is never blank
   if (!cachedNetworkDevices || cachedNetworkDevices.length === 0) {
-    cachedNetworkDevices = DEFAULT_HOUSEHOLD_NETWORK_DEVICES.slice();
-    const countSpan = document.getElementById("devices-online-count");
-    if (countSpan) countSpan.textContent = cachedNetworkDevices.length;
-    renderDeviceCards();
+    container.innerHTML = `<div style="color: var(--text-dim); text-align: center; padding: 28px 12px;">
+      <div style="display: inline-block; width: 28px; height: 28px; border: 2px solid var(--accent-cyan); border-top-color: transparent; border-radius: 50%; animation: spin 1s linear infinite; margin-bottom: 10px;"></div>
+      <div style="font-size: 13px; font-weight: 600; color: #fff;">Scanning active Wi-Fi for connected devices...</div>
+      <div style="font-size: 11px; opacity: 0.7; margin-top: 4px;">Detecting Smart TVs, phones, computers, and router on this network.</div>
+    </div>`;
   }
 
   try {
@@ -2343,18 +2348,20 @@ async function loadNetworkDevices(force = false) {
     const res = await safeFetchWithRetry(url, { method });
     if (!res.ok) return;
     const data = await res.json();
+    if (data.dns_ip) detectedDnsIp = data.dns_ip;
     if (data.devices && data.devices.length > 0) {
       cachedNetworkDevices = data.devices;
       const countSpan = document.getElementById("devices-online-count");
       if (countSpan) countSpan.textContent = cachedNetworkDevices.length;
       renderDeviceCards();
+    } else {
+      container.innerHTML = `<div style="color: var(--text-dim); text-align: center; padding: 24px 12px;">
+        <div style="font-size: 13px; font-weight: 600; color: #fff;">No devices discovered yet on this Wi-Fi</div>
+        <div style="font-size: 11px; opacity: 0.7; margin-top: 4px;">Click the Scan button above to discover local devices.</div>
+      </div>`;
     }
   } catch (e) {
     console.warn("Network device sync notice:", e);
-    if (!cachedNetworkDevices || cachedNetworkDevices.length === 0) {
-      cachedNetworkDevices = DEFAULT_HOUSEHOLD_NETWORK_DEVICES.slice();
-      renderDeviceCards();
-    }
   }
 }
 
@@ -2519,8 +2526,22 @@ async function loadRouterStatus() {
       const data = await res.json();
       const isAutoConfigured = data.config && data.config.auto_configured;
       const model = (data.reachability && data.reachability.model) || (data.config && data.config.detected_model) || "ASUS RT-AX1800U";
-      const routerIp = (data.config && data.config.default_router_ip) || "192.168.50.1";
-      const dnsIp = data.dns_ip || (data.config && data.config.dns_server_ip) || "192.168.50.250";
+      const routerIp = data.router_ip || (data.config && data.config.default_router_ip) || "192.168.1.1";
+      const dnsIp = data.dns_ip || (data.config && data.config.dns_server_ip) || window.location.hostname || "127.0.0.1";
+      detectedRouterIp = routerIp;
+      detectedDnsIp = dnsIp;
+      
+      const manualDnsCode = document.getElementById("manual-dns-ip");
+      if (manualDnsCode) manualDnsCode.textContent = dnsIp;
+      const manualSteps = document.getElementById("manual-steps-text");
+      if (manualSteps) {
+        manualSteps.innerHTML = `Open <strong>http://${escapeHtml(routerIp)}</strong> &rarr; LAN &rarr; DHCP Server &rarr; Set <strong>DNS Server 1</strong> to <strong>${escapeHtml(dnsIp)}</strong> &rarr; Apply.`;
+      }
+      const subnetBadge = document.getElementById("badge-subnet-label");
+      if (subnetBadge && routerIp) {
+        const parts = routerIp.split(".");
+        if (parts.length === 4) subnetBadge.textContent = `${parts[0]}.${parts[1]}.${parts[2]}.x`;
+      }
       const lastDate = data.config && data.config.last_configured;
 
       if (isAutoConfigured || (savedCreds && savedCreds.auto_configured)) {

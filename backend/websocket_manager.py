@@ -1,3 +1,4 @@
+from .config import SERVER_IP
 import json
 import logging
 import asyncio
@@ -27,8 +28,8 @@ class ConnectionManager:
             "muted": False,
             "duration": "00:00:00",
             "position": "00:00:00",
-            "selected_tv_name": "Hisense VIDAA TV",
-            "selected_tv_ip": "192.168.50.249"
+            "selected_tv_name": "TV Web Receiver",
+            "selected_tv_ip": SERVER_IP
         }
 
     def next_version(self) -> int:

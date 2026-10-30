@@ -1,3 +1,4 @@
+from .config import SERVER_IP
 
 try:
     from backend.blocklist_manager import blocklist_manager
@@ -171,7 +172,7 @@ class DNSAdBlocker:
             "global_enabled": self.global_enabled,
             "running": self._running,
             "port": 53,
-            "listen_ip": "192.168.50.250",
+            "listen_ip": SERVER_IP,
             "stats": {
                 "queries_total": self.stats["queries_total"],
                 "ads_blocked": self.stats["ads_blocked"],

@@ -31,6 +31,32 @@ def get_local_ip() -> str:
 
 SERVER_IP = get_local_ip()
 
+def get_default_gateway() -> str:
+    """Detect the default gateway (router IP) dynamically on any network."""
+    try:
+        import subprocess
+        import re
+        out = subprocess.check_output("route print 0.0.0.0", shell=True).decode("utf-8", errors="ignore")
+        for line in out.splitlines():
+            parts = line.strip().split()
+            if len(parts) >= 5 and parts[0] == "0.0.0.0" and parts[1] == "0.0.0.0":
+                gw = parts[2]
+                if re.match(r"^\d+\.\d+\.\d+\.\d+$", gw) and not gw.startswith("127."):
+                    return gw
+    except Exception:
+        pass
+    lip = get_local_ip()
+    if lip and "." in lip and lip != "127.0.0.1":
+        return lip.rsplit(".", 1)[0] + ".1"
+    return "192.168.1.1"
+
+def get_subnet_prefix() -> str:
+    """Get the /24 prefix for the active network interface (e.g. '192.168.1.')."""
+    lip = get_local_ip()
+    if lip and "." in lip and lip != "127.0.0.1":
+        return lip.rsplit(".", 1)[0] + "."
+    return "192.168.1."
+
 # Stream Proxy URL Mode:
 # Default (False) emits same-origin relative URLs (/api/stream/proxy?url=...).
 # If True, forces absolute LAN IP URLs (http://192.168.50.250:8000/...).

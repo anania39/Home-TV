@@ -49,7 +49,7 @@ def send_wake_on_lan(mac_addresses: list[str]):
             sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
             sock.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
             sock.sendto(magic_packet, ('255.255.255.255', 9))
-            sock.sendto(magic_packet, ('192.168.50.255', 9))
+            sock.sendto(magic_packet, ('<broadcast>', 9))
             sock.close()
             logger.info(f"Sent Wake-on-LAN packet to MAC {mac}")
         except Exception as e:

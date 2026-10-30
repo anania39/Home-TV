@@ -12,21 +12,26 @@ import re
 import json
 import logging
 import time
+from .config import SERVER_IP, get_default_gateway
 from typing import Dict, Optional, Tuple
 
 logger = logging.getLogger("router_controller")
 
 class AsusRouterController:
     def __init__(self):
-        self.default_router_ip = "192.168.50.1"
+        from .config import get_default_gateway, SERVER_IP
+        self.default_router_ip = get_default_gateway()
 
     def _get_opener(self):
         cj = http.cookiejar.CookieJar()
         opener = urllib.request.build_opener(urllib.request.HTTPCookieProcessor(cj))
         return opener, cj
 
-    def check_reachability(self, ip: str = "192.168.50.1") -> Dict:
+    def check_reachability(self, ip: Optional[str] = None) -> Dict:
         """Verifies if the router management interface is accessible."""
+        if not ip:
+            from .config import get_default_gateway
+            ip = get_default_gateway()
         url = f"http://{ip}/Main_Login.asp"
         try:
             req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"})
@@ -173,7 +178,7 @@ class AsusRouterController:
             return True, f"Successfully programmed ASUS router! Primary DNS is now {dns_server_ip} (TV Hub No Ads)."
         return False, f"Could not apply router setting: {last_error or 'Unknown apply error'}"
 
-    def auto_configure(self, router_ip: str, username: str, password: str, dns_server_ip: str = "192.168.50.250") -> Dict:
+    def auto_configure(self, router_ip: Optional[str] = None, username: str = "admin", password: str = "", dns_server_ip: Optional[str] = None) -> Dict:
         """
         End-to-end automated 1-click router ad-block configuration.
         """
@@ -254,7 +259,7 @@ class AsusRouterController:
             "detected_model": "ASUS RT-AX1800U",
             "auto_configured": saved.get("auto_configured", False),
             "last_configured": saved.get("date", None),
-            "dns_server_ip": saved.get("dns_server_ip", "192.168.50.250")
+            "dns_server_ip": saved.get("dns_server_ip", SERVER_IP)
         }
 
 asus_router_controller = AsusRouterController()

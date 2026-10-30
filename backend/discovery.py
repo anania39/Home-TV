@@ -8,80 +8,30 @@ import urllib.parse
 import httpx
 import logging
 from typing import Dict, Any, List
-from .config import SERVER_IP, NO_DEVICES
+from .config import SERVER_IP, NO_DEVICES, get_subnet_prefix
 
 logger = logging.getLogger("discovery")
 
 class DeviceManager:
     def __init__(self):
-        # Index devices uniquely by IP address to prevent any duplicate entries
+        # Index devices uniquely by IP address to prevent duplicate entries
         self.devices: Dict[str, Dict[str, Any]] = {}
-        self.selected_device_id: str | None = None
+        # Default to universal web receiver until physical TVs on this network are discovered
+        self.selected_device_id: str = "web_receiver"
         self._scanning = False
 
-        # Pre-register user's known home TVs (Hisense VIDAA, Xiaomi Google TV, TCL Smart TV Pro)
-        self._init_known_household_tvs()
-
-    def _init_known_household_tvs(self):
-        """Pre-populate the known household TVs so they are immediately available."""
-        if NO_DEVICES:
-            self.selected_device_id = "web_receiver"
-            return
-        # 1. Hisense VIDAA TV (Living Room) - Core priority
-        self.add_or_update_device(
-            ip="192.168.50.249",
-            name="Hisense VIDAA TV (Living Room)",
-            dev_type="hisense",
-            manufacturer="Hisense",
-            model="VIDAA 43A6101EE",
-            port=38400,
-            av_transport_url="http://192.168.50.249:38400/upnp/control/mingusavtr",
-            rendering_control_url="http://192.168.50.249:38400/upnp/control/mingusrcr",
-            mqtt_port=36669,
-            is_hisense=True,
-            is_google_tv=False
-        )
-
-        # 2. Xiaomi Mi TV (Google TV / Android TV)
-        self.add_or_update_device(
-            ip="192.168.50.3",
-            name="Xiaomi Mi TV (Google TV)",
-            dev_type="google_tv",
-            manufacturer="Xiaomi",
-            model="MiTV-MZTU0",
-            port=8009,
-            location="http://192.168.50.3:8008/ssdp/device-desc.xml",
-            cast_port=8009,
-            is_hisense=False,
-            is_google_tv=True
-        )
-
-        # 3. TCL Smart TV Pro (Google TV / Android TV)
-        self.add_or_update_device(
-            ip="192.168.50.205",
-            name="TCL Smart TV Pro (Google TV)",
-            dev_type="google_tv",
-            manufacturer="TCL",
-            model="Smart TV Pro",
-            port=8009,
-            location="http://192.168.50.205:8008/ssdp/device-desc.xml",
-            cast_port=8009,
-            is_hisense=False,
-            is_google_tv=True
-        )
-
-        # Default select Hisense TV
-        self.selected_device_id = "tv_192_168_50_249"
-
     def get_devices(self) -> List[Dict[str, Any]]:
-        # Return unique devices deduplicated by IP
-        return list(self.devices.values())
+        """Return unique devices discovered on the active network."""
+        prefix = get_subnet_prefix()
+        # Keep only devices matching the current subnet to prevent cross-network ghost devices
+        valid_devices = [d for d in self.devices.values() if d.get("ip", "").startswith(prefix)]
+        return valid_devices
 
     def get_device(self, device_id: str) -> Dict[str, Any] | None:
         if not device_id:
             return None
         # Match by ID or IP
-        for dev in self.devices.values():
+        for dev in self.get_devices():
             if dev.get("id") == device_id or dev.get("ip") == device_id:
                 return dev
         return None
@@ -118,16 +68,17 @@ class DeviceManager:
             "is_google_tv": kwargs.get("is_google_tv", existing.get("is_google_tv", False))
         }
 
-        # Keep friendly name if previously set
-        if existing and "Living Room" in existing.get("name", ""):
-            device["name"] = existing["name"]
-
         self.devices[ip] = device
+        
+        # If no device selected yet or currently on fallback web_receiver, auto-select discovered TV
+        if self.selected_device_id == "web_receiver" and not NO_DEVICES:
+            self.selected_device_id = clean_id
+
         return device
 
-    def add_manual_device(self, ip: str, port: int = 38400, name: str = "Hisense TV") -> Dict[str, Any]:
+    def add_manual_device(self, ip: str, port: int = 38400, name: str = "Smart TV") -> Dict[str, Any]:
         """Manually add or connect a device by IP."""
-        is_hisense = port == 38400 or "hisense" in name.lower()
+        is_hisense = port == 38400 or "hisense" in name.lower() or "vidaa" in name.lower()
         dev_type = "hisense" if is_hisense else "dlna"
         return self.add_or_update_device(
             ip=ip,
@@ -142,9 +93,9 @@ class DeviceManager:
 
     async def scan(self, timeout: float = 3.0) -> List[Dict[str, Any]]:
         """
-        Dual-layer scanner:
-        1. Multicast SSDP scan (discovers UPnP / DLNA Renderers on current band).
-        2. Unicast ARP & Subnet probe (penetrates across Homelander 1 & Homelander 2 dual Wi-Fi bands).
+        Dynamic multi-layer network discovery:
+        1. Multicast SSDP scan (discovers UPnP / DLNA Renderers on active Wi-Fi).
+        2. Dynamic Unicast ARP & Subnet probe (probes Google Cast & DLNA on active subnet).
         """
         if NO_DEVICES or self._scanning:
             return self.get_devices()
@@ -158,7 +109,7 @@ class DeviceManager:
             for dev in discovered:
                 await self._resolve_device(dev)
 
-            # Step 2: Unicast ARP & Subnet probe (for cross-band Wi-Fi reliability)
+            # Step 2: Unicast ARP & Subnet probe
             await self._unicast_subnet_probe()
 
         except Exception as e:
@@ -169,19 +120,20 @@ class DeviceManager:
         return self.get_devices()
 
     async def _unicast_subnet_probe(self):
-        """Probe active devices on 192.168.50.0/24 directly over TCP/HTTP (works across dual Wi-Fi SSIDs)."""
-        candidate_ips = set(["192.168.50.249", "192.168.50.3", "192.168.50.205"])
+        """Probe active devices on the current local subnet directly over TCP/HTTP."""
+        prefix = get_subnet_prefix()
+        candidate_ips = set()
         try:
-            # Query Windows ARP table for live devices
+            # Query ARP table for devices on active subnet
             out = subprocess.check_output("arp -a", shell=True).decode("utf-8", errors="ignore")
-            for match in re.finditer(r"192\.168\.50\.\d+", out):
-                ip = match.group(0)
-                if not ip.endswith(".255") and not ip.endswith(".1"):
+            for match in re.finditer(r"(\d+\.\d+\.\d+\.\d+)", out):
+                ip = match.group(1)
+                if ip.startswith(prefix) and not ip.endswith(".255") and not ip.endswith(".1"):
                     candidate_ips.add(ip)
         except Exception:
             pass
 
-        async with httpx.AsyncClient(timeout=1.5, verify=False) as client:
+        async with httpx.AsyncClient(timeout=1.2, verify=False) as client:
             for ip in candidate_ips:
                 # 1. Probe Google Cast / DIAL on port 8008
                 try:
@@ -215,13 +167,19 @@ class DeviceManager:
                 # 2. Probe Hisense VIDAA DLNA on port 38400
                 try:
                     r = await client.get(f"http://{ip}:38400/MediaServer/rendererdevicedesc.xml")
-                    if r.status_code == 200:
+                    if r.status_code == 200 and "<device>" in r.text:
+                        root = ET.fromstring(r.text)
+                        for elem in root.iter():
+                            if '}' in elem.tag: elem.tag = elem.tag.split('}', 1)[1]
+                        fn = root.findtext(".//friendlyName", default="Hisense VIDAA TV").strip()
+                        man = root.findtext(".//manufacturer", default="Hisense").strip()
+                        mod = root.findtext(".//modelName", default="VIDAA TV").strip()
                         self.add_or_update_device(
                             ip=ip,
-                            name="Hisense VIDAA TV (Living Room)",
+                            name=fn,
                             dev_type="hisense",
-                            manufacturer="Hisense",
-                            model="VIDAA TV",
+                            manufacturer=man,
+                            model=mod,
                             port=38400,
                             av_transport_url=f"http://{ip}:38400/upnp/control/mingusavtr",
                             rendering_control_url=f"http://{ip}:38400/upnp/control/mingusrcr",
@@ -229,12 +187,40 @@ class DeviceManager:
                             is_hisense=True,
                             is_google_tv=False
                         )
-                        logger.info(f"Unicast probe confirmed Hisense VIDAA TV at {ip}")
+                        logger.info(f"Unicast probe found VIDAA TV: {fn} at {ip}")
+                        continue
                 except Exception:
                     pass
 
+                # 3. Probe standard UPnP / DLNA on standard ports
+                for port in (8080, 7676, 49152):
+                    try:
+                        r = await client.get(f"http://{ip}:{port}/description.xml")
+                        if r.status_code == 200 and "<device>" in r.text:
+                            root = ET.fromstring(r.text)
+                            for elem in root.iter():
+                                if '}' in elem.tag: elem.tag = elem.tag.split('}', 1)[1]
+                            fn = root.findtext(".//friendlyName", default=f"Smart TV ({ip})").strip()
+                            man = root.findtext(".//manufacturer", default="Smart TV").strip()
+                            mod = root.findtext(".//modelName", default="DLNA TV").strip()
+                            self.add_or_update_device(
+                                ip=ip,
+                                name=fn,
+                                dev_type="dlna",
+                                manufacturer=man,
+                                model=mod,
+                                port=port,
+                                location=f"http://{ip}:{port}/description.xml",
+                                is_hisense=False,
+                                is_google_tv=False
+                            )
+                            logger.info(f"Unicast probe found DLNA TV: {fn} at {ip}")
+                            break
+                    except Exception:
+                        pass
+
     def _sync_ssdp_scan(self, timeout: float = 3.0) -> List[Dict[str, Any]]:
-        """Synchronous UDP multicast SSDP discovery with Windows interface binding."""
+        """Synchronous UDP multicast SSDP discovery with network interface binding."""
         MSEARCH = (
             'M-SEARCH * HTTP/1.1\r\n'
             'HOST: 239.255.255.250:1900\r\n'
@@ -312,7 +298,7 @@ class DeviceManager:
                 device_type = root.findtext(".//deviceType", default="").strip()
 
                 is_renderer = "MediaRenderer" in device_type or "renderer" in location.lower()
-                is_hisense = ip == "192.168.50.249" or "hisense" in friendly_name.lower() or "vidaa" in friendly_name.lower() or "36669" in model_desc
+                is_hisense = "hisense" in friendly_name.lower() or "hisense" in manufacturer.lower() or "vidaa" in friendly_name.lower() or "36669" in model_desc
                 is_google_tv = "dial" in device_type.lower() or "chromecast" in info.get("server", "").lower() or "xiaomi" in manufacturer.lower()
 
                 av_transport_url = None
@@ -331,7 +317,7 @@ class DeviceManager:
                 if is_hisense:
                     self.add_or_update_device(
                         ip=ip,
-                        name=friendly_name or "Hisense VIDAA TV (Living Room)",
+                        name=friendly_name or f"Hisense VIDAA TV ({ip})",
                         dev_type="hisense",
                         manufacturer=manufacturer or "Hisense",
                         model=model_name or "VIDAA TV",
@@ -362,8 +348,8 @@ class DeviceManager:
                         ip=ip,
                         name=friendly_name or f"Smart TV ({ip})",
                         dev_type="dlna",
-                        manufacturer=manufacturer,
-                        model=model_name,
+                        manufacturer=manufacturer or "Smart TV",
+                        model=model_name or "DLNA",
                         location=location,
                         av_transport_url=av_transport_url,
                         rendering_control_url=rendering_control_url,

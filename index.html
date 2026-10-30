@@ -20,7 +20,7 @@
   <link rel="dns-prefetch" href="https://i.postimg.cc">
   <link rel="dns-prefetch" href="https://uut-telecom.ru">
   <link rel="dns-prefetch" href="https://rutv.by">
-  <link rel="stylesheet" href="static/style.css?v=3.3">
+  <link rel="stylesheet" href="static/style.css?v=3.5">
 </head>
 <body>
 
@@ -54,7 +54,7 @@
       <div class="tv-status-banner active" id="tv-status-banner">
         <div class="status-indicator">
           <span class="status-dot green" id="tv-status-dot"></span>
-          <span id="tv-status-text">Hisense VIDAA TV (Living Room) Ready</span>
+          <span id="tv-status-text">TV Web Receiver Ready</span>
         </div>
         <button id="btn-quick-wake" class="btn-wake-quick" style="display: none;" title="Send Wake-on-LAN power packet">
           ⚡ Turn On TV
@@ -64,10 +64,7 @@
       <!-- TV Selector Bar -->
       <div class="tv-selector-bar">
         <select id="tv-dropdown" class="selector-dropdown" aria-label="Select Target TV">
-          <option value="tv_192_168_50_249" selected>Hisense VIDAA TV (Living Room)</option>
-          <option value="tv_192_168_50_3">Xiaomi Mi TV (Google TV)</option>
-          <option value="tv_192_168_50_205">TCL Smart TV Pro (Google TV)</option>
-          <option value="web_receiver">TV Web Receiver (Browser at /tv)</option>
+          <option value="web_receiver" selected>TV Web Receiver (Browser at /tv)</option>
         </select>
       </div>
     </header>
@@ -536,7 +533,7 @@
                 <svg viewBox="0 0 24 24" style="width: 12px; height: 12px; stroke: currentColor; fill: none; stroke-width: 2.5;"><rect x="2" y="14" width="20" height="8" rx="2"/><polyline points="7 14 12 3 17 14"/></svg>
                 ASUS RT-AX1800U
               </span>
-              <span class="subnet-badge">192.168.50.x</span>
+              <span class="subnet-badge" id="badge-subnet-label">Local Subnet</span>
               <span class="devices-count-pill" id="badge-online-count"><span id="devices-online-count">9</span> Devices Online</span>
             </div>
           </div>
@@ -646,7 +643,7 @@
           <div class="mobile-setup-steps">
             <div class="mobile-step">
               <span class="step-num">1</span>
-              <span><strong>Toggle Phone Wi-Fi:</strong> Turn Wi-Fi <strong>OFF</strong> and back <strong>ON</strong> on your phone so it picks up the router's new DNS (192.168.50.250).</span>
+              <span><strong>Toggle Phone Wi-Fi:</strong> Turn Wi-Fi <strong>OFF</strong> and back <strong>ON</strong> on your phone so it picks up the router's new DNS.</span>
             </div>
             <div class="mobile-step">
               <span class="step-num">2</span>
@@ -698,10 +695,10 @@
           <div id="router-status-badge" class="router-status-pill connected" style="display: none;">
             <div class="router-status-indicator">
               <span class="status-dot green"></span>
-              <span id="router-status-title">ASUS RT-AX1800U (192.168.50.1) • Configured &amp; Connected</span>
+              <span id="router-status-title">Local Gateway Router • Configured &amp; Connected</span>
             </div>
             <div class="router-status-sub" id="router-status-sub">
-              Primary DNS: 192.168.50.250 &bull; 24/7 Ad-Shield Active &bull; Saved on This Device
+              24/7 Ad-Shield Active &bull; Saved on This Device
             </div>
           </div>
           <div class="autopilot-header">
@@ -712,7 +709,7 @@
               </div>
               <div class="autopilot-title">Automate ASUS Router Ad-Blocking</div>
               <div class="autopilot-desc">
-                Enter your ASUS router login once. TV Hub will automatically log in to <strong>192.168.50.1</strong> and program the router to block YouTube ads, website trackers, and Smart TV app ads network-wide.
+                Enter your ASUS router login once. TV Hub will automatically log in to your router gateway and program the router to block YouTube ads, website trackers, and Smart TV app ads network-wide.
               </div>
             </div>
           </div>
@@ -769,10 +766,10 @@
             <div id="manual-dns-content" class="manual-dns-drawer">
               <p style="margin: 0 0 6px 0;">If you prefer setting your router manually:</p>
               <div class="manual-ip-row">
-                <span class="ip-code">192.168.50.250</span>
+                <span class="ip-code" id="manual-dns-ip">Detecting DNS IP...</span>
                 <button type="button" id="btn-copy-dns-ip" class="btn-copy-ip">Copy DNS IP</button>
               </div>
-              <p class="manual-steps">Open <strong>http://192.168.50.1</strong> &rarr; LAN &rarr; DHCP Server &rarr; Set <strong>DNS Server 1</strong> to <strong>192.168.50.250</strong> &rarr; Apply.</p>
+              <p class="manual-steps" id="manual-steps-text">Open your router settings &rarr; LAN &rarr; DHCP Server &rarr; Set <strong>DNS Server 1</strong> to TV Hub IP &rarr; Apply.</p>
             </div>
           </div>
         </div>
@@ -797,7 +794,7 @@
         <!-- Search Bar -->
         <div class="device-search-wrapper">
           <svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
-          <input type="text" id="input-device-search" placeholder="Search devices by name, IP (192.168.50.x) or vendor..." autocomplete="off">
+          <input type="text" id="input-device-search" placeholder="Search devices by name, IP or vendor..." autocomplete="off">
           <button id="btn-clear-device-search" class="btn-clear-search" style="display: none;">✕</button>
         </div>
 
@@ -818,7 +815,7 @@
             <span class="feed-badge">Real-Time UDP 53</span>
           </div>
           <div id="adblock-recent-logs" class="cyber-logs-box">
-            <div class="logs-empty" style="color: var(--text-dim); text-align: center; padding: 8px;">Listening for queries on 192.168.50.250:53...</div>
+            <div class="logs-empty" style="color: var(--text-dim); text-align: center; padding: 8px;">Listening for DNS queries on port 53...</div>
           </div>
         </div>
 
@@ -907,7 +904,7 @@
       </div>
       <div class="form-group">
         <label>TV IP Address</label>
-        <input type="text" id="manual-ip-input" class="form-input" value="192.168.50.249" placeholder="192.168.1.100">
+        <input type="text" id="manual-ip-input" class="form-input" placeholder="e.g. 192.168.1.100">
       </div>
       <div class="form-group">
         <label>UPnP Port (Default 38400 for Hisense)</label>
@@ -1033,11 +1030,11 @@
       </p>
       <div class="form-group">
         <label>Hub Backend Endpoint URL</label>
-        <input type="text" id="input-hub-url" class="form-input" placeholder="e.g. http://192.168.50.250:8000 or https://...trycloudflare.com">
+        <input type="text" id="input-hub-url" class="form-input" placeholder="e.g. http://localhost:8000 or https://...trycloudflare.com">
       </div>
       <div style="display: flex; gap: 8px; margin-bottom: 14px; flex-wrap: wrap;">
         <button type="button" id="btn-use-autodetect" class="btn-secondary" style="font-size: 12px; padding: 6px 12px; width: auto;">🔄 Auto-Detect from GitHub</button>
-        <button type="button" id="btn-use-local" class="btn-secondary" style="font-size: 12px; padding: 6px 12px; width: auto;">🏠 Local Wi-Fi (192.168.50.250:8000)</button>
+        <button type="button" id="btn-use-local" class="btn-secondary" style="font-size: 12px; padding: 6px 12px; width: auto;">🏠 Local Wi-Fi Hub</button>
         <button type="button" id="btn-use-sameorigin" class="btn-secondary" style="font-size: 12px; padding: 6px 12px; width: auto;">⚡ Same-Origin (Direct)</button>
       </div>
       <div id="hub-connection-feedback" style="font-size: 12px; margin-bottom: 12px; min-height: 20px;"></div>
@@ -1048,6 +1045,6 @@
     </div>
   </div>
 
-  <script src="static/app.js?v=3.3"></script>
+  <script src="static/app.js?v=3.5"></script>
 </body>
 </html>

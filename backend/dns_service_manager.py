@@ -1,3 +1,4 @@
+from .config import SERVER_IP
 """
 DNS Service Manager
 Controls the 24/7 background DNS Ad-Blocker daemon and Windows Startup integration.
@@ -257,7 +258,7 @@ def get_status() -> Dict:
         "startup_enabled": startup_enabled,
         "pid": pid if running else None,
         "port": 53,
-        "listen_ip": "192.168.50.250",
+        "listen_ip": SERVER_IP,
         "stats": {
             "queries_total": q_total,
             "ads_blocked": a_blocked,

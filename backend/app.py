@@ -191,12 +191,7 @@ async def lifespan(app: FastAPI):
         logger.warning(f"DNS Daemon manager notice: {e}")
 
     if not NO_DEVICES:
-        # Pre-register user's Hisense TV if not discovered yet
-        device_manager.add_manual_device(
-            ip="192.168.50.249",
-            port=38400,
-            name="Hisense VIDAA TV (Living Room)"
-        )
+        # Dynamic network discovery active
 
         # Start local mDNS broadcast (http://tvhub.local:8000)
         mdns_zc = start_mdns_broadcast(PORT)
@@ -287,7 +282,7 @@ class DeviceAdblockRequest(BaseModel):
     enabled: bool
 
 class RouterAutoConfigRequest(BaseModel):
-    router_ip: Optional[str] = '192.168.50.1'
+    router_ip: Optional[str] = None
     username: Optional[str] = 'admin'
     password: str
 
@@ -297,7 +292,7 @@ class DeviceSelectRequest(BaseModel):
 class ManualDeviceRequest(BaseModel):
     ip: str
     port: Optional[int] = 38400
-    name: Optional[str] = "Hisense TV"
+    name: Optional[str] = "Smart TV"
 
 class AddChannelRequest(BaseModel):
     name: str
@@ -567,19 +562,24 @@ async def sync_adblock_repositories():
 
 @app.get("/api/router/status")
 async def get_router_status():
-    reach = asus_router_controller.check_reachability("192.168.50.1")
+    from .config import get_default_gateway
+    gw_ip = get_default_gateway()
+    reach = asus_router_controller.check_reachability(gw_ip)
     cfg = asus_router_controller.get_router_status()
     return {
         "status": "ok",
         "reachability": reach,
         "config": cfg,
+        "router_ip": gw_ip,
         "dns_ip": SERVER_IP
     }
 
 @app.post("/api/router/auto_configure")
 async def auto_configure_router(req: RouterAutoConfigRequest):
+    from .config import get_default_gateway
+    gw_ip = req.router_ip or get_default_gateway()
     result = asus_router_controller.auto_configure(
-        router_ip=req.router_ip or "192.168.50.1",
+        router_ip=gw_ip,
         username=req.username or "admin",
         password=req.password,
         dns_server_ip=SERVER_IP

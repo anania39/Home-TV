@@ -4,6 +4,7 @@ import re
 import time
 import logging
 from typing import Dict, List, Optional
+from .config import SERVER_IP, get_subnet_prefix, get_default_gateway
 
 logger = logging.getLogger("device_scanner")
 
@@ -11,104 +12,30 @@ class DeviceScanner:
     def __init__(self):
         self._cached_devices: List[Dict] = []
         self._last_scan: float = 0.0
-        
-        # Household device knowledge base
-        self._known_devices = {
-            "192.168.50.1": {
-                "name": "ASUS RT-AX1800U Router",
-                "hostname": "RT-AX1800U-C258",
-                "type": "router",
-                "vendor": "ASUSTeK Computer",
-                "icon": "router"
-            },
-            "192.168.50.249": {
-                "name": "Hisense VIDAA TV (Living Room)",
-                "hostname": "Hisense-SmartTV",
-                "type": "tv",
-                "vendor": "Hisense Electric",
-                "icon": "tv",
-                "mac": "d4:ab:cd:50:e5:d3"
-            },
-            "192.168.50.3": {
-                "name": "Xiaomi Mi TV (Google TV)",
-                "hostname": "MiTV",
-                "type": "tv",
-                "vendor": "Xiaomi Communications",
-                "icon": "tv",
-                "mac": "12:0a:9b:85:78:0b"
-            },
-            "192.168.50.205": {
-                "name": "TCL Smart TV Pro",
-                "hostname": "TCL-BeyondTV",
-                "type": "tv",
-                "vendor": "TCL King Electrical",
-                "icon": "tv",
-                "mac": "3c:c5:dd:a2:c2:ee"
-            },
-            "192.168.50.237": {
-                "name": "Anania's Galaxy S25",
-                "hostname": "Anania-s-S25",
-                "type": "phone",
-                "vendor": "Samsung Electronics",
-                "icon": "smartphone",
-                "mac": "a6:cd:46:87:5c:88"
-            },
-            "192.168.50.71": {
-                "name": "Apple iPhone",
-                "hostname": "iPhone",
-                "type": "phone",
-                "vendor": "Apple Inc.",
-                "icon": "smartphone",
-                "mac": "9c:c3:94:9d:cd:66"
-            },
-            "192.168.50.248": {
-                "name": "Homelander PC",
-                "hostname": "Homelander",
-                "type": "laptop",
-                "vendor": "Micro-Star / Intel",
-                "icon": "laptop",
-                "mac": "58:11:22:af:60:32"
-            },
-            "192.168.50.23": {
-                "name": "Desktop PC (J9DOTC1)",
-                "hostname": "DESKTOP-J9DOTC1",
-                "type": "desktop",
-                "vendor": "Microsoft / Intel",
-                "icon": "monitor",
-                "mac": "9c:2a:70:54:12:7f"
-            },
-            "192.168.50.250": {
-                "name": "TV Hub Host (This PC)",
-                "hostname": "DESKTOP-33HMKGL",
-                "type": "laptop",
-                "vendor": "Windows Host Server",
-                "icon": "laptop",
-                "mac": "Local Host"
-            }
-        }
 
     def _infer_device_metadata(self, ip: str, mac: str, hostname: str) -> Dict:
         h_lower = (hostname or "").lower()
         m_lower = (mac or "").lower()
+        gw_ip = get_default_gateway()
 
         # Type detection
         dev_type = "other"
         icon = "wifi"
         vendor = "Network Client"
 
-        if "router" in h_lower or ip.endswith(".1"):
+        if ip == gw_ip or ip.endswith(".1") or "router" in h_lower or "gateway" in h_lower:
             dev_type = "router"
             icon = "router"
             vendor = "Router Gateway"
-        elif "tv" in h_lower or "hisense" in h_lower or "vidaa" in h_lower or "tcl" in h_lower or "xiaomi" in h_lower:
+        elif "tv" in h_lower or "hisense" in h_lower or "vidaa" in h_lower or "tcl" in h_lower or "xiaomi" in h_lower or "roku" in h_lower or "vizio" in h_lower or "bravia" in h_lower:
             dev_type = "tv"
             icon = "tv"
             vendor = "Smart TV"
-        elif "iphone" in h_lower or "ipad" in h_lower or "galaxy" in h_lower or "s25" in h_lower or "android" in h_lower or "pixel" in h_lower:
+        elif "iphone" in h_lower or "ipad" in h_lower or "galaxy" in h_lower or "android" in h_lower or "pixel" in h_lower or "phone" in h_lower:
             dev_type = "phone"
             icon = "smartphone"
             vendor = "Mobile Device"
-        elif "desktop" in h_lower or "pc" in h_lower or "homelander" in h_lower or "laptop" in h_lower or "thinkpad" in h_lower:
+        elif "desktop" in h_lower or "pc" in h_lower or "laptop" in h_lower or "thinkpad" in h_lower or "macbook" in h_lower:
             dev_type = "laptop"
             icon = "laptop"
             vendor = "Computer"
@@ -117,10 +44,10 @@ class DeviceScanner:
         if m_lower.startswith(("c8:7f:54", "04:42:1a", "2c:fd:a1")):
             vendor = "ASUSTeK Computer"
             if dev_type == "other": dev_type = "router"; icon = "router"
-        elif m_lower.startswith(("9c:c3:94", "ac:bc:32", "f0:18:98", "38:f9:d3")):
+        elif m_lower.startswith(("9c:c3:94", "ac:bc:32", "f0:18:98", "38:f9:d3", "b8:78:2e")):
             vendor = "Apple Inc."
             if dev_type == "other": dev_type = "phone"; icon = "smartphone"
-        elif m_lower.startswith(("a6:cd:46", "30:07:4d", "50:8f:4c")):
+        elif m_lower.startswith(("a6:cd:46", "30:07:4d", "50:8f:4c", "84:25:19")):
             vendor = "Samsung Electronics"
             if dev_type == "other": dev_type = "phone"; icon = "smartphone"
         elif m_lower.startswith(("12:0a:9b", "7c:49:eb")):
@@ -136,7 +63,16 @@ class DeviceScanner:
             vendor = "Intel / PC Manufacturer"
             if dev_type == "other": dev_type = "desktop"; icon = "monitor"
 
-        friendly_name = hostname if (hostname and hostname != "Unknown") else f"Device ({ip})"
+        if ip == SERVER_IP:
+            friendly_name = f"TV Hub Host ({ip})"
+            dev_type = "laptop"
+            icon = "laptop"
+            vendor = "Host System"
+        elif ip == gw_ip:
+            friendly_name = f"Router Gateway ({ip})"
+        else:
+            friendly_name = hostname if (hostname and hostname != "Unknown") else f"Device ({ip})"
+
         return {
             "name": friendly_name,
             "type": dev_type,
@@ -147,12 +83,13 @@ class DeviceScanner:
     def scan(self, client_ip: Optional[str] = None, force_refresh: bool = False) -> List[Dict]:
         now = time.time()
         if not force_refresh and self._cached_devices and (now - self._last_scan < 12.0):
-            # Return cached with current client indicator
             return self._enrich_devices(self._cached_devices, client_ip)
 
+        prefix = get_subnet_prefix()
+        gw_ip = get_default_gateway()
         devices_map = {}
 
-        # 1. Read ARP table
+        # 1. Read ARP table for devices on active subnet
         try:
             p = subprocess.run(["arp", "-a"], capture_output=True, text=True, timeout=5)
             arp_output = p.stdout
@@ -164,9 +101,9 @@ class DeviceScanner:
             match = re.search(r"(\d+\.\d+\.\d+\.\d+)\s+([0-9a-fA-F-]+)\s+(\w+)", line)
             if match:
                 ip, mac_raw, _ = match.groups()
-                if not ip.startswith("192.168.50."):
+                if not ip.startswith(prefix):
                     continue
-                if ip in ("192.168.50.255", "255.255.255.255"):
+                if ip.endswith(".255") or ip == "255.255.255.255":
                     continue
                 mac = mac_raw.lower().replace("-", ":")
 
@@ -176,25 +113,26 @@ class DeviceScanner:
                 except Exception:
                     pass
 
-                known = self._known_devices.get(ip, {})
-                if known:
-                    name = known["name"]
-                    dev_type = known["type"]
-                    vendor = known["vendor"]
-                    icon = known["icon"]
-                    hostname = known.get("hostname") or host or "Unknown"
-                else:
-                    inferred = self._infer_device_metadata(ip, mac, host or "")
-                    name = inferred["name"]
-                    dev_type = inferred["type"]
-                    vendor = inferred["vendor"]
-                    icon = inferred["icon"]
-                    hostname = host or "Unknown"
+                # Check if this IP is a dynamically discovered TV in device_manager
+                tv_name = None
+                try:
+                    from .discovery import device_manager
+                    discovered_dev = device_manager.get_device(ip)
+                    if discovered_dev:
+                        tv_name = discovered_dev.get("name")
+                except Exception:
+                    pass
+
+                inferred = self._infer_device_metadata(ip, mac, host or "")
+                name = tv_name or inferred["name"]
+                dev_type = "tv" if tv_name else inferred["type"]
+                vendor = inferred["vendor"]
+                icon = "tv" if tv_name else inferred["icon"]
 
                 devices_map[ip] = {
                     "ip": ip,
                     "mac": mac,
-                    "hostname": hostname,
+                    "hostname": host or "Unknown",
                     "name": name,
                     "type": dev_type,
                     "vendor": vendor,
@@ -202,21 +140,33 @@ class DeviceScanner:
                     "online": True
                 }
 
-        # 2. Merge known household devices
-        for ip, known in self._known_devices.items():
-            if ip not in devices_map:
-                devices_map[ip] = {
-                    "ip": ip,
-                    "mac": known.get("mac", "dynamic"),
-                    "hostname": known.get("hostname", "Unknown"),
-                    "name": known.get("name"),
-                    "type": known.get("type", "other"),
-                    "vendor": known.get("vendor", "Network Device"),
-                    "icon": known.get("icon", "wifi"),
-                    "online": True
-                }
+        # Ensure TV Hub host PC is present
+        if SERVER_IP not in devices_map and SERVER_IP != "127.0.0.1":
+            devices_map[SERVER_IP] = {
+                "ip": SERVER_IP,
+                "mac": "local-host",
+                "hostname": socket.gethostname() or "TV-Hub-Host",
+                "name": f"TV Hub Host ({SERVER_IP})",
+                "type": "laptop",
+                "vendor": "Host System",
+                "icon": "laptop",
+                "online": True
+            }
 
-        # Sort order: Router first, then TVs, then Phones, then Computers
+        # Ensure Gateway Router is present
+        if gw_ip and gw_ip not in devices_map:
+            devices_map[gw_ip] = {
+                "ip": gw_ip,
+                "mac": "gateway",
+                "hostname": "Router-Gateway",
+                "name": f"Router Gateway ({gw_ip})",
+                "type": "router",
+                "vendor": "Network Gateway",
+                "icon": "router",
+                "online": True
+            }
+
+        # Sort order: Router first, then TVs, then Phones, then Computers, then others
         type_priority = {"router": 0, "tv": 1, "phone": 2, "smartphone": 2, "laptop": 3, "desktop": 3, "other": 4}
         sorted_list = sorted(devices_map.values(), key=lambda d: (type_priority.get(d["type"], 5), d["ip"]))
 
@@ -233,7 +183,7 @@ class DeviceScanner:
         enriched = []
         for d in devices:
             d_copy = dict(d)
-            d_copy["is_current_device"] = (client_ip and (d["ip"] == client_ip or (client_ip in ("127.0.0.1", "localhost") and d["ip"] == "192.168.50.250")))
+            d_copy["is_current_device"] = bool(client_ip and (d["ip"] == client_ip or (client_ip in ("127.0.0.1", "localhost") and d["ip"] == SERVER_IP)))
             d_copy["adblock_enabled"] = device_rules.get(d["ip"], global_enabled)
             enriched.append(d_copy)
         return enriched

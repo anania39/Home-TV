@@ -17,7 +17,7 @@ def main():
     print("=" * 65)
     print(f"  * Local IP:                 http://{SERVER_IP}:{PORT}")
     print(f"  * TV Browser Receiver:      http://{SERVER_IP}:{PORT}/tv")
-    print(f"  * Default Target TV:        Hisense VIDAA TV (192.168.50.249)")
+    print(f"  * Dynamic Discovery:        Auto-detects TVs & devices on current Wi-Fi")
     print("  * Starting Public Tunnel for phone remote control...")
     print("=" * 65)
     print("  TIP: You can open either the local IP or the generated")
