@@ -683,7 +683,10 @@ async def cast_media(req: CastRequest, request: Request, client_ip: str = Depend
     relative_proxy_url = f"/api/stream/proxy?url={quote(raw_stream_url, safe='')}&sid={active_sid}"
     lan_proxy_url = f"http://{SERVER_IP}:{PORT}/api/stream/proxy?url={quote(raw_stream_url, safe='')}&sid={active_sid}"
 
-    if req.use_proxy or (raw_stream_url.startswith("https://") and device_id != "web_receiver"):
+    # For Google TV / Android TV, direct Google video & HTTPS MP4 play natively with zero proxy latency
+    if dev and dev.get("is_google_tv") and ("googlevideo.com" in raw_stream_url or not req.use_proxy):
+        tv_stream_url = raw_stream_url
+    elif req.use_proxy or (raw_stream_url.startswith("https://") and device_id != "web_receiver"):
         tv_stream_url = lan_proxy_url if (dev and (dev.get("av_transport_url") or dev.get("is_google_tv"))) else relative_proxy_url
     else:
         tv_stream_url = raw_stream_url
@@ -791,6 +794,40 @@ async def cast_media(req: CastRequest, request: Request, client_ip: str = Depend
 
         elif mode == "dlna":
             av_url = dev["av_transport_url"]
+            tv_ip = dev.get("ip")
+            tv_port = dev.get("port", 38400)
+
+            # Fast Pre-flight reachability probe (0.45s max)
+            # Instantly detects if the TV is in standby or sleeping so we don't stall the user for 15 seconds
+            tv_reachable = True
+            if tv_ip:
+                try:
+                    _, writer = await asyncio.wait_for(asyncio.open_connection(tv_ip, tv_port), timeout=0.45)
+                    writer.close()
+                    await writer.wait_closed()
+                except Exception:
+                    tv_reachable = False
+
+            if not tv_reachable:
+                logger.info(f"DLNA TV {dev['name']} ({tv_ip}) is in standby/unreachable. Broadcasting WoL...")
+                send_wake_on_lan(["d4:ab:cd:50:e5:d3", "18:30:0c:9e:7e:fc"])
+                ws_manager.update_state({
+                    "tv_online": False,
+                    "state": "STANDBY",
+                    "title": title,
+                    "status_text": f"{dev['name']} is in Standby"
+                })
+                await ws_manager.broadcast_to_controllers("tv_status_sync", ws_manager.current_state)
+                return {
+                    "status": "waking",
+                    "mode": mode,
+                    "version": my_version,
+                    "tv_online": False,
+                    "title": title,
+                    "url": web_stream_url,
+                    "message": f"TV '{dev['name']}' is in Standby or turned off. Wake signal sent! Turn on TV or select TCL TV / TV Web Receiver from the dropdown."
+                }
+
             if is_stale():
                 return {"status": "superseded", "version": my_version, "mode": mode}
 
@@ -865,7 +902,7 @@ async def cast_media(req: CastRequest, request: Request, client_ip: str = Depend
             "tv_online": False,
             "title": title,
             "url": web_stream_url,
-            "message": "TV is currently in Standby. Wake-on-LAN power packet sent. Please turn on TV."
+            "message": f"TV '{dev['name']}' is currently in Standby or unreachable. Wake signal broadcasted. Please turn on your TV or select another active device from the dropdown."
         }
 
     # Update state and broadcast

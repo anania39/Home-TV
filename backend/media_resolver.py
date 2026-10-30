@@ -102,7 +102,13 @@ class MediaResolver:
         quality_urls = {}
         for f in info.get("formats", []):
             h = f.get("height")
-            if h and f.get("url"):
+            fid = str(f.get("format_id", ""))
+            ext = str(f.get("ext", "")).lower()
+            vcodec = str(f.get("vcodec", "")).lower()
+            # Ignore storyboards and image tracks
+            if fid.startswith("sb") or ext in ("mhtml", "jpg", "jpeg", "webp") or vcodec == "none":
+                continue
+            if h and h >= 144 and f.get("url"):
                 q_label = f"{h}p"
                 if q_label not in qualities:
                     qualities.append(q_label)
@@ -299,7 +305,7 @@ class MediaResolver:
                 'no_warnings': True,
                 'noplaylist': True,
                 'format': 'best[protocol^=http]/best[ext=mp4]/best',
-                'extractor_args': {'youtube': {'player_client': ['ios', 'android', 'tv', 'web']}}
+                'extractor_args': {'youtube': {'player_client': ['android', 'web']}}
             }
             with yt_dlp.YoutubeDL(ydl_opts) as ydl:
                 return ydl.extract_info(url, download=False)

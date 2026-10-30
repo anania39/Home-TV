@@ -20,7 +20,7 @@
   <link rel="dns-prefetch" href="https://i.postimg.cc">
   <link rel="dns-prefetch" href="https://uut-telecom.ru">
   <link rel="dns-prefetch" href="https://rutv.by">
-  <link rel="stylesheet" href="static/style.css?v=3.2">
+  <link rel="stylesheet" href="static/style.css?v=3.3">
 </head>
 <body>
 
@@ -282,6 +282,49 @@
 
     <!-- TAB 3: Universal Ad-Free Cast -->
     <section id="tab-cast" class="tab-content">
+      <!-- Preparation & Casting Visual Progress Widget -->
+      <div id="cast-progress-widget" class="cast-progress-card" style="display: none;">
+        <div class="progress-glow-bg"></div>
+        <div class="progress-header">
+          <div class="progress-status-left">
+            <div class="progress-radar-spinner">
+              <div class="radar-pulse"></div>
+              <span id="cast-progress-icon" class="progress-icon">⚡</span>
+            </div>
+            <div class="progress-text-col">
+              <div id="cast-progress-headline" class="progress-headline">Preparing Stream...</div>
+              <div id="cast-progress-subtext" class="progress-subtext">Analyzing YouTube video &amp; stripping ads</div>
+            </div>
+          </div>
+          <div id="cast-progress-percent" class="progress-percent">25%</div>
+        </div>
+
+        <div class="progress-track">
+          <div id="cast-progress-fill" class="progress-fill" style="width: 25%;"></div>
+        </div>
+
+        <div class="progress-steps-row">
+          <div id="cast-step-1" class="progress-step active">
+            <span class="step-dot">1</span>
+            <span class="step-label">Analyze</span>
+          </div>
+          <div id="cast-step-2" class="progress-step">
+            <span class="step-dot">2</span>
+            <span class="step-label">Strip Ads</span>
+          </div>
+          <div id="cast-step-3" class="progress-step">
+            <span class="step-dot">3</span>
+            <span class="step-label">Stream to TV</span>
+          </div>
+        </div>
+
+        <!-- Progress Error Container -->
+        <div id="cast-progress-error" class="progress-error-box" style="display: none;">
+          <div class="progress-error-msg" id="cast-error-msg">Connection error occurred.</div>
+          <button type="button" id="btn-cast-dismiss-err" class="btn-progress-dismiss">Dismiss</button>
+        </div>
+      </div>
+
       <!-- Active Cast Playback Control Deck -->
       <div id="active-cast-deck" class="active-cast-deck" style="display: none;">
         <div class="deck-header">
@@ -443,12 +486,16 @@
           </p>
         </div>
 
-        <div class="input-with-action yt-input-group">
-          <input type="text" id="yt-search-input" class="form-input" placeholder="Paste YouTube link or type search keyword...">
-          <button type="button" id="btn-yt-paste" class="btn-input-action" title="Paste link from clipboard">📋 Paste</button>
-          <button type="button" id="btn-yt-search" class="btn-primary" style="width: auto; padding: 10px 18px; margin: 0; white-space: nowrap;">
-            ⚡ Cast / Search
-          </button>
+        <div class="yt-search-form">
+          <input type="text" id="yt-search-input" class="form-input yt-input-field" placeholder="Paste YouTube link or type search keyword...">
+          <div class="yt-action-buttons">
+            <button type="button" id="btn-yt-paste" class="btn-yt-paste" title="Paste link from clipboard">
+              📋 Paste Link
+            </button>
+            <button type="button" id="btn-yt-search" class="btn-primary btn-yt-search">
+              ⚡ Cast / Search
+            </button>
+          </div>
         </div>
 
         <div id="yt-search-results" class="yt-results-grid" style="display: none; margin-top: 14px;"></div>
@@ -1001,6 +1048,6 @@
     </div>
   </div>
 
-  <script src="static/app.js?v=3.2"></script>
+  <script src="static/app.js?v=3.3"></script>
 </body>
 </html>

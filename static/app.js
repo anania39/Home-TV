@@ -997,45 +997,165 @@ if (btnPasteCast && castUrlInput) {
   };
 }
 
-if (btnSubmitCast) {
-  btnSubmitCast.addEventListener("click", async () => {
-    const url = castUrlInput ? castUrlInput.value.trim() : "";
-    let title = castTitleInput ? castTitleInput.value.trim() : "";
-    const useProxy = castUseProxy ? castUseProxy.checked : true;
+// --- Animated Preparation & Casting Progress System ---
+function showCastProgress(step, headline, percent, subtext) {
+  const widget = document.getElementById("cast-progress-widget");
+  if (!widget) return;
+  widget.style.display = "block";
 
-    if (!url) {
-      showToast("⚠️ Please enter a video or webpage link");
-      if (castUrlInput) castUrlInput.focus();
+  const errBox = document.getElementById("cast-progress-error");
+  if (errBox) errBox.style.display = "none";
+
+  const fill = document.getElementById("cast-progress-fill");
+  const pct = document.getElementById("cast-progress-percent");
+  const title = document.getElementById("cast-progress-headline");
+  const sub = document.getElementById("cast-progress-subtext");
+  const icon = document.getElementById("cast-progress-icon");
+
+  if (fill) {
+    fill.style.width = `${percent}%`;
+    fill.style.background = "";
+  }
+  if (pct) {
+    pct.textContent = `${percent}%`;
+    pct.style.color = "";
+  }
+  if (title) title.textContent = headline || "Preparing Stream...";
+  if (sub && subtext) sub.textContent = subtext;
+
+  for (let s = 1; s <= 3; s++) {
+    const el = document.getElementById(`cast-step-${s}`);
+    if (el) {
+      if (s < step) {
+        el.className = "progress-step completed";
+      } else if (s === step) {
+        el.className = "progress-step active";
+      } else {
+        el.className = "progress-step";
+      }
+    }
+  }
+
+  if (step === 1 && icon) icon.textContent = "🔍";
+  if (step === 2 && icon) icon.textContent = "⚡";
+  if (step === 3 && icon) icon.textContent = "📺";
+
+  widget.scrollIntoView({ behavior: "smooth", block: "nearest" });
+}
+
+function showCastError(msg) {
+  const widget = document.getElementById("cast-progress-widget");
+  const errBox = document.getElementById("cast-progress-error");
+  const errMsg = document.getElementById("cast-error-msg");
+  const title = document.getElementById("cast-progress-headline");
+  const fill = document.getElementById("cast-progress-fill");
+  const pct = document.getElementById("cast-progress-percent");
+  const icon = document.getElementById("cast-progress-icon");
+
+  if (widget) widget.style.display = "block";
+  if (errBox) errBox.style.display = "flex";
+  if (errMsg) errMsg.textContent = msg || "Failed to cast stream to TV.";
+  if (title) title.textContent = "⚠️ Casting Issue";
+  if (icon) icon.textContent = "❌";
+  if (fill) {
+    fill.style.width = "100%";
+    fill.style.background = "#ef4444";
+  }
+  if (pct) {
+    pct.textContent = "Error";
+    pct.style.color = "#ef4444";
+  }
+  vibrate([80, 80, 80]);
+  showToast("⚠️ " + (msg || "Casting failed"));
+}
+
+function hideCastProgress() {
+  const widget = document.getElementById("cast-progress-widget");
+  if (widget) {
+    widget.style.display = "none";
+    const fill = document.getElementById("cast-progress-fill");
+    const pct = document.getElementById("cast-progress-percent");
+    if (fill) {
+      fill.style.width = "25%";
+      fill.style.background = "";
+    }
+    if (pct) {
+      pct.textContent = "25%";
+      pct.style.color = "";
+    }
+  }
+}
+
+async function executeUniversalCast(url, title = "") {
+  url = (url || "").trim();
+  if (!url) {
+    showToast("⚠️ Please enter a video or webpage link");
+    const castInput = document.getElementById("cast-url-input");
+    if (castInput) castInput.focus();
+    return;
+  }
+
+  const btnSubmitCast = document.getElementById("btn-submit-cast");
+  const btnCastText = document.getElementById("btn-cast-text");
+  if (btnSubmitCast) btnSubmitCast.classList.add("loading");
+  if (btnCastText) btnCastText.textContent = "Resolving & Casting...";
+
+  vibrate(35);
+  const isYt = url.includes("youtube.com") || url.includes("youtu.be");
+  const selDropdown = document.getElementById("tv-dropdown");
+  const targetTv = (selDropdown && selDropdown.options[selDropdown.selectedIndex]?.text) || state.currentTvName || "Smart TV";
+
+  showCastProgress(1, isYt ? "Analyzing YouTube Video..." : "Analyzing Media Stream...", 25, "Extracting clean stream & stripping ads");
+
+  const stepTimer = setTimeout(() => {
+    showCastProgress(2, "Stripping Ads & Optimizing Stream...", 65, "Resolving audio and high-definition video feeds");
+  }, 1200);
+
+  const useProxy = castUseProxy ? castUseProxy.checked : true;
+
+  try {
+    const res = await safeFetchWithRetry("/api/cast", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        url,
+        title: title || undefined,
+        use_proxy: useProxy,
+        device_id: state.currentTvId
+      })
+    });
+
+    clearTimeout(stepTimer);
+
+    if (!res) {
+      showCastError("TV Hub server unreachable. Ensure the backend daemon is running.");
       return;
     }
 
-    vibrate(35);
-    btnSubmitCast.classList.add("loading");
-    if (btnCastText) btnCastText.textContent = "Resolving & Casting to TV...";
-    showToast("🎬 Extracting ad-free stream & casting to TV...");
+    if (!res.ok) {
+      let errMsg = `Server returned HTTP ${res.status}`;
+      try {
+        const errData = await res.json();
+        if (errData && (errData.message || errData.detail)) errMsg = errData.message || errData.detail;
+      } catch (e) {}
+      showCastError(errMsg);
+      return;
+    }
 
-    try {
-      const res = await safeFetchWithRetry("/api/cast", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          url,
-          title: title || undefined,
-          use_proxy: useProxy,
-          device_id: state.currentTvId
-        })
-      });
+    const data = await res.json();
+    if (data.status === "ok") {
+      showCastProgress(3, `Connected to ${targetTv}!`, 100, "Starting 100% ad-free playback on TV");
+      const finalTitle = data.title || title || "Video Stream";
+      state.currentTitle = finalTitle;
+      state.playbackState = "PLAYING";
+      const barTitle = document.getElementById("bar-title");
+      if (barTitle) barTitle.textContent = finalTitle;
+      updatePlayPauseButton(true);
+      vibrate(50);
+      showToast(`🎉 Now Playing on ${targetTv} (100% Ad-Free)!`);
 
-      const data = await res.json();
-      if (data.status === "ok") {
-        const finalTitle = data.title || title || "Video Stream";
-        state.currentTitle = finalTitle;
-        state.playbackState = "PLAYING";
-        const barTitle = document.getElementById("bar-title");
-        if (barTitle) barTitle.textContent = finalTitle;
-        updatePlayPauseButton(true);
-        vibrate(50);
-        showToast(`🎉 Now Playing on TV (100% Ad-Free)!`);
+      setTimeout(() => {
+        hideCastProgress();
         updateActiveCastDeck({
           title: finalTitle,
           state: "PLAYING",
@@ -1046,17 +1166,34 @@ if (btnSubmitCast) {
           qualities: data.qualities,
           quality_urls: data.quality_urls
         });
-      } else {
-        vibrate([60, 60, 60]);
-        showToast("⚠️ " + (data.message || "Could not extract video stream from this webpage."));
-      }
-    } catch (e) {
-      showToast("Cast command sent to TV");
-    } finally {
-      btnSubmitCast.classList.remove("loading");
-      if (btnCastText) btnCastText.textContent = "Cast Ad-Free to TV";
+        window.scrollTo({ top: 0, behavior: "smooth" });
+      }, 700);
+    } else if (data.status === "waking") {
+      showCastError(data.message || `TV ${targetTv} is in Standby. Power packet sent.`);
+    } else {
+      showCastError(data.message || "Could not extract video stream from this webpage.");
     }
+  } catch (err) {
+    clearTimeout(stepTimer);
+    console.error("Cast error:", err);
+    showCastError("Connection error: Unable to reach TV Hub server. Check your Wi-Fi or restart TV Hub.");
+  } finally {
+    if (btnSubmitCast) btnSubmitCast.classList.remove("loading");
+    if (btnCastText) btnCastText.textContent = "Cast Ad-Free to TV";
+  }
+}
+
+if (btnSubmitCast) {
+  btnSubmitCast.addEventListener("click", () => {
+    const url = castUrlInput ? castUrlInput.value.trim() : "";
+    const title = castTitleInput ? castTitleInput.value.trim() : "";
+    executeUniversalCast(url, title);
   });
+}
+
+const btnDismissCastErr = document.getElementById("btn-cast-dismiss-err");
+if (btnDismissCastErr) {
+  btnDismissCastErr.onclick = () => hideCastProgress();
 }
 
 document.getElementById("btn-upload-cast").addEventListener("click", async () => {
@@ -2779,7 +2916,7 @@ function initYouTubeSearch() {
           searchInput.value = clipText.trim();
           showToast("Pasted from clipboard");
           if (clipText.includes("youtube.com") || clipText.includes("youtu.be")) {
-            doSearchOrCast();
+            executeUniversalCast(clipText.trim());
           }
         }
       } catch (e) {
@@ -2799,15 +2936,8 @@ function initYouTubeSearch() {
 
     // Direct YouTube link detection
     if (q.includes("youtube.com") || q.includes("youtu.be")) {
-      vibrate(35);
-      const castUrlInput = document.getElementById("cast-url-input");
-      const btnSubmitCast = document.getElementById("btn-submit-cast");
-      if (castUrlInput) castUrlInput.value = q;
-      if (typeof handleCastUrlInput === "function") handleCastUrlInput(q);
-      showToast("🎬 Extracting YouTube stream (100% Ad-Free)...");
-      if (btnSubmitCast) btnSubmitCast.click();
       resultsGrid.style.display = "none";
-      window.scrollTo({ top: 0, behavior: "smooth" });
+      executeUniversalCast(q);
       return;
     }
 
@@ -2819,7 +2949,7 @@ function initYouTubeSearch() {
 
     try {
       const res = await safeFetchWithRetry(`/api/youtube/search?q=${encodeURIComponent(q)}`);
-      if (res.ok) {
+      if (res && res.ok) {
         const data = await res.json();
         const items = data.results || [];
         if (items.length === 0) {
@@ -2849,22 +2979,14 @@ function initYouTubeSearch() {
           castBtn.onclick = (e) => {
             e.stopPropagation();
             vibrate(35);
-            const castUrlInput = document.getElementById("cast-url-input");
-            const castTitleInput = document.getElementById("cast-title-input");
-            const btnSubmitCast = document.getElementById("btn-submit-cast");
-
-            if (castUrlInput) castUrlInput.value = item.url;
-            if (castTitleInput) castTitleInput.value = item.title;
-            if (typeof handleCastUrlInput === "function") handleCastUrlInput(item.url);
-
-            showToast(`🎬 Casting "${item.title.slice(0, 30)}..." (100% Ad-Free)`);
-            if (btnSubmitCast) btnSubmitCast.click();
-            window.scrollTo({ top: 0, behavior: "smooth" });
+            executeUniversalCast(item.url, item.title);
           };
 
           card.onclick = () => castBtn.click();
           resultsGrid.appendChild(card);
         });
+      } else {
+        resultsGrid.innerHTML = `<div style="text-align: center; padding: 20px; color: var(--text-muted); font-size: 13px;">YouTube search unavailable. Ensure TV Hub is running.</div>`;
       }
     } catch (e) {
       resultsGrid.innerHTML = `<div style="text-align: center; padding: 20px; color: var(--text-muted); font-size: 13px;">Search error. Check TV Hub connection.</div>`;
