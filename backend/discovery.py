@@ -3,6 +3,7 @@ import socket
 import select
 import subprocess
 import re
+import json
 import xml.etree.ElementTree as ET
 import urllib.parse
 import httpx
@@ -12,25 +13,88 @@ from .config import SERVER_IP, NO_DEVICES, get_subnet_prefix
 
 logger = logging.getLogger("discovery")
 
+# Known network profiles keyed by subnet prefix (e.g. "192.168.50.")
+# This guarantees that home TVs are immediately available when on home Wi-Fi,
+# while completely separating foreign subnets (e.g. office Wi-Fi) so home TVs never appear elsewhere.
+KNOWN_NETWORK_PROFILES = {
+    "192.168.50.": [
+        {
+            "ip": "192.168.50.249",
+            "name": "Hisense VIDAA TV (Living Room)",
+            "dev_type": "hisense",
+            "manufacturer": "Hisense",
+            "model": "VIDAA 43A6101EE",
+            "port": 38400,
+            "av_transport_url": "http://192.168.50.249:38400/upnp/control/mingusavtr",
+            "rendering_control_url": "http://192.168.50.249:38400/upnp/control/mingusrcr",
+            "mqtt_port": 36669,
+            "is_hisense": True,
+            "is_google_tv": False
+        },
+        {
+            "ip": "192.168.50.3",
+            "name": "Xiaomi Mi TV (Google TV)",
+            "dev_type": "google_tv",
+            "manufacturer": "Xiaomi",
+            "model": "MiTV-MZTU0",
+            "port": 8009,
+            "location": "http://192.168.50.3:8008/ssdp/device-desc.xml",
+            "cast_port": 8009,
+            "is_hisense": False,
+            "is_google_tv": True
+        },
+        {
+            "ip": "192.168.50.205",
+            "name": "TCL Smart TV Pro (Google TV)",
+            "dev_type": "google_tv",
+            "manufacturer": "TCL",
+            "model": "Smart TV Pro",
+            "port": 8009,
+            "location": "http://192.168.50.205:8008/ssdp/device-desc.xml",
+            "cast_port": 8009,
+            "is_hisense": False,
+            "is_google_tv": True
+        }
+    ]
+}
+
 class DeviceManager:
     def __init__(self):
-        # Index devices uniquely by IP address to prevent duplicate entries
         self.devices: Dict[str, Dict[str, Any]] = {}
-        # Default to universal web receiver until physical TVs on this network are discovered
-        self.selected_device_id: str = "web_receiver"
+        self.selected_device_id: str | None = None
         self._scanning = False
+        self._init_network_devices()
+
+    def _init_network_devices(self):
+        """Initialize known devices matching the active network interface."""
+        if NO_DEVICES:
+            self.selected_device_id = "web_receiver"
+            return
+        prefix = get_subnet_prefix()
+        profile = KNOWN_NETWORK_PROFILES.get(prefix, [])
+        for dev_info in profile:
+            self.add_or_update_device(**dev_info)
+
+        valid = self.get_devices()
+        if valid:
+            # Prefer Hisense on home network if present, else first available
+            hisense_id = "tv_192_168_50_249"
+            if any(d["id"] == hisense_id for d in valid):
+                self.selected_device_id = hisense_id
+            else:
+                self.selected_device_id = valid[0]["id"]
+        else:
+            self.selected_device_id = "web_receiver"
 
     def get_devices(self) -> List[Dict[str, Any]]:
-        """Return unique devices discovered on the active network."""
+        """Return unique devices discovered on the active network subnet."""
         prefix = get_subnet_prefix()
-        # Keep only devices matching the current subnet to prevent cross-network ghost devices
         valid_devices = [d for d in self.devices.values() if d.get("ip", "").startswith(prefix)]
         return valid_devices
 
     def get_device(self, device_id: str) -> Dict[str, Any] | None:
         if not device_id:
             return None
-        # Match by ID or IP
         for dev in self.get_devices():
             if dev.get("id") == device_id or dev.get("ip") == device_id:
                 return dev
@@ -47,7 +111,7 @@ class DeviceManager:
         return False
 
     def add_or_update_device(self, ip: str, name: str, dev_type: str = "dlna", **kwargs) -> Dict[str, Any]:
-        """Insert or update a device keyed strictly by its physical IP (guarantees zero duplicate entries)."""
+        """Insert or update a device keyed strictly by its physical IP."""
         clean_id = f"tv_{ip.replace('.', '_')}"
         existing = self.devices.get(ip, {})
 
@@ -70,8 +134,7 @@ class DeviceManager:
 
         self.devices[ip] = device
         
-        # If no device selected yet or currently on fallback web_receiver, auto-select discovered TV
-        if self.selected_device_id == "web_receiver" and not NO_DEVICES:
+        if not self.selected_device_id or self.selected_device_id == "web_receiver":
             self.selected_device_id = clean_id
 
         return device
@@ -123,6 +186,12 @@ class DeviceManager:
         """Probe active devices on the current local subnet directly over TCP/HTTP."""
         prefix = get_subnet_prefix()
         candidate_ips = set()
+
+        # Include known device IPs for this subnet so standby/sleeping TVs are always probed
+        profile = KNOWN_NETWORK_PROFILES.get(prefix, [])
+        for dev in profile:
+            candidate_ips.add(dev["ip"])
+
         try:
             # Query ARP table for devices on active subnet
             out = subprocess.check_output("arp -a", shell=True).decode("utf-8", errors="ignore")

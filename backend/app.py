@@ -192,6 +192,7 @@ async def lifespan(app: FastAPI):
 
     if not NO_DEVICES:
         # Dynamic network discovery active
+        device_manager._init_network_devices()
 
         # Start local mDNS broadcast (http://tvhub.local:8000)
         mdns_zc = start_mdns_broadcast(PORT)
@@ -414,22 +415,26 @@ async def get_auth_status(request: Request, client_ip: str = Depends(verify_loca
 @app.get("/api/devices")
 async def get_devices():
     devices = device_manager.get_devices()
-    # Add virtual TV Web Receiver option
-    full_list = [
-        {
-            "id": "web_receiver",
-            "name": f"TV Web Receiver (Browser at /tv)",
-            "ip": SERVER_IP,
-            "type": "browser",
-            "manufacturer": "TV Hub",
-            "model": "HTML5 Web Receiver",
-            "is_hisense": False,
-            "is_active": len(ws_manager.receivers) > 0
-        }
-    ] + devices
+    web_rec = {
+        "id": "web_receiver",
+        "name": f"TV Web Receiver (Browser at /tv)",
+        "ip": SERVER_IP,
+        "type": "browser",
+        "manufacturer": "TV Hub",
+        "model": "HTML5 Web Receiver",
+        "is_hisense": False,
+        "is_active": len(ws_manager.receivers) > 0
+    }
+    # Physical TVs appear first so user's actual Smart TVs are immediately accessible
+    full_list = (devices + [web_rec]) if devices else [web_rec]
+    selected_id = device_manager.selected_device_id
+    if not selected_id or (selected_id == "web_receiver" and len(devices) > 0):
+        hisense_match = next((d["id"] for d in devices if d.get("is_hisense")), None)
+        selected_id = hisense_match or devices[0]["id"]
+        device_manager.selected_device_id = selected_id
     return {
         "devices": full_list,
-        "selected_device_id": device_manager.selected_device_id or "web_receiver"
+        "selected_device_id": selected_id or "web_receiver"
     }
 
 @app.post("/api/devices/scan")

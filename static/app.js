@@ -171,8 +171,8 @@ async function autoDetectHub(forceRefresh = false) {
 
 // TV Hub Modern Mobile Frontend Logic
 let state = {
-  currentTvId: "web_receiver",
-  currentTvName: "TV Web Receiver",
+  currentTvId: "tv_192_168_50_249",
+  currentTvName: "Hisense VIDAA TV (Living Room)",
   selectedDevice: null,
   tvOnline: false,
   playbackState: "STANDBY",
@@ -421,7 +421,13 @@ document.getElementById("btn-copy-local-link")?.addEventListener("click", () => 
   }
 });
 
-// Dynamic Wi-Fi TV Discovery
+// Household Smart TVs for immediate zero-latency access
+const DEFAULT_HOUSEHOLD_DEVICES = [
+  { id: "tv_192_168_50_249", name: "Hisense VIDAA TV (Living Room)", is_hisense: true },
+  { id: "tv_192_168_50_3", name: "Xiaomi Mi TV (Google TV)", is_google_tv: true },
+  { id: "tv_192_168_50_205", name: "TCL Smart TV Pro (Google TV)", is_google_tv: true },
+  { id: "web_receiver", name: "TV Web Receiver (Browser at /tv)", type: "browser" }
+];
 let _isBackgroundScanning = false;
 
 function populateDevicesList(devices, selectedId) {
