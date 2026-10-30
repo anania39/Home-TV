@@ -109,6 +109,26 @@ class GoogleCastController:
             logger.debug(f"Google Cast seek failed on {ip}: {e}")
         return False
 
+    def enable_subtitles(self, ip: str, track_id: int = 1) -> bool:
+        try:
+            cast = self.get_cast(ip)
+            if cast and cast.media_controller:
+                cast.media_controller.enable_subtitle(track_id)
+                return True
+        except Exception as e:
+            logger.debug(f"Google Cast enable_subtitles failed on {ip}: {e}")
+        return False
+
+    def disable_subtitles(self, ip: str) -> bool:
+        try:
+            cast = self.get_cast(ip)
+            if cast and cast.media_controller:
+                cast.media_controller.disable_subtitle()
+                return True
+        except Exception as e:
+            logger.debug(f"Google Cast disable_subtitles failed on {ip}: {e}")
+        return False
+
     def set_playback_rate(self, ip: str, rate: float) -> bool:
         try:
             cast = self.get_cast(ip)

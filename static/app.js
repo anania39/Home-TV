@@ -277,6 +277,8 @@ document.addEventListener("DOMContentLoaded", async () => {
   initModals();
   connectWebSocket();
   initSportsAggregator();
+  initActiveCastDeck();
+  initYouTubeSearch();
 });
 
 // --- Tab Navigation ---
@@ -2432,12 +2434,32 @@ let activeDeckCurrentTime = 0;
 let activeDeckSubtitles = [];
 let activeDeckQualities = [];
 let activeDeckQualityUrls = {};
+let deckTicker = null;
+let isScrubbing = false;
 
 function formatDeckTime(sec) {
   sec = Math.max(0, Math.floor(sec || 0));
   const m = Math.floor(sec / 60);
   const s = sec % 60;
   return `${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
+}
+
+function startDeckProgressTicker() {
+  if (deckTicker) clearInterval(deckTicker);
+  deckTicker = setInterval(() => {
+    if (state.playbackState === "PLAYING") {
+      activeDeckCurrentTime += 1;
+      if (activeDeckDuration > 0 && activeDeckCurrentTime > activeDeckDuration) {
+        activeDeckCurrentTime = activeDeckDuration;
+      }
+      const timeCur = document.getElementById("deck-time-current");
+      const scrubber = document.getElementById("deck-scrubber");
+      if (timeCur) timeCur.textContent = formatDeckTime(activeDeckCurrentTime);
+      if (scrubber && activeDeckDuration > 0 && !isScrubbing) {
+        scrubber.value = (activeDeckCurrentTime / activeDeckDuration) * 100;
+      }
+    }
+  }, 1000);
 }
 
 function updateActiveCastDeck(info) {
@@ -2518,11 +2540,21 @@ function updateActiveCastDeck(info) {
       });
     }
   }
+
+  if (isPlaying) {
+    startDeckProgressTicker();
+  } else if (deckTicker) {
+    clearInterval(deckTicker);
+    deckTicker = null;
+  }
 }
 
 function initActiveCastDeck() {
   const deck = document.getElementById("active-cast-deck");
   if (!deck) return;
+
+  const timeCur = document.getElementById("deck-time-current");
+  const scrubber = document.getElementById("deck-scrubber");
 
   // 1. Play / Pause
   const btnPlay = document.getElementById("btn-deck-play");
@@ -2530,14 +2562,20 @@ function initActiveCastDeck() {
     btnPlay.onclick = async () => {
       vibrate(25);
       const isPlaying = state.playbackState === "PLAYING";
-      const action = isPlaying ? "pause" : "play";
-      state.playbackState = isPlaying ? "PAUSED" : "PLAYING";
-      updatePlayPauseButton(state.playbackState === "PLAYING");
+      const nextPlaying = !isPlaying;
+      state.playbackState = nextPlaying ? "PLAYING" : "PAUSED";
+      updatePlayPauseButton(nextPlaying);
       updateActiveCastDeck({ state: state.playbackState });
+      if (nextPlaying) {
+        startDeckProgressTicker();
+      } else if (deckTicker) {
+        clearInterval(deckTicker);
+        deckTicker = null;
+      }
       await safeFetchWithRetry("/api/playback/action", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action, device_id: state.currentTvId })
+        body: JSON.stringify({ action: nextPlaying ? "play" : "pause", device_id: state.currentTvId })
       });
     };
   }
@@ -2548,6 +2586,10 @@ function initActiveCastDeck() {
     btnStop.onclick = async () => {
       vibrate(30);
       state.playbackState = "STOPPED";
+      if (deckTicker) {
+        clearInterval(deckTicker);
+        deckTicker = null;
+      }
       deck.style.display = "none";
       updatePlayPauseButton(false);
       showToast("Casting stopped");
@@ -2560,42 +2602,58 @@ function initActiveCastDeck() {
   }
 
   // 3. Rewind & Fast Forward Buttons
-  const sendSeek = async (val, label) => {
+  const sendSeek = async (deltaSec, label) => {
     vibrate(20);
+    const maxTime = activeDeckDuration > 0 ? activeDeckDuration : 999999;
+    const target = Math.max(0, Math.min(maxTime, activeDeckCurrentTime + deltaSec));
+    activeDeckCurrentTime = target;
+    if (timeCur) timeCur.textContent = formatDeckTime(activeDeckCurrentTime);
+    if (scrubber && activeDeckDuration > 0) {
+      scrubber.value = (activeDeckCurrentTime / activeDeckDuration) * 100;
+    }
     showToast(label);
     await safeFetchWithRetry("/api/playback/action", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ action: "seek", value: val, device_id: state.currentTvId })
+      body: JSON.stringify({
+        action: "seek",
+        value: target.toString(),
+        delta: deltaSec.toString(),
+        is_absolute: true,
+        device_id: state.currentTvId
+      })
     });
   };
 
   const btnBack30 = document.getElementById("btn-seek-back-30");
-  if (btnBack30) btnBack30.onclick = () => sendSeek("-30", "⏪ Rewound 30s");
+  if (btnBack30) btnBack30.onclick = () => sendSeek(-30, "⏪ Rewound 30s");
 
   const btnBack10 = document.getElementById("btn-seek-back-10");
-  if (btnBack10) btnBack10.onclick = () => sendSeek("-10", "⏪ Rewound 10s");
+  if (btnBack10) btnBack10.onclick = () => sendSeek(-10, "⏪ Rewound 10s");
 
   const btnFwd10 = document.getElementById("btn-seek-fwd-10");
-  if (btnFwd10) btnFwd10.onclick = () => sendSeek("+10", "⏩ Forward 10s");
+  if (btnFwd10) btnFwd10.onclick = () => sendSeek(10, "⏩ Forward 10s");
 
   const btnFwd30 = document.getElementById("btn-seek-fwd-30");
-  if (btnFwd30) btnFwd30.onclick = () => sendSeek("+30", "⏩ Forward 30s");
+  if (btnFwd30) btnFwd30.onclick = () => sendSeek(30, "⏩ Forward 30s");
 
   // 4. Scrub Slider
-  const scrubber = document.getElementById("deck-scrubber");
-  const timeCur = document.getElementById("deck-time-current");
   if (scrubber) {
+    scrubber.onmousedown = scrubber.ontouchstart = () => { isScrubbing = true; };
     scrubber.oninput = () => {
+      isScrubbing = true;
       if (activeDeckDuration > 0) {
         const sec = (scrubber.value / 100) * activeDeckDuration;
         if (timeCur) timeCur.textContent = formatDeckTime(sec);
       }
     };
-    scrubber.onchange = async () => {
+    scrubber.onmouseup = scrubber.ontouchend = scrubber.onchange = async () => {
+      isScrubbing = false;
       if (activeDeckDuration > 0) {
         vibrate(20);
         const targetSec = Math.floor((scrubber.value / 100) * activeDeckDuration);
+        activeDeckCurrentTime = targetSec;
+        if (timeCur) timeCur.textContent = formatDeckTime(activeDeckCurrentTime);
         showToast(`Jumped to ${formatDeckTime(targetSec)}`);
         await safeFetchWithRetry("/api/playback/action", {
           method: "POST",
@@ -2656,11 +2714,12 @@ function initActiveCastDeck() {
     qSelect.onchange = async () => {
       vibrate(20);
       const q = qSelect.value;
+      const targetUrl = activeDeckQualityUrls[q] || null;
       showToast(`Switching Quality to ${q}...`);
       await safeFetchWithRetry("/api/playback/action", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action: "quality", value: q, device_id: state.currentTvId })
+        body: JSON.stringify({ action: "quality", value: q, url: targetUrl, device_id: state.currentTvId })
       });
     };
   }
@@ -2686,7 +2745,7 @@ function initActiveCastDeck() {
     };
   }
 
-  if (btnMute && volSlider) {
+  if (btnMute) {
     btnMute.onclick = async () => {
       vibrate(20);
       isMuted = !isMuted;
@@ -2702,18 +2761,57 @@ function initActiveCastDeck() {
 }
 
 // ---------------------------------------------------------------------------
-// YouTube Inline 100% Ad-Free Search
+// YouTube Inline 100% Ad-Free Search & Quick Cast
 // ---------------------------------------------------------------------------
 function initYouTubeSearch() {
   const searchInput = document.getElementById("yt-search-input");
   const btnSearch = document.getElementById("btn-yt-search");
+  const btnPaste = document.getElementById("btn-yt-paste");
   const resultsGrid = document.getElementById("yt-search-results");
   if (!searchInput || !btnSearch || !resultsGrid) return;
 
-  const doSearch = async () => {
-    const q = searchInput.value.trim();
-    if (!q) return;
+  if (btnPaste) {
+    btnPaste.onclick = async () => {
+      vibrate(20);
+      try {
+        const clipText = await navigator.clipboard.readText();
+        if (clipText) {
+          searchInput.value = clipText.trim();
+          showToast("Pasted from clipboard");
+          if (clipText.includes("youtube.com") || clipText.includes("youtu.be")) {
+            doSearchOrCast();
+          }
+        }
+      } catch (e) {
+        searchInput.focus();
+        showToast("Tap and hold to paste");
+      }
+    };
+  }
 
+  const doSearchOrCast = async () => {
+    const q = searchInput.value.trim();
+    if (!q) {
+      showToast("Enter a search term or YouTube URL");
+      searchInput.focus();
+      return;
+    }
+
+    // Direct YouTube link detection
+    if (q.includes("youtube.com") || q.includes("youtu.be")) {
+      vibrate(35);
+      const castUrlInput = document.getElementById("cast-url-input");
+      const btnSubmitCast = document.getElementById("btn-submit-cast");
+      if (castUrlInput) castUrlInput.value = q;
+      if (typeof handleCastUrlInput === "function") handleCastUrlInput(q);
+      showToast("🎬 Extracting YouTube stream (100% Ad-Free)...");
+      if (btnSubmitCast) btnSubmitCast.click();
+      resultsGrid.style.display = "none";
+      window.scrollTo({ top: 0, behavior: "smooth" });
+      return;
+    }
+
+    // Keyword search
     vibrate(20);
     btnSearch.textContent = "Searching...";
     resultsGrid.style.display = "block";
@@ -2771,15 +2869,15 @@ function initYouTubeSearch() {
     } catch (e) {
       resultsGrid.innerHTML = `<div style="text-align: center; padding: 20px; color: var(--text-muted); font-size: 13px;">Search error. Check TV Hub connection.</div>`;
     } finally {
-      btnSearch.textContent = "🔍 Search";
+      btnSearch.textContent = "⚡ Cast / Search";
     }
   };
 
-  btnSearch.onclick = doSearch;
+  btnSearch.onclick = doSearchOrCast;
   searchInput.onkeydown = (e) => {
     if (e.key === "Enter") {
       e.preventDefault();
-      doSearch();
+      doSearchOrCast();
     }
   };
 }

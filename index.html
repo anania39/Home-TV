@@ -20,7 +20,7 @@
   <link rel="dns-prefetch" href="https://i.postimg.cc">
   <link rel="dns-prefetch" href="https://uut-telecom.ru">
   <link rel="dns-prefetch" href="https://rutv.by">
-  <link rel="stylesheet" href="static/style.css?v=3.1">
+  <link rel="stylesheet" href="static/style.css?v=3.2">
 </head>
 <body>
 
@@ -310,19 +310,23 @@
         <!-- Transport Controls (Rewind / Fast-Forward / Play / Pause) -->
         <div class="deck-transport-row">
           <button type="button" class="btn-deck-transport" id="btn-seek-back-30" title="Rewind 30s">
-            <span style="font-size: 15px;">⏪</span> <span>-30s</span>
+            <span class="transport-icon">⏪</span>
+            <span class="transport-label">-30s</span>
           </button>
           <button type="button" class="btn-deck-transport" id="btn-seek-back-10" title="Rewind 10s">
-            <span style="font-size: 15px;">⏪</span> <span>-10s</span>
+            <span class="transport-icon">⏪</span>
+            <span class="transport-label">-10s</span>
           </button>
           <button type="button" class="btn-deck-playpause" id="btn-deck-play" title="Play / Pause">
             <svg id="deck-play-icon" viewBox="0 0 24 24"><polygon points="5 3 19 12 5 21 5 3"/></svg>
           </button>
           <button type="button" class="btn-deck-transport" id="btn-seek-fwd-10" title="Forward 10s">
-            <span>+10s</span> <span style="font-size: 15px;">⏩</span>
+            <span class="transport-icon">⏩</span>
+            <span class="transport-label">+10s</span>
           </button>
           <button type="button" class="btn-deck-transport" id="btn-seek-fwd-30" title="Forward 30s">
-            <span>+30s</span> <span style="font-size: 15px;">⏩</span>
+            <span class="transport-icon">⏩</span>
+            <span class="transport-label">+30s</span>
           </button>
         </div>
 
@@ -427,22 +431,23 @@
         </button>
       </div>
 
-            <!-- YouTube 100% Ad-Free Search & Quick Cast -->
+      <!-- YouTube 100% Ad-Free Search & Quick Cast -->
       <div class="cast-card yt-search-card">
         <div class="cast-card-header">
           <div class="cast-badge-highlight" style="background: rgba(239, 68, 68, 0.15); color: #f87171; border-color: rgba(239, 68, 68, 0.3);">
-            🔴 YOUTUBE AD-FREE SEARCH
+            ⚡ YOUTUBE ZERO-ADS
           </div>
-          <h3>Search &amp; Play Any YouTube Video Without Ads</h3>
+          <h3>Play or Search Any YouTube Video Without Ads</h3>
           <p style="font-size: 13px; color: var(--text-muted); margin-bottom: 12px; line-height: 1.45;">
-            Search for any song, video, podcast, or movie. TV Hub retrieves and casts it directly to your TV with <strong>100% Zero Ads</strong>.
+            Paste any YouTube video or short URL, or search keywords. TV Hub strips all ads and plays it directly on your TV.
           </p>
         </div>
 
-        <div class="input-with-action">
-          <input type="text" id="yt-search-input" class="form-input" placeholder="Search YouTube (e.g. Coldplay, Joe Rogan, Movie trailer)...">
+        <div class="input-with-action yt-input-group">
+          <input type="text" id="yt-search-input" class="form-input" placeholder="Paste YouTube link or type search keyword...">
+          <button type="button" id="btn-yt-paste" class="btn-input-action" title="Paste link from clipboard">📋 Paste</button>
           <button type="button" id="btn-yt-search" class="btn-primary" style="width: auto; padding: 10px 18px; margin: 0; white-space: nowrap;">
-            🔍 Search
+            ⚡ Cast / Search
           </button>
         </div>
 
@@ -996,6 +1001,6 @@
     </div>
   </div>
 
-  <script src="static/app.js?v=3.1"></script>
+  <script src="static/app.js?v=3.2"></script>
 </body>
 </html>

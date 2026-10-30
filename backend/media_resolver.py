@@ -150,6 +150,38 @@ class MediaResolver:
         if not yt_dlp or not query or not query.strip():
             return []
 
+        clean_q = query.strip()
+        # Direct YouTube link handling: if user pasted a full YouTube URL into the search box
+        if self.is_youtube(clean_q):
+            try:
+                def _extract_single():
+                    ydl_opts = {
+                        "quiet": True,
+                        "extract_flat": True,
+                        "skip_download": True,
+                        "no_warnings": True,
+                    }
+                    with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+                        return ydl.extract_info(clean_q, download=False)
+                single_info = await asyncio.to_thread(_extract_single)
+                if single_info:
+                    vid_id = single_info.get("id") or "video"
+                    title = single_info.get("title") or "YouTube Video"
+                    dur = single_info.get("duration") or 0
+                    dur_str = self._format_duration(dur)
+                    thumb = single_info.get("thumbnails", [{}])[-1].get("url") if single_info.get("thumbnails") else f"https://i.ytimg.com/vi/{vid_id}/hqdefault.jpg"
+                    return [{
+                        "id": vid_id,
+                        "title": title,
+                        "url": single_info.get("webpage_url") or clean_q,
+                        "thumbnail": thumb,
+                        "duration": dur,
+                        "duration_str": dur_str,
+                        "channel": single_info.get("channel") or single_info.get("uploader") or "YouTube"
+                    }]
+            except Exception as e:
+                logger.warning(f"Direct YouTube link resolution in search: {e}")
+
         def _search():
             ydl_opts = {
                 "quiet": True,

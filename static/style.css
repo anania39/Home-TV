@@ -3223,26 +3223,32 @@ header {
 }
 
 .deck-transport-row {
-  display: flex;
+  display: grid;
+  grid-template-columns: 1fr 1fr 52px 1fr 1fr;
+  gap: 6px;
   align-items: center;
-  justify-content: center;
-  gap: 12px;
-  margin-bottom: 18px;
+  justify-items: center;
+  width: 100%;
+  margin-bottom: 16px;
 }
 
 .btn-deck-transport {
-  background: rgba(255, 255, 255, 0.06);
+  width: 100%;
+  height: 48px;
+  background: rgba(255, 255, 255, 0.05);
   border: 1px solid rgba(255, 255, 255, 0.12);
   color: #e2e8f0;
-  padding: 8px 14px;
+  padding: 4px 2px;
   border-radius: 10px;
-  font-size: 12px;
-  font-weight: 700;
-  display: inline-flex;
+  display: flex;
+  flex-direction: column;
   align-items: center;
-  gap: 4px;
+  justify-content: center;
+  gap: 2px;
   cursor: pointer;
   transition: all 0.15s ease;
+  user-select: none;
+  -webkit-tap-highlight-color: transparent;
 }
 
 .btn-deck-transport:hover {
@@ -3251,21 +3257,37 @@ header {
 }
 
 .btn-deck-transport:active {
-  transform: scale(0.95);
+  transform: scale(0.94);
+  background: rgba(56, 189, 248, 0.15);
+}
+
+.btn-deck-transport .transport-icon {
+  font-size: 13px;
+  line-height: 1;
+}
+
+.btn-deck-transport .transport-label {
+  font-size: 10.5px;
+  font-weight: 700;
+  line-height: 1;
+  color: #cbd5e1;
+  letter-spacing: -0.2px;
 }
 
 .btn-deck-playpause {
-  width: 48px;
-  height: 48px;
+  width: 50px;
+  height: 50px;
   border-radius: 50%;
   background: linear-gradient(135deg, #0284c7 0%, #38bdf8 100%);
-  border: none;
+  border: 2px solid rgba(255, 255, 255, 0.2);
   display: flex;
   align-items: center;
   justify-content: center;
   cursor: pointer;
-  box-shadow: 0 4px 14px rgba(56, 189, 248, 0.4);
+  box-shadow: 0 4px 16px rgba(56, 189, 248, 0.45);
   transition: all 0.2s ease;
+  user-select: none;
+  -webkit-tap-highlight-color: transparent;
 }
 
 .btn-deck-playpause:active {
@@ -3282,11 +3304,11 @@ header {
 .deck-controls-grid {
   display: flex;
   flex-direction: column;
-  gap: 14px;
-  background: rgba(0, 0, 0, 0.2);
-  padding: 14px;
+  gap: 12px;
+  background: rgba(0, 0, 0, 0.22);
+  padding: 12px;
   border-radius: 12px;
-  border: 1px solid rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.06);
 }
 
 .deck-control-block {
@@ -3304,17 +3326,16 @@ header {
 }
 
 .speed-pill-group {
-  display: flex;
-  gap: 6px;
-  overflow-x: auto;
-  padding-bottom: 2px;
+  display: grid;
+  grid-template-columns: repeat(6, 1fr);
+  gap: 4px;
+  width: 100%;
 }
 
 .speed-pill {
-  flex: 1;
-  min-width: 44px;
-  padding: 6px 4px;
-  font-size: 12px;
+  width: 100%;
+  padding: 7px 2px;
+  font-size: 11px;
   font-weight: 700;
   background: rgba(255, 255, 255, 0.05);
   border: 1px solid rgba(255, 255, 255, 0.1);
@@ -3323,6 +3344,11 @@ header {
   cursor: pointer;
   text-align: center;
   transition: all 0.15s ease;
+  user-select: none;
+}
+
+.speed-pill:hover {
+  background: rgba(255, 255, 255, 0.1);
 }
 
 .speed-pill.active {
@@ -3333,21 +3359,36 @@ header {
 }
 
 .deck-inline-row {
-  display: flex;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
   gap: 10px;
+}
+
+@media (max-width: 440px) {
+  .deck-inline-row {
+    grid-template-columns: 1fr;
+    gap: 8px;
+  }
 }
 
 .deck-select {
   width: 100%;
-  background: rgba(15, 23, 42, 0.8);
-  border: 1px solid rgba(255, 255, 255, 0.14);
+  height: 38px;
+  background: rgba(15, 23, 42, 0.85);
+  border: 1px solid rgba(255, 255, 255, 0.15);
   color: #f1f5f9;
-  padding: 8px 10px;
+  padding: 0 28px 0 10px;
   border-radius: 8px;
   font-size: 12px;
   font-weight: 600;
   cursor: pointer;
   outline: none;
+  -webkit-appearance: none;
+  appearance: none;
+  background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%2394a3b8' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3e%3cpolyline points='6 9 12 15 18 9'%3e%3c/polyline%3e%3c/svg%3e");
+  background-repeat: no-repeat;
+  background-position: right 10px center;
+  background-size: 14px;
 }
 
 .deck-select:focus {
@@ -3355,20 +3396,50 @@ header {
 }
 
 .deck-mute-btn {
-  background: transparent;
+  background: rgba(255, 255, 255, 0.06);
   border: 1px solid rgba(255, 255, 255, 0.15);
   color: #cbd5e1;
   font-size: 11px;
-  padding: 2px 8px;
+  font-weight: 600;
+  padding: 4px 10px;
   border-radius: 6px;
   cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.deck-mute-btn:hover {
+  background: rgba(255, 255, 255, 0.12);
+  border-color: #38bdf8;
 }
 
 .deck-vol-slider {
   width: 100%;
   accent-color: #38bdf8;
-  height: 6px;
+  height: 8px;
+  border-radius: 4px;
   cursor: pointer;
+}
+
+/* --- YouTube Mobile Responsive Input --- */
+.yt-input-group {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+@media (max-width: 480px) {
+  .yt-input-group {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+  }
+  .yt-input-group #yt-search-input {
+    grid-column: 1 / -1;
+  }
+  .yt-input-group button {
+    width: 100% !important;
+    justify-content: center;
+  }
 }
 
 /* --- YouTube Results Grid --- */

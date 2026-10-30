@@ -266,6 +266,7 @@ class PlaybackActionRequest(BaseModel):
     action: str  # play, pause, stop, seek, speed, rate, subtitles, quality
     value: Optional[str] = None
     lang: Optional[str] = None
+    url: Optional[str] = None
     is_absolute: Optional[bool] = False
     device_id: Optional[str] = None
 
@@ -723,6 +724,8 @@ async def cast_media(req: CastRequest, request: Request, client_ip: str = Depend
             state_payload["subtitles"] = resolved["subtitles"]
         if resolved.get("qualities"):
             state_payload["qualities"] = resolved["qualities"]
+        if resolved.get("quality_urls"):
+            state_payload["quality_urls"] = resolved["quality_urls"]
     ws_manager.update_state(state_payload)
 
     # Clear old prefetched chunks so channel switch is 100% clean with zero overlap
@@ -757,7 +760,13 @@ async def cast_media(req: CastRequest, request: Request, client_ip: str = Depend
             "version": my_version,
             "tv_online": True,
             "title": title,
-            "url": web_stream_url
+            "url": web_stream_url,
+            "duration": resolved.get("duration", 0) if ('resolved' in locals() and isinstance(resolved, dict)) else 0,
+            "duration_str": resolved.get("duration_str", "") if ('resolved' in locals() and isinstance(resolved, dict)) else "",
+            "thumbnail": resolved.get("thumbnail", "") if ('resolved' in locals() and isinstance(resolved, dict)) else "",
+            "subtitles": resolved.get("subtitles", []) if ('resolved' in locals() and isinstance(resolved, dict)) else [],
+            "qualities": resolved.get("qualities", ["Auto"]) if ('resolved' in locals() and isinstance(resolved, dict)) else ["Auto"],
+            "quality_urls": resolved.get("quality_urls", {}) if ('resolved' in locals() and isinstance(resolved, dict)) else {}
         }
 
     # Path B: Physical TV (DLNA / Google TV) - Serialized with Lock & Staleness guards
@@ -869,7 +878,22 @@ async def cast_media(req: CastRequest, request: Request, client_ip: str = Depend
     })
     await ws_manager.broadcast_to_controllers("playback_update", ws_manager.current_state)
 
-    return {"status": "ok", "mode": mode, "version": my_version, "tv_online": True, "title": title, "url": web_stream_url}
+    res_payload = {
+        "status": "ok",
+        "mode": mode,
+        "version": my_version,
+        "tv_online": True,
+        "title": title,
+        "url": web_stream_url
+    }
+    if 'resolved' in locals() and isinstance(resolved, dict):
+        res_payload["duration"] = resolved.get("duration", 0)
+        res_payload["duration_str"] = resolved.get("duration_str", "")
+        res_payload["thumbnail"] = resolved.get("thumbnail", "")
+        res_payload["subtitles"] = resolved.get("subtitles", [])
+        res_payload["qualities"] = resolved.get("qualities", ["Auto"])
+        res_payload["quality_urls"] = resolved.get("quality_urls", {})
+    return res_payload
 
 @app.post("/api/playback/action")
 async def playback_action(req: PlaybackActionRequest):
@@ -900,6 +924,21 @@ async def playback_action(req: PlaybackActionRequest):
                 ws_manager.update_state({"speed": rate})
             except Exception:
                 pass
+        elif action == "subtitles":
+            try:
+                if req.value == "off":
+                    await asyncio.to_thread(google_cast_controller.disable_subtitles, dev["ip"])
+                else:
+                    await asyncio.to_thread(google_cast_controller.enable_subtitles, dev["ip"])
+            except Exception:
+                pass
+        elif action == "quality":
+            target_q_url = req.url or (req.value if req.value and req.value.startswith("http") else None)
+            if target_q_url:
+                try:
+                    await asyncio.to_thread(google_cast_controller.cast_media, dev["ip"], target_q_url, ws_manager.current_state.get("title", "Video"))
+                except Exception:
+                    pass
 
     elif dev and dev.get("av_transport_url"):
         av_url = dev["av_transport_url"]
@@ -918,11 +957,20 @@ async def playback_action(req: PlaybackActionRequest):
         elif action in ("speed", "rate") and req.value:
             await dlna_controller.play(av_url, speed=str(req.value))
             ws_manager.update_state({"speed": float(req.value)})
+        elif action == "quality":
+            target_q_url = req.url or (req.value if req.value and req.value.startswith("http") else None)
+            if target_q_url:
+                try:
+                    await dlna_controller.set_av_transport_uri(av_url, target_q_url, ws_manager.current_state.get("title", "Stream"))
+                    await dlna_controller.play(av_url)
+                except Exception:
+                    pass
 
     # Forward to Web Receiver & Controller WebSockets
     payload = {
         "value": req.value,
         "lang": req.lang,
+        "url": req.url,
         "is_absolute": req.is_absolute
     }
     await ws_manager.send_to_receivers(action, payload)
