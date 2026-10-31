@@ -892,6 +892,8 @@ async def proxy_stream(url: str, request: Request, server_host: str):
             )
 
             is_next_line_segment = False
+            total_extinf_dur = 0.0
+            has_endlist = False
             for line in lines:
                 stripped = line.strip()
                 if not stripped:
@@ -899,6 +901,14 @@ async def proxy_stream(url: str, request: Request, server_host: str):
                     continue
                 if stripped.startswith("#EXTINF:"):
                     is_next_line_segment = True
+                    rewritten_lines.append(line)
+                    try:
+                        dur_part = stripped.split(":")[1].split(",")[0].strip()
+                        total_extinf_dur += float(dur_part)
+                    except Exception:
+                        pass
+                elif stripped == "#EXT-X-ENDLIST":
+                    has_endlist = True
                     rewritten_lines.append(line)
                 elif stripped.startswith("#"):
                     if stripped.startswith("#EXT-X-KEY:") and 'URI="' in stripped:
@@ -936,6 +946,18 @@ async def proxy_stream(url: str, request: Request, server_host: str):
             if segment_urls_for_prefetch:
                 segment_engine.register_playlist_sequence(segment_urls_for_prefetch)
                 segment_engine.prefetch(segment_urls_for_prefetch[-1:], headers)
+
+            if has_endlist and total_extinf_dur > 0:
+                try:
+                    from .websocket_manager import ws_manager
+                    cur_d = ws_manager.current_state.get("duration", 0)
+                    if not cur_d or cur_d <= 0 or abs(cur_d - total_extinf_dur) > 5:
+                        dur_sec = round(total_extinf_dur, 1)
+                        ws_manager.update_state({"duration": dur_sec})
+                        import asyncio
+                        asyncio.create_task(ws_manager.broadcast_to_controllers("playback_update", {"duration": dur_sec}))
+                except Exception:
+                    pass
 
             rewritten_body = "\r\n".join(rewritten_lines).encode("utf-8")
             # Store in short-lived manifest cache for 0.5s deduplication

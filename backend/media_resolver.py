@@ -99,9 +99,13 @@ class MediaResolver:
     def _extract_subtitles_and_qualities(info: Dict[str, Any]):
         subs_list = []
         all_subs = {**info.get("subtitles", {}), **info.get("automatic_captions", {})}
+        norm_map = {"eng": "en", "rus": "ru", "kat": "ka", "geo": "ka", "spa": "es", "ger": "de", "deu": "de", "fra": "fr", "fre": "fr"}
         for code, entries in all_subs.items():
             short_code = code.split("-")[0].lower()
-            vtts = [e.get("url") for e in entries if e.get("ext") == "vtt" or "vtt" in e.get("url", "")]
+            short_code = norm_map.get(short_code, short_code)
+            vtts = [e.get("url") for e in entries if (e.get("ext") == "vtt" or "fmt=vtt" in e.get("url", "") or e.get("url", "").endswith(".vtt")) and not e.get("url", "").endswith(".m3u8")]
+            if not vtts:
+                vtts = [e.get("url") for e in entries if "vtt" in e.get("url", "") and not e.get("url", "").endswith(".m3u8")]
             if vtts and not any(s["code"] == short_code for s in subs_list):
                 name = LANG_NAMES.get(short_code, code.upper())
                 subs_list.append({"code": short_code, "name": name, "url": vtts[0]})
@@ -146,39 +150,89 @@ class MediaResolver:
 
         return subs_list, qualities, quality_urls, audio_tracks
 
-    async def extract_hls_audio_tracks(self, m3u8_url: str, headers: Optional[Dict[str, str]] = None) -> List[Dict[str, Any]]:
-        """Extract available audio tracks from HLS Master Manifest."""
+    async def extract_hls_metadata(self, m3u8_url: str, headers: Optional[Dict[str, str]] = None) -> Dict[str, Any]:
+        """Extract audio tracks, subtitles, and duration from HLS Master/Media Manifests."""
+        audio_tracks = []
+        subs = []
+        total_duration = 0.0
+        norm_map = {"eng": "en", "rus": "ru", "kat": "ka", "geo": "ka", "spa": "es", "ger": "de", "deu": "de", "fra": "fr", "fre": "fr"}
+
         try:
             req_headers = {
                 "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36"
             }
             if headers:
                 req_headers.update(headers)
-            async with httpx.AsyncClient(verify=False, timeout=4.0) as client:
+            async with httpx.AsyncClient(verify=False, timeout=5.0) as client:
                 resp = await client.get(m3u8_url, headers=req_headers)
                 if resp.status_code == 200:
                     text = resp.text
-                    tracks = []
-                    seen = set()
-                    for line in text.splitlines():
-                        if line.startswith("#EXT-X-MEDIA:") and "TYPE=AUDIO" in line:
-                            name_m = re.search(r'NAME="([^"]+)"', line)
-                            lang_m = re.search(r'LANGUAGE="([^"]+)"', line)
-                            def_m = re.search(r'DEFAULT=(YES|NO)', line)
-                            name = name_m.group(1) if name_m else "Audio"
-                            lang = lang_m.group(1) if lang_m else ""
-                            is_def = (def_m.group(1) == "YES") if def_m else False
-                            if name not in seen:
-                                seen.add(name)
-                                tracks.append({
-                                    "name": name,
-                                    "code": lang,
-                                    "default": is_def
-                                })
-                    return tracks
+                    lines = text.splitlines()
+                    seen_audio = set()
+                    seen_subs = set()
+
+                    for line in lines:
+                        if line.startswith("#EXT-X-MEDIA:"):
+                            if "TYPE=AUDIO" in line:
+                                name_m = re.search(r'NAME="([^"]+)"', line)
+                                lang_m = re.search(r'LANGUAGE="([^"]+)"', line)
+                                def_m = re.search(r'DEFAULT=(YES|NO)', line)
+                                name = name_m.group(1) if name_m else "Audio"
+                                lang = lang_m.group(1) if lang_m else ""
+                                is_def = (def_m.group(1) == "YES") if def_m else False
+                                if name not in seen_audio:
+                                    seen_audio.add(name)
+                                    audio_tracks.append({
+                                        "name": name,
+                                        "code": lang,
+                                        "default": is_def
+                                    })
+                            elif "TYPE=SUBTITLES" in line:
+                                name_m = re.search(r'NAME="([^"]+)"', line)
+                                lang_m = re.search(r'LANGUAGE="([^"]+)"', line)
+                                uri_m = re.search(r'URI="([^"]+)"', line)
+                                name = name_m.group(1) if name_m else "Subtitles"
+                                lang = lang_m.group(1) if lang_m else "en"
+                                sub_uri = uri_m.group(1) if uri_m else ""
+                                if sub_uri:
+                                    full_sub = urllib.parse.urljoin(m3u8_url, sub_uri)
+                                    norm_code = norm_map.get(lang.lower(), lang.lower()[:2])
+                                    if norm_code not in seen_subs:
+                                        seen_subs.add(norm_code)
+                                        subs.append({"code": norm_code, "name": name, "url": full_sub})
+
+                    # Calculate total duration if VOD
+                    if "#EXTINF:" in text:
+                        exts = re.findall(r'#EXTINF:([0-9\.]+)', text)
+                        if exts and "#EXT-X-ENDLIST" in text:
+                            total_duration = sum(float(x) for x in exts)
+                    elif "#EXT-X-STREAM-INF:" in text:
+                        first_variant = None
+                        for idx, l in enumerate(lines):
+                            if l.startswith("#EXT-X-STREAM-INF:") and idx + 1 < len(lines):
+                                next_l = lines[idx + 1].strip()
+                                if next_l and not next_l.startswith("#"):
+                                    first_variant = urllib.parse.urljoin(m3u8_url, next_l)
+                                    break
+                        if first_variant:
+                            v_resp = await client.get(first_variant, headers=req_headers)
+                            if v_resp.status_code == 200 and "#EXT-X-ENDLIST" in v_resp.text:
+                                exts = re.findall(r'#EXTINF:([0-9\.]+)', v_resp.text)
+                                if exts:
+                                    total_duration = sum(float(x) for x in exts)
         except Exception as e:
-            logger.debug(f"HLS audio track extraction notice for {m3u8_url}: {e}")
-        return []
+            logger.debug(f"HLS metadata extraction notice for {m3u8_url}: {e}")
+
+        return {
+            "audio_tracks": audio_tracks,
+            "subtitles": subs,
+            "duration": round(total_duration, 1)
+        }
+
+    async def extract_hls_audio_tracks(self, m3u8_url: str, headers: Optional[Dict[str, str]] = None) -> List[Dict[str, Any]]:
+        """Extract available audio tracks from HLS Master Manifest."""
+        meta = await self.extract_hls_metadata(m3u8_url, headers)
+        return meta.get("audio_tracks", [])
 
     async def fetch_page(self, url: str, referer: Optional[str] = None) -> Tuple[int, str]:
         """
@@ -495,11 +549,13 @@ class MediaResolver:
         subs = []
         if not sub_str:
             return subs
+        norm_map = {"eng": "en", "rus": "ru", "kat": "ka", "geo": "ka", "spa": "es", "ger": "de", "deu": "de", "fra": "fr", "fre": "fr"}
         matches = re.findall(r'\[([a-zA-Z0-9_\-]+)\](https?://[^\s,\[\]]+)', sub_str)
         for code, vtt_url in matches:
             short = code.lower().strip()
-            name = LANG_NAMES.get(short, code.upper())
-            subs.append({"code": short, "name": name, "url": vtt_url})
+            norm_code = norm_map.get(short[:3], norm_map.get(short[:2], short[:2]))
+            name = LANG_NAMES.get(norm_code, code.upper())
+            subs.append({"code": norm_code, "name": name, "url": vtt_url})
         return subs
 
     async def _resolve_playerjs_playlist(self, pl_url: str, base_url: str, title: str) -> Optional[Dict[str, Any]]:
@@ -523,22 +579,38 @@ class MediaResolver:
                     sub_str = item.get("subtitle") or ""
                     subs = self._parse_subtitles(sub_str)
                     mime = "application/vnd.apple.mpegurl" if ".m3u8" in stream_url.lower() else "video/mp4"
+                    dur = 0
+                    dur_str = "Movie"
+                    audio_tracks = []
+                    hdrs = {
+                        "Referer": base_url,
+                        "Origin": urllib.parse.urlsplit(base_url).scheme + "://" + urllib.parse.urlsplit(base_url).netloc
+                    }
+                    if ".m3u8" in stream_url.lower():
+                        try:
+                            meta = await self.extract_hls_metadata(stream_url, hdrs)
+                            if meta.get("duration", 0) > 0:
+                                dur = meta["duration"]
+                                dur_str = self._format_duration(dur)
+                            audio_tracks = meta.get("audio_tracks", [])
+                            if meta.get("subtitles") and not subs:
+                                subs = meta["subtitles"]
+                        except Exception:
+                            pass
                     return {
                         "resolved": True,
                         "stream_url": stream_url,
                         "title": item_title,
                         "thumbnail": poster,
-                        "duration": 0,
-                        "duration_str": "Movie",
+                        "duration": dur,
+                        "duration_str": dur_str,
                         "source_type": "movie_platform",
                         "is_ad_free": True,
                         "mime_type": mime,
                         "subtitles": subs,
+                        "audio_tracks": audio_tracks,
                         "qualities": ["Auto", "1080p", "720p", "480p"],
-                        "headers": {
-                            "Referer": base_url,
-                            "Origin": urllib.parse.urlsplit(base_url).scheme + "://" + urllib.parse.urlsplit(base_url).netloc
-                        }
+                        "headers": hdrs
                     }
         except Exception:
             pass
@@ -600,17 +672,30 @@ class MediaResolver:
                 f_path = self._clean_extracted_url(file_match.group(1))
                 if any(ext in f_path for ext in (".m3u8", ".mp4")):
                     mime = "application/vnd.apple.mpegurl" if ".m3u8" in f_path else "video/mp4"
+                    dur = 0
+                    dur_str = "Movie"
+                    audio_tracks = []
+                    subs = []
+                    if ".m3u8" in f_path:
+                        headers_dict = {"Referer": url}
+                        meta = await self.extract_hls_metadata(f_path, headers_dict)
+                        if meta.get("duration", 0) > 0:
+                            dur = meta["duration"]
+                            dur_str = self._format_duration(dur)
+                        audio_tracks = meta.get("audio_tracks", [])
+                        subs = meta.get("subtitles", [])
                     return {
                         "resolved": True,
                         "stream_url": f_path,
                         "title": page_title or "Movie Stream",
                         "thumbnail": "",
-                        "duration": 0,
-                        "duration_str": "Movie",
+                        "duration": dur,
+                        "duration_str": dur_str,
                         "source_type": "movie_platform",
                         "is_ad_free": True,
                         "mime_type": mime,
-                        "subtitles": [],
+                        "subtitles": subs,
+                        "audio_tracks": audio_tracks,
                         "qualities": ["Auto"],
                         "headers": {"Referer": url}
                     }

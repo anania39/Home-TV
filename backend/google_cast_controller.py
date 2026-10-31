@@ -235,6 +235,13 @@ class GoogleCastController:
                     cmd = {
                         "type": "EDIT_TRACKS_INFO",
                         "activeTrackIds": [int(track_id)],
+                        "textTrackStyle": {
+                            "backgroundColor": "#00000080",
+                            "foregroundColor": "#FFFFFFFF",
+                            "edgeType": "OUTLINE",
+                            "edgeColor": "#000000FF",
+                            "fontScale": 1.1
+                        },
                         "mediaSessionId": sess_id
                     }
                     mc.send_message_nocheck(cmd, inc_session_id=True)

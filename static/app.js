@@ -198,7 +198,10 @@ let state = {
   selectedSportsCategory: "all",
   sportsStatusFilter: "all",
   sportsSearchQuery: "",
-  activeStreamSlug: null
+  activeStreamSlug: null,
+  currentAudio: null,
+  currentSubtitle: null,
+  duration: 0
 };
 
 // Haptic feedback helper
@@ -688,6 +691,13 @@ function updateHardwareStatus(data) {
   }
   if (data.volume !== undefined) {
     state.volume = data.volume;
+  }
+  if (data.current_audio) {
+    state.currentAudio = data.current_audio;
+    try { localStorage.setItem("tvhub_selected_audio", data.current_audio); } catch (e) {}
+  }
+  if (data.current_subtitle) {
+    state.currentSubtitle = data.current_subtitle;
   }
   if (typeof data.current_time === "number" && data.current_time >= 0 && !isScrubbing) {
     activeDeckCurrentTime = data.current_time;
@@ -2789,25 +2799,26 @@ function updateActiveCastDeck(info) {
       : '<polygon points="5 3 19 12 5 21 5 3"/>';
   }
 
-  // Populate Subtitles (only if not already loaded or changed)
+  // Populate Subtitles
   if (Array.isArray(info.subtitles) && info.subtitles.length > 0) {
     const subsSelect = document.getElementById("deck-subs-select");
-    if (subsSelect && (subsSelect.options.length <= 1 || JSON.stringify(activeDeckSubtitles) !== JSON.stringify(info.subtitles))) {
-      activeDeckSubtitles = info.subtitles;
-      const curVal = subsSelect.value;
-      subsSelect.innerHTML = '<option value="off">Subtitles Off</option>';
-      activeDeckSubtitles.slice(0, 20).forEach((s, idx) => {
-        const opt = document.createElement("option");
-        opt.value = s.code;
-        opt.textContent = s.name || s.code.toUpperCase();
-        opt.dataset.url = s.url;
-        opt.dataset.trackId = (idx + 1).toString();
-        subsSelect.appendChild(opt);
-      });
-      if (curVal && curVal !== "off") {
-        subsSelect.value = curVal;
-      } else {
-        subsSelect.value = "off";
+    if (subsSelect) {
+      const subsChanged = JSON.stringify(activeDeckSubtitles) !== JSON.stringify(info.subtitles);
+      if (subsSelect.options.length <= 1 || subsChanged) {
+        activeDeckSubtitles = info.subtitles;
+        subsSelect.innerHTML = '<option value="off">Subtitles Off</option>';
+        activeDeckSubtitles.slice(0, 20).forEach((s, idx) => {
+          const opt = document.createElement("option");
+          opt.value = s.code;
+          opt.textContent = s.name || s.code.toUpperCase();
+          opt.dataset.url = s.url;
+          opt.dataset.trackId = (s.track_id || (idx + 1)).toString();
+          subsSelect.appendChild(opt);
+        });
+      }
+      const curSub = info.current_subtitle || state.currentSubtitle;
+      if (curSub && curSub !== "off" && activeDeckSubtitles.some(s => s.code === curSub)) {
+        subsSelect.value = curSub;
       }
     }
   }
@@ -2838,24 +2849,30 @@ function updateActiveCastDeck(info) {
   // Populate Audio Tracks / Voice Languages (Movies & YouTube Multi-Audio)
   if (Array.isArray(info.audio_tracks) && info.audio_tracks.length > 0) {
     const aSelect = document.getElementById("deck-audio-select");
-    if (aSelect && (aSelect.options.length <= 1 || JSON.stringify(activeDeckAudioTracks) !== JSON.stringify(info.audio_tracks))) {
-      activeDeckAudioTracks = info.audio_tracks;
-      activeDeckAudioUrls = info.audio_urls || {};
-      const curVal = info.current_audio || aSelect.value;
-      aSelect.innerHTML = "";
-      activeDeckAudioTracks.forEach(a => {
-        const opt = document.createElement("option");
-        opt.value = a.name;
-        opt.textContent = a.name + (a.code ? ` (${a.code.toUpperCase()})` : "");
-        if (a.default) {
-          opt.textContent += " ★ Default";
-        }
-        opt.dataset.code = a.code || "";
-        aSelect.appendChild(opt);
-      });
-      if (curVal && activeDeckAudioTracks.some(a => a.name === curVal)) {
-        aSelect.value = curVal;
-      } else {
+    if (aSelect) {
+      const tracksChanged = JSON.stringify(activeDeckAudioTracks) !== JSON.stringify(info.audio_tracks);
+      if (aSelect.options.length <= 1 || tracksChanged) {
+        activeDeckAudioTracks = info.audio_tracks;
+        activeDeckAudioUrls = info.audio_urls || {};
+        aSelect.innerHTML = "";
+        activeDeckAudioTracks.forEach(a => {
+          const opt = document.createElement("option");
+          opt.value = a.name;
+          opt.textContent = a.name + (a.code ? ` (${a.code.toUpperCase()})` : "");
+          if (a.default) {
+            opt.textContent += " ★ Default";
+          }
+          opt.dataset.code = a.code || "";
+          aSelect.appendChild(opt);
+        });
+      }
+
+      // Synchronize selection: info.current_audio -> state.currentAudio -> localStorage -> default
+      const curSaved = info.current_audio || state.currentAudio || localStorage.getItem("tvhub_selected_audio");
+      if (curSaved && activeDeckAudioTracks.some(a => a.name === curSaved)) {
+        aSelect.value = curSaved;
+        state.currentAudio = curSaved;
+      } else if (!aSelect.value || aSelect.value === "default") {
         const defTrack = activeDeckAudioTracks.find(a => a.default);
         if (defTrack) aSelect.value = defTrack.name;
       }
@@ -2958,30 +2975,43 @@ function initActiveCastDeck() {
   const btnFwd30 = document.getElementById("btn-seek-fwd-30");
   if (btnFwd30) btnFwd30.onclick = () => sendSeek(30, "⏩ Forward 30s");
 
-  // 4. Scrub Slider
+  // 4. Scrub Slider (Smooth Seeking for Movies & YouTube)
   if (scrubber) {
+    let seekTimer = null;
+    const triggerSeek = (pct) => {
+      if (seekTimer) clearTimeout(seekTimer);
+      seekTimer = setTimeout(async () => {
+        isScrubbing = false;
+        const dur = (activeDeckDuration > 0) ? activeDeckDuration : (state.duration > 0 ? state.duration : 0);
+        if (dur > 0) {
+          vibrate(20);
+          const targetSec = Math.floor((pct / 100) * dur);
+          activeDeckCurrentTime = targetSec;
+          if (timeCur) timeCur.textContent = formatDeckTime(activeDeckCurrentTime);
+          showToast(`Jumped to ${formatDeckTime(targetSec)}`);
+          await safeFetchWithRetry("/api/playback/action", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ action: "seek", value: targetSec.toString(), is_absolute: true, device_id: state.currentTvId })
+          });
+        }
+      }, 50);
+    };
+
     scrubber.onmousedown = scrubber.ontouchstart = () => { isScrubbing = true; };
     scrubber.oninput = () => {
       isScrubbing = true;
-      if (activeDeckDuration > 0) {
-        const sec = (scrubber.value / 100) * activeDeckDuration;
+      const dur = (activeDeckDuration > 0) ? activeDeckDuration : (state.duration > 0 ? state.duration : 0);
+      if (dur > 0) {
+        const sec = (scrubber.value / 100) * dur;
         if (timeCur) timeCur.textContent = formatDeckTime(sec);
       }
     };
-    scrubber.onmouseup = scrubber.ontouchend = scrubber.onchange = async () => {
-      isScrubbing = false;
-      if (activeDeckDuration > 0) {
-        vibrate(20);
-        const targetSec = Math.floor((scrubber.value / 100) * activeDeckDuration);
-        activeDeckCurrentTime = targetSec;
-        if (timeCur) timeCur.textContent = formatDeckTime(activeDeckCurrentTime);
-        showToast(`Jumped to ${formatDeckTime(targetSec)}`);
-        await safeFetchWithRetry("/api/playback/action", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ action: "seek", value: targetSec.toString(), is_absolute: true, device_id: state.currentTvId })
-        });
-      }
+    scrubber.onchange = () => {
+      triggerSeek(parseFloat(scrubber.value));
+    };
+    scrubber.onmouseup = scrubber.ontouchend = () => {
+      triggerSeek(parseFloat(scrubber.value));
     };
   }
 
@@ -3056,6 +3086,8 @@ function initActiveCastDeck() {
     aSelect.onchange = async () => {
       vibrate(20);
       const chosen = aSelect.value;
+      state.currentAudio = chosen;
+      try { localStorage.setItem("tvhub_selected_audio", chosen); } catch (e) {}
       const targetUrl = activeDeckAudioUrls[chosen] || null;
       showToast(`Switching voice language to ${chosen}...`);
       await safeFetchWithRetry("/api/playback/action", {
