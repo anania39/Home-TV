@@ -389,7 +389,7 @@
             </div>
           </div>
 
-          <!-- Quality & Subtitles Row -->
+          <!-- Quality & Voice Language Row -->
           <div class="deck-inline-row">
             <div class="deck-control-block" style="flex: 1;">
               <label class="deck-label" for="deck-quality-select">📺 Quality</label>
@@ -402,16 +402,24 @@
               </select>
             </div>
 
-            <div class="deck-control-block" style="flex: 1;">
-              <label class="deck-label" for="deck-subs-select">💬 Subtitles (CC)</label>
-              <select id="deck-subs-select" class="deck-select">
-                <option value="off">Subtitles Off</option>
-                <option value="en">English</option>
-                <option value="ka">Georgian (ქართული)</option>
-                <option value="ru">Russian (Русский)</option>
-                <option value="es">Spanish (Español)</option>
+            <div class="deck-control-block" style="flex: 1;" id="deck-audio-block">
+              <label class="deck-label" for="deck-audio-select">🗣️ Voice Language</label>
+              <select id="deck-audio-select" class="deck-select">
+                <option value="default">Default (Original)</option>
               </select>
             </div>
+          </div>
+
+          <!-- Subtitles Row -->
+          <div class="deck-control-block">
+            <label class="deck-label" for="deck-subs-select">💬 Subtitles (CC)</label>
+            <select id="deck-subs-select" class="deck-select">
+              <option value="off">Subtitles Off</option>
+              <option value="en">English</option>
+              <option value="ka">Georgian (ქართული)</option>
+              <option value="ru">Russian (Русский)</option>
+              <option value="es">Spanish (Español)</option>
+            </select>
           </div>
 
           <!-- Volume Slider Row -->

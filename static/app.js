@@ -2684,6 +2684,8 @@ let activeDeckCurrentTime = 0;
 let activeDeckSubtitles = [];
 let activeDeckQualities = [];
 let activeDeckQualityUrls = {};
+let activeDeckAudioTracks = [];
+let activeDeckAudioUrls = {};
 let deckTicker = null;
 let isScrubbing = false;
 
@@ -2829,6 +2831,33 @@ function updateActiveCastDeck(info) {
       });
       if (curVal && activeDeckQualities.includes(curVal)) {
         qSelect.value = curVal;
+      }
+    }
+  }
+
+  // Populate Audio Tracks / Voice Languages (Movies & YouTube Multi-Audio)
+  if (Array.isArray(info.audio_tracks) && info.audio_tracks.length > 0) {
+    const aSelect = document.getElementById("deck-audio-select");
+    if (aSelect && (aSelect.options.length <= 1 || JSON.stringify(activeDeckAudioTracks) !== JSON.stringify(info.audio_tracks))) {
+      activeDeckAudioTracks = info.audio_tracks;
+      activeDeckAudioUrls = info.audio_urls || {};
+      const curVal = info.current_audio || aSelect.value;
+      aSelect.innerHTML = "";
+      activeDeckAudioTracks.forEach(a => {
+        const opt = document.createElement("option");
+        opt.value = a.name;
+        opt.textContent = a.name + (a.code ? ` (${a.code.toUpperCase()})` : "");
+        if (a.default) {
+          opt.textContent += " ★ Default";
+        }
+        opt.dataset.code = a.code || "";
+        aSelect.appendChild(opt);
+      });
+      if (curVal && activeDeckAudioTracks.some(a => a.name === curVal)) {
+        aSelect.value = curVal;
+      } else {
+        const defTrack = activeDeckAudioTracks.find(a => a.default);
+        if (defTrack) aSelect.value = defTrack.name;
       }
     }
   }
@@ -3017,6 +3046,22 @@ function initActiveCastDeck() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ action: "quality", value: q, url: targetUrl, device_id: state.currentTvId })
+      });
+    };
+  }
+
+  // 7.5 Voice Language (Audio Track) Selector
+  const aSelect = document.getElementById("deck-audio-select");
+  if (aSelect) {
+    aSelect.onchange = async () => {
+      vibrate(20);
+      const chosen = aSelect.value;
+      const targetUrl = activeDeckAudioUrls[chosen] || null;
+      showToast(`Switching voice language to ${chosen}...`);
+      await safeFetchWithRetry("/api/playback/action", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "audio", value: chosen, url: targetUrl, device_id: state.currentTvId })
       });
     };
   }

@@ -718,6 +718,18 @@ async def cast_media(req: CastRequest, request: Request, client_ip: str = Depend
         raw_stream_url = q_urls["Auto"]
         req.mime_type = "application/x-mpegurl"
 
+        # Populate audio track URLs if audio tracks exist (e.g. YouTube multi-audio or movie dubs)
+        audio_tracks = resolved.get("audio_tracks", [])
+        if not audio_tracks:
+            audio_tracks = await media_resolver.extract_hls_audio_tracks(manifest_url, custom_headers or {})
+            resolved["audio_tracks"] = audio_tracks
+        if audio_tracks:
+            a_urls = {}
+            for a in audio_tracks:
+                a_name = a["name"]
+                a_urls[a_name] = f"http://{SERVER_IP}:{PORT}/api/stream/proxy?url={quote(manifest_url, safe='')}&audio={quote(a_name)}&sid={active_sid}"
+            resolved["audio_urls"] = a_urls
+
     # Proxied URLs:
     relative_proxy_url = f"/api/stream/proxy?url={quote(raw_stream_url, safe='')}&sid={active_sid}"
     lan_proxy_url = f"http://{SERVER_IP}:{PORT}/api/stream/proxy?url={quote(raw_stream_url, safe='')}&sid={active_sid}"
@@ -774,6 +786,10 @@ async def cast_media(req: CastRequest, request: Request, client_ip: str = Depend
             state_payload["qualities"] = resolved["qualities"]
         if resolved.get("quality_urls"):
             state_payload["quality_urls"] = resolved["quality_urls"]
+        if resolved.get("audio_tracks"):
+            state_payload["audio_tracks"] = resolved["audio_tracks"]
+        if resolved.get("audio_urls"):
+            state_payload["audio_urls"] = resolved["audio_urls"]
     ws_manager.update_state(state_payload)
 
     # Clear old prefetched chunks so channel switch is 100% clean with zero overlap
@@ -1018,6 +1034,8 @@ async def cast_media(req: CastRequest, request: Request, client_ip: str = Depend
         res_payload["subtitles"] = resolved.get("subtitles", [])
         res_payload["qualities"] = resolved.get("qualities", ["Auto"])
         res_payload["quality_urls"] = resolved.get("quality_urls", {})
+        res_payload["audio_tracks"] = resolved.get("audio_tracks", [])
+        res_payload["audio_urls"] = resolved.get("audio_urls", {})
     return res_payload
 
 @app.post("/api/playback/action")
@@ -1082,6 +1100,35 @@ async def playback_action(req: PlaybackActionRequest):
                         await asyncio.to_thread(google_cast_controller.seek, dev["ip"], cur_pos)
                 except Exception as e:
                     logger.debug(f"Quality action error: {e}")
+        elif action == "audio":
+            chosen_audio = str(req.value) if req.value else "Default"
+            target_a_url = req.url
+            if not target_a_url and chosen_audio:
+                curr_a_urls = ws_manager.current_state.get("audio_urls", {})
+                target_a_url = curr_a_urls.get(chosen_audio)
+
+            if target_a_url:
+                try:
+                    cur_pos = 0.0
+                    try:
+                        st = await asyncio.to_thread(google_cast_controller.get_status, dev["ip"])
+                        cur_pos = st.get("current_time", 0.0)
+                    except Exception:
+                        pass
+                    mime = "application/x-mpegurl" if (".m3u8" in target_a_url or "manifest" in target_a_url or "proxy?url=" in target_a_url) else "video/mp4"
+                    ok = await asyncio.to_thread(
+                        google_cast_controller.cast_media,
+                        dev["ip"],
+                        target_a_url,
+                        ws_manager.current_state.get("title", "Video"),
+                        mime
+                    )
+                    if ok and cur_pos > 1.0:
+                        await asyncio.sleep(0.6)
+                        await asyncio.to_thread(google_cast_controller.seek, dev["ip"], cur_pos)
+                    ws_manager.update_state({"current_audio": chosen_audio})
+                except Exception as e:
+                    logger.debug(f"Audio action error: {e}")
 
     elif dev and dev.get("av_transport_url"):
         av_url = dev["av_transport_url"]
@@ -1108,6 +1155,16 @@ async def playback_action(req: PlaybackActionRequest):
                 try:
                     await dlna_controller.set_av_transport_uri(av_url, target_q_url, ws_manager.current_state.get("title", "Stream"))
                     await dlna_controller.play(av_url)
+                except Exception:
+                    pass
+        elif action == "audio":
+            chosen_audio = str(req.value) if req.value else "Default"
+            target_a_url = req.url or ws_manager.current_state.get("audio_urls", {}).get(chosen_audio)
+            if target_a_url:
+                try:
+                    await dlna_controller.set_av_transport_uri(av_url, target_a_url, ws_manager.current_state.get("title", "Stream"))
+                    await dlna_controller.play(av_url)
+                    ws_manager.update_state({"current_audio": chosen_audio})
                 except Exception:
                     pass
 

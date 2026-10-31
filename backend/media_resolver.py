@@ -124,7 +124,61 @@ class MediaResolver:
 
         sorted_heights = sorted(list(found_heights), reverse=True)
         qualities = ["Auto"] + [f"{h}p" for h in sorted_heights]
-        return subs_list, qualities, quality_urls
+
+        # Audio tracks (e.g. multi-language dubbed/original audio on YouTube)
+        audio_tracks = []
+        seen_langs = set()
+        for f in info.get("formats", []):
+            lang = f.get("language")
+            if lang and f.get("vcodec") == "none" and f.get("acodec") != "none":
+                note = f.get("format_note") or ""
+                clean_name = note.split(",")[0].strip() if "," in note else note
+                if not clean_name:
+                    clean_name = LANG_NAMES.get(lang.split("-")[0].lower(), lang.upper())
+                if lang not in seen_langs:
+                    seen_langs.add(lang)
+                    is_def = "default" in note.lower() or "original" in note.lower()
+                    audio_tracks.append({
+                        "code": lang,
+                        "name": clean_name,
+                        "default": is_def
+                    })
+
+        return subs_list, qualities, quality_urls, audio_tracks
+
+    async def extract_hls_audio_tracks(self, m3u8_url: str, headers: Optional[Dict[str, str]] = None) -> List[Dict[str, Any]]:
+        """Extract available audio tracks from HLS Master Manifest."""
+        try:
+            req_headers = {
+                "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36"
+            }
+            if headers:
+                req_headers.update(headers)
+            async with httpx.AsyncClient(verify=False, timeout=4.0) as client:
+                resp = await client.get(m3u8_url, headers=req_headers)
+                if resp.status_code == 200:
+                    text = resp.text
+                    tracks = []
+                    seen = set()
+                    for line in text.splitlines():
+                        if line.startswith("#EXT-X-MEDIA:") and "TYPE=AUDIO" in line:
+                            name_m = re.search(r'NAME="([^"]+)"', line)
+                            lang_m = re.search(r'LANGUAGE="([^"]+)"', line)
+                            def_m = re.search(r'DEFAULT=(YES|NO)', line)
+                            name = name_m.group(1) if name_m else "Audio"
+                            lang = lang_m.group(1) if lang_m else ""
+                            is_def = (def_m.group(1) == "YES") if def_m else False
+                            if name not in seen:
+                                seen.add(name)
+                                tracks.append({
+                                    "name": name,
+                                    "code": lang,
+                                    "default": is_def
+                                })
+                    return tracks
+        except Exception as e:
+            logger.debug(f"HLS audio track extraction notice for {m3u8_url}: {e}")
+        return []
 
     async def fetch_page(self, url: str, referer: Optional[str] = None) -> Tuple[int, str]:
         """
@@ -305,6 +359,12 @@ class MediaResolver:
                 res = ytdlp_res
 
         if res and res.get("resolved"):
+            # Extract HLS audio tracks if not already populated
+            if not res.get("audio_tracks") and res.get("stream_url") and ".m3u8" in res.get("stream_url"):
+                hls_audio = await self.extract_hls_audio_tracks(res["stream_url"], res.get("headers"))
+                if hls_audio:
+                    res["audio_tracks"] = hls_audio
+
             self._cache[cache_key] = (dict(res), now + 900)
             if len(self._cache) > 80:
                 oldest = min(self._cache.keys(), key=lambda k: self._cache[k][1])
@@ -361,9 +421,9 @@ class MediaResolver:
                 duration = info.get("duration") or 0
                 ext = info.get("ext") or "mp4"
                 mime = "application/x-mpegurl" if (manifest_url or ".m3u8" in stream_url) else ("video/mp4" if ext == "mp4" else "video/webm")
-                subs_list, qualities, quality_urls = self._extract_subtitles_and_qualities(info)
+                subs_list, qualities, quality_urls, audio_tracks = self._extract_subtitles_and_qualities(info)
                 dur_str = self._format_duration(duration)
-                logger.info(f"Successfully resolved YouTube stream: {title} (Zero Ads, {len(subs_list)} subs, {len(qualities)} qualities)")
+                logger.info(f"Successfully resolved YouTube stream: {title} (Zero Ads, {len(subs_list)} subs, {len(qualities)} qualities, {len(audio_tracks)} audio tracks)")
                 return {
                     "resolved": True,
                     "stream_url": stream_url,
@@ -377,7 +437,8 @@ class MediaResolver:
                     "mime_type": mime,
                     "subtitles": subs_list,
                     "qualities": qualities,
-                    "quality_urls": quality_urls
+                    "quality_urls": quality_urls,
+                    "audio_tracks": audio_tracks
                 }
         except Exception as e:
             logger.warning(f"YouTube extraction error for {url}: {e}")
@@ -408,7 +469,7 @@ class MediaResolver:
                 duration = info.get("duration") or 0
                 ext = info.get("ext") or "mp4"
                 mime = "application/vnd.apple.mpegurl" if ".m3u8" in stream_url else f"video/{ext}"
-                subs_list, qualities, quality_urls = self._extract_subtitles_and_qualities(info)
+                subs_list, qualities, quality_urls, audio_tracks = self._extract_subtitles_and_qualities(info)
                 dur_str = self._format_duration(duration)
                 return {
                     "resolved": True,
@@ -422,7 +483,8 @@ class MediaResolver:
                     "mime_type": mime,
                     "subtitles": subs_list,
                     "qualities": qualities,
-                    "quality_urls": quality_urls
+                    "quality_urls": quality_urls,
+                    "audio_tracks": audio_tracks
                 }
         except Exception:
             pass

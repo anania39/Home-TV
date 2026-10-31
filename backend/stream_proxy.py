@@ -461,6 +461,7 @@ async def proxy_stream(url: str, request: Request, server_host: str):
     # Forward custom headers from movie/stream session (e.g. embed referrers)
     req_sid = request.query_params.get("sid")
     request_q = request.query_params.get("q") or request.query_params.get("quality")
+    request_audio = request.query_params.get("audio") or request.query_params.get("lang")
     client_addr = request.client.host if request.client else "127.0.0.1"
     session_custom_headers = session_manager.get_session_headers(req_sid, client_addr)
     if session_custom_headers:
@@ -643,7 +644,8 @@ async def proxy_stream(url: str, request: Request, server_host: str):
         _client_manifest_poll[client_key] = time.time()
 
         # 1. RFC 8216 Manifest Cache (2.0s - 2.5s TTL): Serve immediately from RAM
-        cached_m3u8 = segment_engine.get_manifest(url, min_ttl=2.0)
+        cache_lookup_key = f"{url}?q={request_q}&audio={request_audio}" if (request_q or request_audio) else url
+        cached_m3u8 = segment_engine.get_manifest(cache_lookup_key, min_ttl=2.0)
         if cached_m3u8 is not None:
             return Response(
                 content=cached_m3u8,
@@ -746,9 +748,9 @@ async def proxy_stream(url: str, request: Request, server_host: str):
             is_youtube_or_demuxed = "googlevideo.com" in url or "hls_variant" in url or has_media_tags
             is_vod_or_movie = any("#EXT-X-PLAYLIST-TYPE:VOD" in l for l in lines) or "movie" in url.lower() or "vod" in url.lower()
 
-            # If the playlist has separate audio/subtitles (YouTube HLS / Movies) OR a specific quality was requested:
-            # We rewrite and serve as a Master Playlist so audio & video remain coupled and quality is preserved!
-            if has_variants and (is_youtube_or_demuxed or request_q or is_vod_or_movie):
+            # If the playlist has separate audio/subtitles (YouTube HLS / Movies) OR a specific quality/audio was requested:
+            # We rewrite and serve as a Master Playlist so audio & video remain coupled and quality/voice is preserved!
+            if has_variants and (is_youtube_or_demuxed or request_q or is_vod_or_movie or request_audio):
                 use_absolute = FORCE_ABSOLUTE_LAN_URL or (
                     server_host and not server_host.endswith(".trycloudflare.com") and not server_host.endswith(".ngrok-free.app")
                 )
@@ -769,6 +771,20 @@ async def proxy_stream(url: str, request: Request, server_host: str):
                         idx += 1
                         continue
                     if line_s.startswith("#EXT-X-MEDIA:"):
+                        if 'TYPE=AUDIO' in line_s and request_audio:
+                            name_m = re.search(r'NAME="([^"]+)"', line_s)
+                            lang_m = re.search(r'LANGUAGE="([^"]+)"', line_s)
+                            t_name = name_m.group(1) if name_m else ""
+                            t_lang = lang_m.group(1) if lang_m else ""
+                            req_low = request_audio.strip().lower()
+                            is_target = (req_low == t_name.lower()) or (req_low == t_lang.lower()) or (req_low in t_name.lower())
+                            if is_target:
+                                line_s = re.sub(r'DEFAULT=[A-Z]+', 'DEFAULT=YES', line_s)
+                                line_s = re.sub(r'AUTOSELECT=[A-Z]+', 'AUTOSELECT=YES', line_s)
+                            else:
+                                line_s = re.sub(r'DEFAULT=[A-Z]+', 'DEFAULT=NO', line_s)
+                                line_s = re.sub(r'AUTOSELECT=[A-Z]+', 'AUTOSELECT=NO', line_s)
+
                         line_s = re.sub(r'URI="([^"]+)"', replace_media_uri, line_s)
                         headers_lines.append(line_s)
                         idx += 1
@@ -819,7 +835,8 @@ async def proxy_stream(url: str, request: Request, server_host: str):
                     rewritten_master_lines.append(proxied_v)
 
                 rewritten_master_bytes = "\n".join(rewritten_master_lines).encode("utf-8")
-                segment_engine.put_manifest(url, rewritten_master_bytes)
+                cache_key = f"{url}?q={request_q}&audio={request_audio}" if (request_q or request_audio) else url
+                segment_engine.put_manifest(cache_key, rewritten_master_bytes)
                 return Response(
                     content=rewritten_master_bytes,
                     status_code=200,

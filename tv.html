@@ -904,6 +904,19 @@
                   }
                 }
               }
+            } else if (action === "audio") {
+              const lang = msg.value;
+              if (msg.url) {
+                const curTime = video.currentTime;
+                loadStream(msg.url, currentTitle, curTime);
+                showOSD(currentTitle, `Voice: ${lang}`);
+              } else if (hls && hls.audioTracks && hls.audioTracks.length > 0) {
+                const tIdx = hls.audioTracks.findIndex(t => (t.name && t.name.toLowerCase() === (lang || "").toLowerCase()) || (t.lang && t.lang.toLowerCase() === (lang || "").toLowerCase()));
+                if (tIdx !== -1) {
+                  hls.audioTrack = tIdx;
+                  showOSD(currentTitle, `Voice: ${lang}`);
+                }
+              }
             }
           } else if (msg.type === "abr_hint") {
             // Quality cap from smartphone controller (e.g. Low Data Mode)
