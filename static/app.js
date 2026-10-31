@@ -265,8 +265,8 @@ window.handleImgError = function(imgElement, name, genre, lang) {
 document.addEventListener("DOMContentLoaded", async () => {
   initTabs();
   initHubModal();
+  populateDevicesList(DEFAULT_HOUSEHOLD_DEVICES, "tv_192_168_50_249");
   await autoDetectHub();
-  populateDevicesList([{ id: "web_receiver", name: "TV Web Receiver (Browser at /tv)", type: "browser" }], "web_receiver");
   checkAuth();
   fetchDevices();
   fetchHardwareStatus();
@@ -468,29 +468,34 @@ function populateDevicesList(devices, selectedId) {
 // --- Device Discovery & Hardware Status ---
 async function fetchDevices() {
   try {
-    const res = await fetch(getApiUrl("/api/devices"));
+    const res = await safeFetchWithRetry("/api/devices");
     if (res.ok) {
       const data = await res.json();
-      populateDevicesList(data.devices, data.selected_device_id || "web_receiver");
-      return;
+      if (data.devices && data.devices.length > 0) {
+        populateDevicesList(data.devices, data.selected_device_id || state.currentTvId || "tv_192_168_50_249");
+        return;
+      }
     }
   } catch (e) {
     console.warn("Device fetch notice:", e);
   }
 
-  // Background TV scan if only web receiver is available
-  triggerBackgroundTvScan();
+  // Resilient fallback: ensure household TVs are always ready
+  const dropdown = document.getElementById("tv-dropdown");
+  if (!dropdown || dropdown.options.length <= 1) {
+    populateDevicesList(DEFAULT_HOUSEHOLD_DEVICES, state.currentTvId || "tv_192_168_50_249");
+  }
 }
 
 async function triggerBackgroundTvScan() {
   if (_isBackgroundScanning) return;
   _isBackgroundScanning = true;
   try {
-    const res = await fetch(getApiUrl("/api/devices/scan"), { method: "POST" });
+    const res = await safeFetchWithRetry("/api/devices/scan", { method: "POST" });
     if (res.ok) {
       const data = await res.json();
       if (data.devices && data.devices.length > 0) {
-        const devRes = await fetch(getApiUrl("/api/devices"));
+        const devRes = await safeFetchWithRetry("/api/devices");
         if (devRes.ok) {
           const devData = await devRes.json();
           populateDevicesList(devData.devices, devData.selected_device_id);
@@ -505,7 +510,7 @@ async function triggerBackgroundTvScan() {
 
 async function fetchHardwareStatus() {
   try {
-    const res = await fetch(getApiUrl("/api/state/current"));
+    const res = await safeFetchWithRetry("/api/state/current");
     if (res.ok) {
       const data = await res.json();
       updateHardwareStatus(data);
