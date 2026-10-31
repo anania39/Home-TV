@@ -675,6 +675,18 @@ function updateHardwareStatus(data) {
   if (data.volume !== undefined) {
     state.volume = data.volume;
   }
+  if (typeof data.current_time === "number" && data.current_time >= 0 && !isScrubbing) {
+    activeDeckCurrentTime = data.current_time;
+    const timeCur = document.getElementById("deck-time-current");
+    if (timeCur) timeCur.textContent = formatDeckTime(activeDeckCurrentTime);
+    if (typeof data.duration === "number" && data.duration > 0) {
+      activeDeckDuration = data.duration;
+      const timeTotal = document.getElementById("deck-time-total");
+      if (timeTotal) timeTotal.textContent = formatDeckTime(activeDeckDuration);
+      const scrubber = document.getElementById("deck-scrubber");
+      if (scrubber) scrubber.value = (activeDeckCurrentTime / activeDeckDuration) * 100;
+    }
+  }
 }
 
 function updatePlayPauseButton(isPlaying) {
@@ -2739,13 +2751,15 @@ function updateActiveCastDeck(info) {
     const subsSelect = document.getElementById("deck-subs-select");
     if (subsSelect) {
       subsSelect.innerHTML = '<option value="off">Subtitles Off</option>';
-      activeDeckSubtitles.slice(0, 20).forEach(s => {
+      activeDeckSubtitles.slice(0, 20).forEach((s, idx) => {
         const opt = document.createElement("option");
         opt.value = s.code;
         opt.textContent = s.name || s.code.toUpperCase();
         opt.dataset.url = s.url;
+        opt.dataset.trackId = (idx + 1).toString();
         subsSelect.appendChild(opt);
       });
+      subsSelect.value = "off";
     }
   }
 
@@ -2845,7 +2859,7 @@ function initActiveCastDeck() {
         action: "seek",
         value: target.toString(),
         delta: deltaSec.toString(),
-        is_absolute: true,
+        is_absolute: false,
         device_id: state.currentTvId
       })
     });
@@ -2928,11 +2942,12 @@ function initActiveCastDeck() {
         const found = activeDeckSubtitles.find(s => s.code === code);
         const vttUrl = found ? found.url : "";
         const langName = subsSelect.options[subsSelect.selectedIndex]?.text || code;
+        const trackId = parseInt(subsSelect.options[subsSelect.selectedIndex]?.dataset.trackId || "1");
         showToast(`Subtitles: ${langName}`);
         await safeFetchWithRetry("/api/playback/action", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ action: "subtitles", value: vttUrl, lang: langName, device_id: state.currentTvId })
+          body: JSON.stringify({ action: "subtitles", value: vttUrl, lang: langName, track_id: trackId, device_id: state.currentTvId })
         });
       }
     };

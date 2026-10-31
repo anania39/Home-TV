@@ -10,6 +10,7 @@ import html
 import json
 import logging
 import re
+import time
 import urllib.parse
 from typing import Dict, Any, Optional, List, Tuple
 import httpx
@@ -52,6 +53,7 @@ LANG_NAMES = {
 
 class MediaResolver:
     def __init__(self):
+        self._cache: Dict[str, Tuple[Dict[str, Any], float]] = {}
         self.http_client = httpx.AsyncClient(
             timeout=10.0,
             follow_redirects=True,
@@ -248,10 +250,24 @@ class MediaResolver:
         if preferred_title and preferred_title.strip() in ("Live Stream", "Video Stream", ""):
             preferred_title = None
 
+        cache_key = url
+        now = time.time()
+        if cache_key in self._cache:
+            entry, exp = self._cache[cache_key]
+            if now < exp:
+                logger.info(f"Instant cache hit for {url[:60]}")
+                out = dict(entry)
+                if preferred_title:
+                    out["title"] = preferred_title
+                return out
+            else:
+                del self._cache[cache_key]
+
+        res = None
         # 1. Direct Stream Link
         if self.is_direct_stream(url):
             mime = "application/vnd.apple.mpegurl" if ".m3u8" in url.lower() else "video/mp4"
-            return {
+            res = {
                 "resolved": True,
                 "stream_url": url,
                 "title": preferred_title or "Direct Video Stream",
@@ -263,21 +279,29 @@ class MediaResolver:
             }
 
         # 2. YouTube (Video, Shorts, Mobile) - Zero Ads Guaranteed
-        if self.is_youtube(url):
+        elif self.is_youtube(url):
             yt_res = await self.resolve_youtube(url, preferred_title)
             if yt_res.get("resolved"):
-                return yt_res
+                res = yt_res
 
         # 3. Webpage / HTML5 / Iframe Scraper for movie sites & embedded web players (with Cloudflare bypass)
-        scraped_res = await self.scrape_web_player(url, preferred_title)
-        if scraped_res.get("resolved"):
-            return scraped_res
+        if not res:
+            scraped_res = await self.scrape_web_player(url, preferred_title)
+            if scraped_res.get("resolved"):
+                res = scraped_res
 
         # 4. Universal yt-dlp extractor (Vimeo, Dailymotion, Twitch, Movie Hosts)
-        if yt_dlp:
+        if not res and yt_dlp:
             ytdlp_res = await self.resolve_with_ytdlp(url, preferred_title)
             if ytdlp_res.get("resolved"):
-                return ytdlp_res
+                res = ytdlp_res
+
+        if res and res.get("resolved"):
+            self._cache[cache_key] = (dict(res), now + 900)
+            if len(self._cache) > 80:
+                oldest = min(self._cache.keys(), key=lambda k: self._cache[k][1])
+                del self._cache[oldest]
+            return res
 
         # Fallback: strictly mark resolved as False
         return {
@@ -304,6 +328,7 @@ class MediaResolver:
                 'quiet': True,
                 'no_warnings': True,
                 'noplaylist': True,
+                'socket_timeout': 7,
                 'format': 'best[protocol^=http]/best[ext=mp4]/best',
                 'extractor_args': {'youtube': {'player_client': ['android', 'web']}}
             }

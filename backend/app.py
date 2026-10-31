@@ -54,14 +54,19 @@ async def monitor_tv_status_loop():
             if dev and dev.get("is_google_tv"):
                 try:
                     cast_status = await asyncio.to_thread(google_cast_controller.get_status, dev["ip"])
-                    ws_manager.update_state({
+                    st_update = {
                         "selected_device_id": selected_id,
                         "tv_online": cast_status.get("tv_online", False),
                         "state": cast_status.get("state", "IDLE"),
                         "status_text": cast_status.get("status_text", f"{dev['name']} Ready"),
                         "volume": cast_status.get("volume", 20),
                         "muted": cast_status.get("muted", False)
-                    })
+                    }
+                    if cast_status.get("current_time") is not None:
+                        st_update["current_time"] = cast_status["current_time"]
+                    if cast_status.get("duration") and cast_status["duration"] > 0:
+                        st_update["duration"] = cast_status["duration"]
+                    ws_manager.update_state(st_update)
                     await ws_manager.broadcast_to_controllers("tv_status_sync", ws_manager.current_state)
                 except Exception as e:
                     logger.debug(f"Google Cast status monitor error: {e}")
@@ -257,12 +262,15 @@ class CastRequest(BaseModel):
     device_id: Optional[str] = None
     channel_id: Optional[str] = None
     logo: Optional[str] = None
+    subtitles: Optional[str] = None
     sources: Optional[List[Dict[str, Any]]] = None
     source_index: Optional[int] = 0
 
 class PlaybackActionRequest(BaseModel):
     action: str  # play, pause, stop, seek, speed, rate, subtitles, quality
     value: Optional[str] = None
+    delta: Optional[str] = None
+    track_id: Optional[int] = None
     lang: Optional[str] = None
     url: Optional[str] = None
     is_absolute: Optional[bool] = False
@@ -468,6 +476,10 @@ async def select_device(req: DeviceSelectRequest):
                     "volume": cast_status.get("volume", 20),
                     "muted": cast_status.get("muted", False)
                 })
+                if cast_status.get("current_time") is not None:
+                    updates["current_time"] = cast_status["current_time"]
+                if cast_status.get("duration") and cast_status["duration"] > 0:
+                    updates["duration"] = cast_status["duration"]
             except Exception:
                 pass
         elif dev and dev.get("av_transport_url"):
@@ -793,12 +805,43 @@ async def cast_media(req: CastRequest, request: Request, client_ip: str = Depend
         if mode == "google_tv":
             if is_stale():
                 return {"status": "superseded", "version": my_version, "mode": mode}
-            first_sub = (resolved.get("subtitles") or [{}])[0].get("url") if ('resolved' in locals() and isinstance(resolved, dict)) else None
+            # Subtitles must be OFF by default; only passed if explicitly requested by user
+            chosen_sub = req.subtitles if getattr(req, "subtitles", None) else None
             is_live = False
             if req.channel_id or ("iptv" in raw_stream_url.lower()) or (isinstance(resolved, dict) and resolved.get("source_type") == "iptv"):
                 is_live = True
             cast_stream_type = "LIVE" if is_live else "BUFFERED"
-            ok = await asyncio.to_thread(google_cast_controller.cast_media, dev["ip"], tv_stream_url, title, req.mime_type or "video/mp4", first_sub, stream_type=cast_stream_type)
+
+            # Format subtitle tracks into media_info so the receiver knows they exist without activating them
+            media_info = None
+            if isinstance(resolved, dict) and resolved.get("subtitles"):
+                formatted_tracks = []
+                for idx, s in enumerate(resolved.get("subtitles", []), start=1):
+                    sub_url = s.get("url")
+                    lang = s.get("code") or s.get("lang") or "en"
+                    if sub_url:
+                        formatted_tracks.append({
+                            "trackId": idx,
+                            "trackContentId": sub_url,
+                            "language": lang,
+                            "subtype": "SUBTITLES",
+                            "type": "TEXT",
+                            "trackContentType": "text/vtt",
+                            "name": s.get("name") or f"Subtitles ({lang})"
+                        })
+                if formatted_tracks:
+                    media_info = {"tracks": formatted_tracks}
+
+            ok = await asyncio.to_thread(
+                google_cast_controller.cast_media,
+                dev["ip"],
+                tv_stream_url,
+                title,
+                req.mime_type or "video/mp4",
+                subtitles=chosen_sub,
+                stream_type=cast_stream_type,
+                media_info=media_info
+            )
             tv_is_active = ok
             if not ok:
                 logger.warning(f"Google Cast to {dev['name']} at {dev['ip']} returned false")
@@ -959,12 +1002,19 @@ async def playback_action(req: PlaybackActionRequest):
         elif action == "stop":
             await asyncio.to_thread(google_cast_controller.stop, dev["ip"])
             ws_manager.update_state({"state": "STOPPED"})
-        elif action == "seek" and req.value:
+        elif action == "seek":
             try:
-                sec = float(req.value)
-                await asyncio.to_thread(google_cast_controller.seek, dev["ip"], sec, req.is_absolute or False)
-            except Exception:
-                pass
+                delta_val = float(req.delta) if (req.delta is not None and req.delta != "") else None
+                sec_val = float(req.value) if (req.value is not None and req.value != "") else 0.0
+                await asyncio.to_thread(
+                    google_cast_controller.seek,
+                    dev["ip"],
+                    seconds=sec_val,
+                    is_absolute=req.is_absolute or False,
+                    delta=delta_val
+                )
+            except Exception as e:
+                logger.debug(f"Seek dispatch error: {e}")
         elif action in ("speed", "rate") and req.value:
             try:
                 rate = float(req.value)
@@ -977,9 +1027,10 @@ async def playback_action(req: PlaybackActionRequest):
                 if req.value == "off":
                     await asyncio.to_thread(google_cast_controller.disable_subtitles, dev["ip"])
                 else:
-                    await asyncio.to_thread(google_cast_controller.enable_subtitles, dev["ip"])
-            except Exception:
-                pass
+                    tid = req.track_id or 1
+                    await asyncio.to_thread(google_cast_controller.enable_subtitles, dev["ip"], track_id=tid)
+            except Exception as e:
+                logger.debug(f"Subtitle action error: {e}")
         elif action == "quality":
             target_q_url = req.url or (req.value if req.value and req.value.startswith("http") else None)
             if target_q_url:
