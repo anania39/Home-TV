@@ -859,38 +859,53 @@ async def cast_media(req: CastRequest, request: Request, client_ip: str = Depend
             cast_stream_type = "LIVE" if is_live else "BUFFERED"
 
             # Format subtitle tracks into media_info (proxied for CORS, synchronized track IDs)
-            media_info = None
-            if isinstance(resolved, dict) and resolved.get("subtitles"):
-                formatted_tracks = []
-                priority_langs = ["ka", "en", "ru", "es", "de", "fr"]
-                raw_subs = resolved.get("subtitles", [])
-                picked = [s for s in raw_subs if s.get("code") in priority_langs]
-                for s in raw_subs:
-                    if len(picked) >= 8:
-                        break
-                    if s not in picked:
-                        picked.append(s)
+            media_info = {}
+            if isinstance(resolved, dict):
+                src_type = resolved.get("source_type", "")
+                if src_type:
+                    media_info["source_type"] = src_type
+                if src_type == "youtube":
+                    media_info["hlsSegmentFormat"] = "aac"
+                    media_info["hlsVideoSegmentFormat"] = "mpeg2_ts"
 
-                # Assign synchronous track_id across frontend and Chromecast
-                for idx, s in enumerate(picked[:8], start=1):
-                    s["track_id"] = idx
-                    sub_url = s.get("url")
-                    lang = s.get("code") or s.get("lang") or "en"
-                    if sub_url:
-                        proxied_sub = f"http://{SERVER_IP}:{PORT}/api/media/subtitle?url={quote(sub_url, safe='')}"
-                        formatted_tracks.append({
-                            "trackId": idx,
-                            "trackContentId": proxied_sub,
-                            "language": lang,
-                            "subtype": "SUBTITLES",
-                            "type": "TEXT",
-                            "trackContentType": "text/vtt",
-                            "name": s.get("name") or f"Subtitles ({lang.upper()})"
-                        })
-                if formatted_tracks:
-                    media_info = {"tracks": formatted_tracks}
+                raw_subs = resolved.get("subtitles", [])
+                if raw_subs:
+                    priority_langs = ["ka", "en", "ru", "es", "de", "fr"]
+                    picked = [s for s in raw_subs if s.get("code") in priority_langs]
+                    for s in raw_subs:
+                        if len(picked) >= 8:
+                            break
+                        if s not in picked:
+                            picked.append(s)
+
+                    for idx, s in enumerate(picked[:8], start=1):
+                        s["track_id"] = idx
                     resolved["subtitles"] = picked[:8]
-                    ws_manager.update_state({"media_info": media_info})
+
+                    # Only attach tracks to Chromecast payload if user has explicitly requested subtitles
+                    if chosen_sub:
+                        formatted_tracks = []
+                        for s in picked[:8]:
+                            sub_url = s.get("url")
+                            lang = s.get("code") or s.get("lang") or "en"
+                            if sub_url:
+                                proxied_sub = f"http://{SERVER_IP}:{PORT}/api/media/subtitle?url={quote(sub_url, safe='')}"
+                                formatted_tracks.append({
+                                    "trackId": s["track_id"],
+                                    "trackContentId": proxied_sub,
+                                    "language": lang,
+                                    "subtype": "SUBTITLES",
+                                    "type": "TEXT",
+                                    "trackContentType": "text/vtt",
+                                    "name": s.get("name") or f"Subtitles ({lang.upper()})"
+                                })
+                        if formatted_tracks:
+                            media_info["tracks"] = formatted_tracks
+
+            if not media_info:
+                media_info = None
+            else:
+                ws_manager.update_state({"media_info": media_info})
 
             ok = await asyncio.to_thread(
                 google_cast_controller.cast_media,

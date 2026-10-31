@@ -97,12 +97,22 @@ class GoogleCastController:
 
             clean_title = title if title and not (title.startswith("http") or "proxy?url=" in title or "%2F" in title or "googlevideo.com" in title) else "Video Stream"
 
+            media_info = dict(media_info or {})
+            is_youtube = ("googlevideo.com" in url.lower() or "youtube" in url.lower() or "youtu.be" in url.lower()
+                          or media_info.get("source_type") == "youtube")
+            if is_m3u8:
+                if is_youtube:
+                    media_info.setdefault("hlsSegmentFormat", "aac")
+                    media_info.setdefault("hlsVideoSegmentFormat", "mpeg2_ts")
+                else:
+                    media_info.setdefault("hlsSegmentFormat", "ts")
+                    media_info.setdefault("hlsVideoSegmentFormat", "mpeg2_ts")
+
             # Enforce max 8 tracks to prevent exceeding Google Cast 64KB TLS packet buffer
-            if media_info and "tracks" in media_info and len(media_info["tracks"]) > 8:
-                media_info = dict(media_info)
+            if "tracks" in media_info and len(media_info["tracks"]) > 8:
                 media_info["tracks"] = media_info["tracks"][:8]
 
-            logger.info(f"Casting to {cast.name} ({ip}): {clean_title} [{content_type}] (stream_type={final_stream_type}, subtitles={bool(subtitles)})")
+            logger.info(f"Casting to {cast.name} ({ip}): {clean_title} [{content_type}] (stream_type={final_stream_type}, subtitles={bool(subtitles)}, hlsSegmentFormat={media_info.get('hlsSegmentFormat')})")
             mc.play_media(
                 url=url,
                 content_type=content_type,
