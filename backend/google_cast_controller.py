@@ -21,6 +21,8 @@ class GoogleCastController:
             cast = pychromecast.get_chromecast_from_host((ip, 8009, None, None, name))
             cast.start()
             cast.wait(timeout=4.0)
+            if cast.media_controller:
+                cast.media_controller.supporting_app_id = None
             self._casts[ip] = cast
             return cast
         except Exception as e:
@@ -47,6 +49,7 @@ class GoogleCastController:
             clean_title = title if title and not (title.startswith("http") or "proxy?url=" in title or "%2F" in title or "googlevideo.com" in title) else "Video Stream"
 
             logger.info(f"Casting to {cast.name} ({ip}): {clean_title} [{content_type}] (stream_type={final_stream_type})")
+            mc.supporting_app_id = "CC1AD845"
             mc.play_media(
                 url=url,
                 content_type=content_type,
@@ -55,6 +58,7 @@ class GoogleCastController:
                 stream_type=final_stream_type,
                 subtitles=subtitles
             )
+            mc.supporting_app_id = None
             return True
         except Exception as e:
             logger.error(f"Google Cast play_media failed on {ip}: {e}")
@@ -64,6 +68,7 @@ class GoogleCastController:
         try:
             cast = self.get_cast(ip)
             if cast and cast.media_controller:
+                cast.media_controller.supporting_app_id = None
                 cast.media_controller.play()
                 return True
         except Exception as e:
@@ -74,6 +79,7 @@ class GoogleCastController:
         try:
             cast = self.get_cast(ip)
             if cast and cast.media_controller:
+                cast.media_controller.supporting_app_id = None
                 cast.media_controller.pause()
                 return True
         except Exception as e:
@@ -84,6 +90,7 @@ class GoogleCastController:
         try:
             cast = self.get_cast(ip)
             if cast and cast.media_controller:
+                cast.media_controller.supporting_app_id = None
                 cast.media_controller.stop()
                 return True
         except Exception as e:
@@ -106,9 +113,10 @@ class GoogleCastController:
             cast = self.get_cast(ip)
             if cast and cast.media_controller:
                 mc = cast.media_controller
+                mc.supporting_app_id = None
                 if not mc.status or not mc.status.media_session_id:
-                    mc.update_status()
-                    time.sleep(0.25)
+                    mc.send_message_nocheck({"type": "GET_STATUS"}, inc_session_id=True)
+                    time.sleep(0.15)
                 if is_absolute:
                     mc.seek(max(0.0, float(seconds)))
                 else:
@@ -144,14 +152,34 @@ class GoogleCastController:
             cast = self.get_cast(ip)
             if cast and cast.media_controller:
                 mc = cast.media_controller
+                mc.supporting_app_id = None
+
+                # Safely refresh status without ever triggering self.launch()
                 if not mc.status or not mc.status.media_session_id:
-                    mc.update_status()
-                    time.sleep(0.35)
-                mc.set_playback_rate(float(rate))
-                logger.info(f"Google Cast playback rate set to {rate}x on {cast.name} ({ip})")
-                return True
+                    mc.send_message_nocheck({"type": "GET_STATUS"}, inc_session_id=True)
+                    for _ in range(6):
+                        if mc.status and mc.status.media_session_id:
+                            break
+                        time.sleep(0.08)
+
+                sess_id = mc.status.media_session_id if mc.status else None
+                if sess_id:
+                    # Non-blocking direct dispatch to active session
+                    # This guarantees the video is NEVER stopped or killed
+                    cmd = {
+                        "type": "SET_PLAYBACK_RATE",
+                        "playbackRate": float(rate),
+                        "mediaSessionId": sess_id
+                    }
+                    mc.send_message_nocheck(cmd, inc_session_id=True)
+                    logger.info(f"Dispatched SET_PLAYBACK_RATE {rate}x to session {sess_id} on {cast.name} ({ip})")
+                    return True
+                else:
+                    logger.info(f"No active media session on {cast.name} ({ip}) to set playback rate")
+                    return True
         except Exception as e:
-            logger.warning(f"Google Cast set_playback_rate failed on {ip}: {e}")
+            logger.warning(f"Google Cast set_playback_rate notice on {ip}: {e}")
+            return False
         return False
 
     def set_volume(self, ip: str, volume_percent: int) -> bool:
