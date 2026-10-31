@@ -702,8 +702,10 @@ async def cast_media(req: CastRequest, request: Request, client_ip: str = Depend
     custom_headers = resolved.get("headers") if ('resolved' in locals() and isinstance(resolved, dict)) else None
     active_sid = session_manager.start_session(target_tv_ip, raw_stream_url, headers=custom_headers)
 
-    # For YouTube and HLS adaptive streams with manifest_url, populate all quality variants
+    # For YouTube, Movies, and HLS adaptive streams with manifest_url or .m3u8, populate all quality variants
     manifest_url = resolved.get("manifest_url") if ('resolved' in locals() and isinstance(resolved, dict)) else None
+    if not manifest_url and ('resolved' in locals() and isinstance(resolved, dict)) and resolved.get("stream_url") and ".m3u8" in resolved.get("stream_url"):
+        manifest_url = resolved.get("stream_url")
     if manifest_url:
         qualities = resolved.get("qualities", ["Auto"])
         q_urls = {}
@@ -1534,7 +1536,9 @@ async def cast_local_file(filename: str, request: Request, client_ip: str = Depe
 # --- Stream Proxy (Same-origin relative & alias support) ---
 
 @app.get("/proxy")
+@app.head("/proxy")
 @app.get("/api/stream/proxy")
+@app.head("/api/stream/proxy")
 async def proxy_endpoint(url: str, request: Request):
     host_header = request.headers.get("host") or f"{SERVER_IP}:{PORT}"
     return await proxy_stream(url, request, host_header)

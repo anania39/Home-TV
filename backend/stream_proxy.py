@@ -321,6 +321,10 @@ class SegmentCache:
                 if resp.status_code == 200:
                     data = resp.content
                     ctype = resp.headers.get("content-type", "video/mp2t")
+                    if not ctype or any(fake in ctype.lower() for fake in ["text/", "image/", "font/", "javascript", "html"]):
+                        ctype = "video/mp2t"
+                    elif len(data) > 0 and data[0] == 0x47:
+                        ctype = "video/mp2t"
                     self.put_cache(url, data, ctype)
                     return data, ctype
                 elif resp.status_code in [403, 404]:
@@ -462,9 +466,24 @@ async def proxy_stream(url: str, request: Request, server_host: str):
     if session_custom_headers:
         headers.update(session_custom_headers)
 
-    # Check if request is for a TS segment or an M3U8 manifest
+    # Check if request is for a TS segment, disguised media segment, or an M3U8 manifest
     url_clean = url.split("?")[0].lower()
-    is_segment = url_clean.endswith(".ts") or url_clean.endswith(".aac") or url_clean.endswith(".m4s")
+    is_segment_flag = request.query_params.get("is_seg") == "1"
+    is_segment = is_segment_flag or url_clean.endswith((".ts", ".aac", ".m4s", ".mp4"))
+
+    # Instant response for player HEAD probes (e.g. Chromecast / DLNA pre-flight checks)
+    if request.method == "HEAD":
+        probe_ct = "video/mp2t" if is_segment else "application/vnd.apple.mpegurl"
+        return Response(
+            status_code=200,
+            headers={
+                "Content-Type": probe_ct,
+                "Accept-Ranges": "bytes",
+                "Access-Control-Allow-Origin": "*",
+                "Access-Control-Allow-Headers": "*",
+                "Connection": "keep-alive"
+            }
+        )
 
     request_sid = request.query_params.get("sid")
     client_ip = request.client.host if request.client else "127.0.0.1"
@@ -492,6 +511,10 @@ async def proxy_stream(url: str, request: Request, server_host: str):
         cached = segment_engine.get_cached(url)
         if cached:
             data, content_type = cached
+            if not content_type or any(fake in content_type.lower() for fake in ["text/", "image/", "font/", "javascript", "html"]):
+                content_type = "video/mp2t"
+            elif len(data) > 0 and data[0] == 0x47:
+                content_type = "video/mp2t"
             range_header = request.headers.get("range")
             if range_header and range_header.startswith("bytes="):
                 total_len = len(data)
@@ -540,12 +563,21 @@ async def proxy_stream(url: str, request: Request, server_host: str):
             upstream_req = client.build_request("GET", url, headers=headers)
             upstream_resp = await client.send(upstream_req, stream=True)
 
-            content_type = upstream_resp.headers.get("content-type", "video/mp2t")
+            raw_content_type = upstream_resp.headers.get("content-type", "video/mp2t")
+            content_type = raw_content_type
+            if not content_type or any(fake in content_type.lower() for fake in ["text/", "image/", "font/", "javascript", "html"]):
+                content_type = "video/mp2t"
             buffer = bytearray()
 
             async def segment_stream_and_cache():
+                nonlocal content_type
+                first_chunk = True
                 try:
                     async for chunk in upstream_resp.aiter_bytes(chunk_size=131072):
+                        if first_chunk:
+                            first_chunk = False
+                            if len(chunk) > 0 and chunk[0] == 0x47:
+                                content_type = "video/mp2t"
                         buffer.extend(chunk)
                         yield chunk
                     # Once fully streamed, store in RAM cache for subsequent seek/reuse
@@ -576,7 +608,22 @@ async def proxy_stream(url: str, request: Request, server_host: str):
             # Fallback to retry engine
             data, content_type = await segment_engine.get_or_fetch(url, headers)
             if data is not None:
-                return Response(content=data, status_code=200, headers={"Content-Type": content_type or "video/mp2t"})
+                if not content_type or any(fake in (content_type or "").lower() for fake in ["text/", "image/", "font/", "javascript", "html"]):
+                    content_type = "video/mp2t"
+                elif len(data) > 0 and data[0] == 0x47:
+                    content_type = "video/mp2t"
+                return Response(
+                    content=data,
+                    status_code=200,
+                    headers={
+                        "Content-Type": content_type or "video/mp2t",
+                        "Content-Length": str(len(data)),
+                        "Access-Control-Allow-Origin": "*",
+                        "Access-Control-Allow-Headers": "*",
+                        "Accept-Ranges": "bytes",
+                        "Cache-Control": "private, no-cache, no-store, must-revalidate",
+                    }
+                )
             return Response(content=f"Segment error: {e}", status_code=502)
 
     # --- CASE 2: HLS Playlist Manifest (.m3u8) or Direct Stream ---
@@ -638,9 +685,18 @@ async def proxy_stream(url: str, request: Request, server_host: str):
 
         content_type = upstream_resp.headers.get("content-type", "")
         is_m3u8 = "mpegurl" in content_type.lower() or url_clean.endswith(".m3u8")
+        body = None
+
+        # Detect disguised M3U8 manifests (e.g. sub-playlists ending in .woff/.png/.css/.html with #EXTM3U)
+        if not is_m3u8 and not any(url_clean.endswith(ext) for ext in [".mp4", ".mkv", ".webm", ".avi"]):
+            peek_body = await upstream_resp.aread()
+            if peek_body.startswith(b"#EXTM3U") or b"#EXT-X-" in peek_body[:1024]:
+                is_m3u8 = True
+                body = peek_body
 
         if is_m3u8:
-            body = await upstream_resp.aread()
+            if body is None:
+                body = await upstream_resp.aread()
             await upstream_resp.aclose()
 
             # 429 / 5xx Rate Limit Shield & Circuit Breaker:
@@ -688,10 +744,11 @@ async def proxy_stream(url: str, request: Request, server_host: str):
             has_variants = any(l.startswith("#EXT-X-STREAM-INF") for l in lines)
             has_media_tags = any(l.startswith("#EXT-X-MEDIA:") for l in lines)
             is_youtube_or_demuxed = "googlevideo.com" in url or "hls_variant" in url or has_media_tags
+            is_vod_or_movie = any("#EXT-X-PLAYLIST-TYPE:VOD" in l for l in lines) or "movie" in url.lower() or "vod" in url.lower()
 
-            # If the playlist has separate audio/subtitles (YouTube HLS) OR a specific quality was requested:
+            # If the playlist has separate audio/subtitles (YouTube HLS / Movies) OR a specific quality was requested:
             # We rewrite and serve as a Master Playlist so audio & video remain coupled and quality is preserved!
-            if has_variants and (is_youtube_or_demuxed or request_q):
+            if has_variants and (is_youtube_or_demuxed or request_q or is_vod_or_movie):
                 use_absolute = FORCE_ABSOLUTE_LAN_URL or (
                     server_host and not server_host.endswith(".trycloudflare.com") and not server_host.endswith(".ngrok-free.app")
                 )
@@ -748,7 +805,12 @@ async def proxy_stream(url: str, request: Request, server_host: str):
                         h = v["height"]
                         if h not in by_height or v["is_avc"]:
                             by_height[h] = v
-                    chosen_variants = [by_height[h] for h in sorted(by_height.keys(), reverse=True)]
+                    # For Auto: prioritize 1080p first so Chromecast starts cold playback instantaneously without choking on 4K 17Mbps
+                    def auto_sort_key(h):
+                        if h == 1080:
+                            return 999999
+                        return h
+                    chosen_variants = [by_height[h] for h in sorted(by_height.keys(), key=auto_sort_key, reverse=True)]
 
                 rewritten_master_lines = list(headers_lines)
                 for v in chosen_variants:
@@ -812,34 +874,46 @@ async def proxy_stream(url: str, request: Request, server_host: str):
                 server_host and not server_host.endswith(".trycloudflare.com") and not server_host.endswith(".ngrok-free.app")
             )
 
+            is_next_line_segment = False
             for line in lines:
                 stripped = line.strip()
-                if stripped and not stripped.startswith("#"):
-                    full_segment_url = urljoin(url, stripped)
-                    if use_absolute and server_host:
-                        proxied_segment = f"http://{server_host}/api/stream/proxy?url={quote(full_segment_url, safe='')}&sid={active_sid}"
+                if not stripped:
+                    rewritten_lines.append(line)
+                    continue
+                if stripped.startswith("#EXTINF:"):
+                    is_next_line_segment = True
+                    rewritten_lines.append(line)
+                elif stripped.startswith("#"):
+                    if stripped.startswith("#EXT-X-KEY:") and 'URI="' in stripped:
+                        def replace_key_uri(match):
+                            key_uri = match.group(1)
+                            full_key_url = urljoin(url, key_uri)
+                            if use_absolute and server_host:
+                                rewritten_key = f"http://{server_host}/api/stream/proxy?url={quote(full_key_url, safe='')}&sid={active_sid}"
+                            else:
+                                rewritten_key = f"/api/stream/proxy?url={quote(full_key_url, safe='')}&sid={active_sid}"
+                            return f'URI="{rewritten_key}"'
+                        rewritten_line = re.sub(r'URI="([^"]+)"', replace_key_uri, line)
+                        rewritten_lines.append(rewritten_line)
                     else:
-                        proxied_segment = f"/api/stream/proxy?url={quote(full_segment_url, safe='')}&sid={active_sid}"
+                        rewritten_lines.append(line)
+                else:
+                    full_segment_url = urljoin(url, stripped)
+                    clean_seg = full_segment_url.split("?")[0].lower()
+                    is_seg = is_next_line_segment or clean_seg.endswith((".ts", ".m4s", ".aac", ".mp4"))
+                    is_next_line_segment = False
+                    seg_param = "&is_seg=1" if is_seg else ""
+
+                    if use_absolute and server_host:
+                        proxied_segment = f"http://{server_host}/api/stream/proxy?url={quote(full_segment_url, safe='')}&sid={active_sid}{seg_param}"
+                    else:
+                        proxied_segment = f"/api/stream/proxy?url={quote(full_segment_url, safe='')}&sid={active_sid}{seg_param}"
                     rewritten_lines.append(proxied_segment)
 
-                    clean_seg = full_segment_url.split("?")[0].lower()
-                    if clean_seg.endswith(".ts") or clean_seg.endswith(".m4s") or clean_seg.endswith(".aac"):
+                    if is_seg:
                         segment_urls_for_prefetch.append(full_segment_url)
                     elif clean_seg.endswith(".m3u8"):
                         variant_playlists_to_prewarm.append(full_segment_url)
-                elif stripped.startswith("#EXT-X-KEY:") and 'URI="' in stripped:
-                    def replace_key_uri(match):
-                        key_uri = match.group(1)
-                        full_key_url = urljoin(url, key_uri)
-                        if use_absolute and server_host:
-                            rewritten_key = f"http://{server_host}/api/stream/proxy?url={quote(full_key_url, safe='')}&sid={active_sid}"
-                        else:
-                            rewritten_key = f"/api/stream/proxy?url={quote(full_key_url, safe='')}&sid={active_sid}"
-                        return f'URI="{rewritten_key}"'
-                    rewritten_line = re.sub(r'URI="([^"]+)"', replace_key_uri, line)
-                    rewritten_lines.append(rewritten_line)
-                else:
-                    rewritten_lines.append(line)
 
             # Register playlist sequence and gentle lookahead prefetch (only 1 upcoming segment):
             if segment_urls_for_prefetch:
@@ -880,8 +954,11 @@ async def proxy_stream(url: str, request: Request, server_host: str):
         resp_headers = {
             "Access-Control-Allow-Origin": "*",
             "Access-Control-Allow-Headers": "*",
-            "Content-Type": content_type or "video/mp2t",
         }
+        if any(fake in (content_type or "").lower() for fake in ["image/", "font/", "text/", "javascript", "css", "html"]):
+            resp_headers["Content-Type"] = "video/mp2t"
+        else:
+            resp_headers["Content-Type"] = content_type or "video/mp2t"
         for h in ["content-length", "content-range", "accept-ranges"]:
             if h in upstream_resp.headers:
                 resp_headers[h.title()] = upstream_resp.headers[h]
