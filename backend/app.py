@@ -9,7 +9,7 @@ import httpx
 from urllib.parse import quote
 from contextlib import asynccontextmanager
 from pathlib import Path
-from typing import Optional, Dict, Any, List, Tuple
+from typing import Optional, Dict, Any, List, Tuple, Union
 
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect, Request, UploadFile, File, Form, HTTPException, Depends
 from fastapi.responses import HTMLResponse, FileResponse, JSONResponse, Response
@@ -268,8 +268,8 @@ class CastRequest(BaseModel):
 
 class PlaybackActionRequest(BaseModel):
     action: str  # play, pause, stop, seek, speed, rate, subtitles, quality
-    value: Optional[str] = None
-    delta: Optional[str] = None
+    value: Optional[Union[str, float, int]] = None
+    delta: Optional[Union[str, float, int]] = None
     track_id: Optional[int] = None
     lang: Optional[str] = None
     url: Optional[str] = None
@@ -1221,7 +1221,25 @@ async def get_stream_health(
 
 @app.get("/api/state/current")
 async def get_current_state():
-    """Returns current playback state including channel_id, url, title, sources, and version with zero side-effects."""
+    """Returns current playback state including channel_id, url, title, sources, real-time position and version with zero side-effects."""
+    selected_id = device_manager.selected_device_id
+    dev = device_manager.get_device(selected_id) if selected_id != "web_receiver" else None
+    if dev and dev.get("is_google_tv"):
+        try:
+            cast_st = await asyncio.to_thread(google_cast_controller.get_status, dev["ip"])
+            if cast_st.get("tv_online"):
+                updates = {
+                    "state": cast_st.get("state", ws_manager.current_state.get("state", "IDLE")),
+                    "volume": cast_st.get("volume", ws_manager.current_state.get("volume", 20)),
+                    "muted": cast_st.get("muted", False)
+                }
+                if cast_st.get("current_time") is not None:
+                    updates["current_time"] = cast_st["current_time"]
+                if cast_st.get("duration") and cast_st["duration"] > 0:
+                    updates["duration"] = cast_st["duration"]
+                ws_manager.update_state(updates)
+        except Exception:
+            pass
     return ws_manager.current_state
 
 @app.get("/api/debug/receivers")

@@ -305,7 +305,9 @@ function initTabs() {
       const targetTab = document.getElementById(targetId);
       if (targetTab) {
         targetTab.classList.add("active");
-        if (targetId === "tab-devices") {
+        if (targetId === "tab-cast") {
+          fetchHardwareStatus();
+        } else if (targetId === "tab-devices") {
           initDevicesTab();
           if (!adblockPollingTimer) {
             adblockPollingTimer = setInterval(loadAdblockStatus, 6000);
@@ -486,7 +488,16 @@ async function fetchDevices() {
     if (res.ok) {
       const data = await res.json();
       if (data.devices && data.devices.length > 0) {
-        populateDevicesList(data.devices, data.selected_device_id || state.currentTvId || "tv_192_168_50_249");
+        const savedId = getSavedTvId();
+        const activeId = (savedId && data.devices.some(d => d.id === savedId)) ? savedId : (data.selected_device_id || state.currentTvId || "tv_192_168_50_249");
+        populateDevicesList(data.devices, activeId);
+        if (savedId && data.selected_device_id !== savedId && data.devices.some(d => d.id === savedId)) {
+          fetch(getApiUrl("/api/devices/select"), {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ device_id: savedId })
+          }).catch(() => {});
+        }
         return;
       }
     }
@@ -528,6 +539,9 @@ async function fetchHardwareStatus() {
     if (res.ok) {
       const data = await res.json();
       updateHardwareStatus(data);
+      if (data && (data.state === "PLAYING" || data.state === "PAUSED" || (data.duration && data.duration > 0) || (data.title && data.title !== "Live Stream" && data.title !== "Video Stream"))) {
+        updateActiveCastDeck(data);
+      }
     }
   } catch (e) {}
 }
@@ -686,6 +700,14 @@ function updateHardwareStatus(data) {
       const scrubber = document.getElementById("deck-scrubber");
       if (scrubber) scrubber.value = (activeDeckCurrentTime / activeDeckDuration) * 100;
     }
+  }
+
+  // Restore Active Cast Deck on refresh or when active session exists
+  const hasActiveSession = (pState === "PLAYING" || pState === "PAUSED") || 
+                           (typeof data.duration === "number" && data.duration > 0) ||
+                           (data.title && data.title !== "Live Stream" && data.title !== "Video Stream" && pState !== "STOPPED");
+  if (hasActiveSession && pState !== "STOPPED") {
+    updateActiveCastDeck(data);
   }
 }
 
@@ -2667,8 +2689,12 @@ let isScrubbing = false;
 
 function formatDeckTime(sec) {
   sec = Math.max(0, Math.floor(sec || 0));
-  const m = Math.floor(sec / 60);
+  const h = Math.floor(sec / 3600);
+  const m = Math.floor((sec % 3600) / 60);
   const s = sec % 60;
+  if (h > 0) {
+    return `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
+  }
   return `${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
 }
 
@@ -2695,11 +2721,20 @@ function updateActiveCastDeck(info) {
   if (!deck) return;
 
   info = info || {};
+  if (info.state === "STOPPED") {
+    deck.style.display = "none";
+    if (deckTicker) {
+      clearInterval(deckTicker);
+      deckTicker = null;
+    }
+    return;
+  }
+
   const isPlaying = state.playbackState === "PLAYING" || info.state === "PLAYING";
   const title = info.title || state.currentTitle || "Video Stream";
   const thumb = info.thumbnail || "";
-  const duration = info.duration || 0;
-  const durationStr = info.duration_str || formatDeckTime(duration);
+  const duration = (typeof info.duration === "number" && info.duration > 0) ? info.duration : activeDeckDuration;
+  const durationStr = info.duration_str || (duration > 0 ? formatDeckTime(duration) : "--:--");
 
   deck.style.display = "block";
 
@@ -2719,9 +2754,6 @@ function updateActiveCastDeck(info) {
       p.classList.toggle("active", p.dataset.speed === spdStr || parseFloat(p.dataset.speed) === parseFloat(spdStr));
     });
   }
-  if (false) {
-    deckTarget.textContent = `${tvName} • 100% Ad-Free`;
-  }
 
   const deckThumb = document.getElementById("deck-thumb");
   if (deckThumb) {
@@ -2734,8 +2766,18 @@ function updateActiveCastDeck(info) {
   }
 
   const timeTotal = document.getElementById("deck-time-total");
-  if (timeTotal) timeTotal.textContent = durationStr || "--:--";
+  if (timeTotal && (durationStr || duration > 0)) timeTotal.textContent = durationStr || formatDeckTime(duration);
   if (duration > 0) activeDeckDuration = duration;
+
+  if (typeof info.current_time === "number" && info.current_time >= 0 && !isScrubbing) {
+    activeDeckCurrentTime = info.current_time;
+    const timeCur = document.getElementById("deck-time-current");
+    if (timeCur) timeCur.textContent = formatDeckTime(activeDeckCurrentTime);
+    if (activeDeckDuration > 0) {
+      const scrubber = document.getElementById("deck-scrubber");
+      if (scrubber) scrubber.value = (activeDeckCurrentTime / activeDeckDuration) * 100;
+    }
+  }
 
   // Update play icon
   const playIcon = document.getElementById("deck-play-icon");
@@ -2745,11 +2787,12 @@ function updateActiveCastDeck(info) {
       : '<polygon points="5 3 19 12 5 21 5 3"/>';
   }
 
-  // Populate Subtitles
+  // Populate Subtitles (only if not already loaded or changed)
   if (Array.isArray(info.subtitles) && info.subtitles.length > 0) {
-    activeDeckSubtitles = info.subtitles;
     const subsSelect = document.getElementById("deck-subs-select");
-    if (subsSelect) {
+    if (subsSelect && (subsSelect.options.length <= 1 || JSON.stringify(activeDeckSubtitles) !== JSON.stringify(info.subtitles))) {
+      activeDeckSubtitles = info.subtitles;
+      const curVal = subsSelect.value;
       subsSelect.innerHTML = '<option value="off">Subtitles Off</option>';
       activeDeckSubtitles.slice(0, 20).forEach((s, idx) => {
         const opt = document.createElement("option");
@@ -2759,16 +2802,21 @@ function updateActiveCastDeck(info) {
         opt.dataset.trackId = (idx + 1).toString();
         subsSelect.appendChild(opt);
       });
-      subsSelect.value = "off";
+      if (curVal && curVal !== "off") {
+        subsSelect.value = curVal;
+      } else {
+        subsSelect.value = "off";
+      }
     }
   }
 
-  // Populate Qualities
+  // Populate Qualities (only if not already loaded or changed)
   if (Array.isArray(info.qualities) && info.qualities.length > 0) {
-    activeDeckQualities = info.qualities;
-    activeDeckQualityUrls = info.quality_urls || {};
     const qSelect = document.getElementById("deck-quality-select");
-    if (qSelect) {
+    if (qSelect && (qSelect.options.length <= 1 || JSON.stringify(activeDeckQualities) !== JSON.stringify(info.qualities))) {
+      activeDeckQualities = info.qualities;
+      activeDeckQualityUrls = info.quality_urls || {};
+      const curVal = qSelect.value;
       qSelect.innerHTML = '<option value="auto">Auto (Best Quality)</option>';
       activeDeckQualities.forEach(q => {
         if (q !== "Auto") {
@@ -2778,6 +2826,7 @@ function updateActiveCastDeck(info) {
           qSelect.appendChild(opt);
         }
       });
+      if (curVal) qSelect.value = curVal;
     }
   }
 

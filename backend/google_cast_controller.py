@@ -9,20 +9,25 @@ class GoogleCastController:
     def __init__(self):
         self._casts: Dict[str, pychromecast.Chromecast] = {}
 
-    def get_cast(self, ip: str, name: str = "Google TV") -> Optional[pychromecast.Chromecast]:
+    def get_cast(self, ip: str, name: str = "Google TV", force_refresh: bool = False) -> Optional[pychromecast.Chromecast]:
         """Retrieve an active Chromecast connection or establish a new one."""
         try:
-            if ip in self._casts:
+            if not force_refresh and ip in self._casts:
                 cast = self._casts[ip]
-                if cast.socket_client and cast.socket_client.is_connected:
+                if cast.socket_client and cast.socket_client.is_connected and not getattr(cast.socket_client, "connecting", False) and not getattr(cast.socket_client, "_force_recon", False):
                     return cast
+                else:
+                    logger.info(f"Existing Cast connection for {ip} was disconnected/stale. Reconnecting...")
+                    try:
+                        cast.disconnect(blocking=False)
+                    except Exception:
+                        pass
+                    self._casts.pop(ip, None)
 
             logger.info(f"Connecting to Google TV / Chromecast at {ip}:8009...")
             cast = pychromecast.get_chromecast_from_host((ip, 8009, None, None, name))
             cast.start()
             cast.wait(timeout=4.0)
-            if cast.media_controller:
-                cast.media_controller.supporting_app_id = None
             self._casts[ip] = cast
             return cast
         except Exception as e:
@@ -30,24 +35,50 @@ class GoogleCastController:
             return None
 
     def cast_media(self, ip: str, url: str, title: str = "Live Stream", mime_type: str = "video/mp4", subtitles: Optional[str] = None, stream_type: Optional[str] = None, media_info: Optional[Dict[str, Any]] = None) -> bool:
-        """Cast media stream to Android TV / Google TV."""
+        """Cast media stream to Android TV / Google TV with dead-session recovery and app preemption."""
         try:
             cast = self.get_cast(ip)
             if not cast:
                 return False
 
-            # Pre-empt 3rd-party apps (e.g. YouTube app 233637DE, Netflix, etc.) on TV
-            # This guarantees our ad-free Default Media Receiver (CC1AD845) takes over
+            # Verify connection health; if reconnecting or broken, refresh connection
+            if not cast.socket_client or not cast.socket_client.is_connected or getattr(cast.socket_client, "_force_recon", False):
+                logger.info(f"Refreshing socket connection to {ip}...")
+                cast = self.get_cast(ip, force_refresh=True)
+                if not cast:
+                    return False
+
+            # Refresh receiver status
+            try:
+                cast.socket_client.receiver_controller.update_status()
+                time.sleep(0.1)
+            except Exception:
+                pass
+
             cur_app = getattr(cast, "app_id", None) or (cast.status.app_id if cast.status else None)
-            if cur_app and cur_app != "CC1AD845":
-                logger.info(f"Active app on {ip} is {cur_app} (e.g. YouTube). Preempting with CC1AD845...")
+            has_dest = bool(cast.socket_client and cast.socket_client.destination_id)
+            has_media_ns = bool(cast.socket_client and ("urn:x-cast:com.google.cast.media" in cast.socket_client.app_namespaces))
+
+            # If TV is on screensaver/backdrop, running 3rd-party app (YouTube 233637DE), or in dead session:
+            # Force launch Default Media Receiver CC1AD845 fresh
+            if cur_app != "CC1AD845" or not has_dest or not has_media_ns:
+                logger.info(f"Default Media Receiver not active on {ip} (app={cur_app}, dest={has_dest}, ns={has_media_ns}). Force launching CC1AD845...")
                 try:
                     cast.start_app("CC1AD845", force_launch=True)
-                    time.sleep(0.5)
+                    time.sleep(0.6)
                 except Exception as ex:
                     logger.debug(f"start_app CC1AD845 notice: {ex}")
 
             mc = cast.media_controller
+            mc.supporting_app_id = "CC1AD845"
+
+            # Fast status probe
+            try:
+                mc.send_message_nocheck({"type": "GET_STATUS"}, inc_session_id=True)
+                time.sleep(0.08)
+            except Exception:
+                pass
+
             is_m3u8 = ".m3u8" in url or "mpegurl" in mime_type.lower()
             content_type = "application/x-mpegurl" if is_m3u8 else (mime_type or "video/mp4")
             
@@ -60,7 +91,6 @@ class GoogleCastController:
             clean_title = title if title and not (title.startswith("http") or "proxy?url=" in title or "%2F" in title or "googlevideo.com" in title) else "Video Stream"
 
             logger.info(f"Casting to {cast.name} ({ip}): {clean_title} [{content_type}] (stream_type={final_stream_type}, subtitles={bool(subtitles)})")
-            mc.supporting_app_id = "CC1AD845"
             mc.play_media(
                 url=url,
                 content_type=content_type,
@@ -70,7 +100,30 @@ class GoogleCastController:
                 subtitles=subtitles,
                 media_info=media_info
             )
-            mc.supporting_app_id = None
+
+            # Verification: If the receiver stayed in IDLE (e.g. after a previous video finished),
+            # force launch CC1AD845 fresh and replay immediately!
+            time.sleep(0.5)
+            mc.send_message_nocheck({"type": "GET_STATUS"}, inc_session_id=True)
+            time.sleep(0.2)
+            p_state = mc.status.player_state if mc.status else "UNKNOWN"
+            if p_state in ["UNKNOWN", "IDLE"]:
+                logger.info(f"Player on {ip} remained in {p_state} (ended session). Force-relaunching CC1AD845 and retrying media load...")
+                try:
+                    cast.start_app("CC1AD845", force_launch=True)
+                    time.sleep(0.6)
+                    mc.play_media(
+                        url=url,
+                        content_type=content_type,
+                        title=clean_title,
+                        autoplay=True,
+                        stream_type=final_stream_type,
+                        subtitles=subtitles,
+                        media_info=media_info
+                    )
+                except Exception as retry_ex:
+                    logger.warning(f"Retry play_media on {ip}: {retry_ex}")
+
             return True
         except Exception as e:
             logger.error(f"Google Cast play_media failed on {ip}: {e}")
@@ -80,7 +133,6 @@ class GoogleCastController:
         try:
             cast = self.get_cast(ip)
             if cast and cast.media_controller:
-                cast.media_controller.supporting_app_id = None
                 cast.media_controller.play()
                 return True
         except Exception as e:
@@ -91,7 +143,6 @@ class GoogleCastController:
         try:
             cast = self.get_cast(ip)
             if cast and cast.media_controller:
-                cast.media_controller.supporting_app_id = None
                 cast.media_controller.pause()
                 return True
         except Exception as e:
@@ -102,8 +153,16 @@ class GoogleCastController:
         try:
             cast = self.get_cast(ip)
             if cast and cast.media_controller:
-                cast.media_controller.supporting_app_id = None
-                cast.media_controller.stop()
+                mc = cast.media_controller
+                sess_id = mc.status.media_session_id if mc.status else None
+                if not sess_id:
+                    mc.send_message_nocheck({"type": "GET_STATUS"}, inc_session_id=True)
+                    time.sleep(0.1)
+                    sess_id = mc.status.media_session_id if mc.status else None
+                if sess_id:
+                    mc.send_message_nocheck({"type": "STOP", "mediaSessionId": sess_id}, inc_session_id=True)
+                else:
+                    mc.stop()
                 return True
         except Exception as e:
             logger.debug(f"Google Cast stop failed on {ip}: {e}")
@@ -282,17 +341,22 @@ class GoogleCastController:
             raw_title = ""
             current_time = 0.0
             duration = 0.0
-            if mc and mc.status:
-                raw_state = mc.status.player_state
-                if raw_state == "PLAYING":
-                    p_state = "PLAYING"
-                elif raw_state == "PAUSED":
-                    p_state = "PAUSED"
-                elif raw_state in ["BUFFERING", "LOADING"]:
-                    p_state = "BUFFERING"
-                raw_title = mc.status.title or ""
-                current_time = float(mc.status.current_time or 0.0)
-                duration = float(mc.status.duration or 0.0)
+            if mc:
+                try:
+                    mc.send_message_nocheck({"type": "GET_STATUS"}, inc_session_id=True)
+                except Exception:
+                    pass
+                if mc.status:
+                    raw_state = mc.status.player_state
+                    if raw_state == "PLAYING":
+                        p_state = "PLAYING"
+                    elif raw_state == "PAUSED":
+                        p_state = "PAUSED"
+                    elif raw_state in ["BUFFERING", "LOADING"]:
+                        p_state = "BUFFERING"
+                    raw_title = mc.status.title or ""
+                    current_time = float(mc.status.current_time or 0.0)
+                    duration = float(mc.status.duration or 0.0)
 
             # Sanitize: never allow raw URLs or proxy queries to leak into user status banner
             if raw_title.startswith("http://") or raw_title.startswith("https://") or "proxy?url=" in raw_title or "%2F" in raw_title or "googlevideo.com" in raw_title:
