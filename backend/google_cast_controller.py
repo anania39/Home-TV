@@ -59,15 +59,22 @@ class GoogleCastController:
             has_dest = bool(cast.socket_client and cast.socket_client.destination_id)
             has_media_ns = bool(cast.socket_client and ("urn:x-cast:com.google.cast.media" in cast.socket_client.app_namespaces))
 
-            # If TV is on screensaver/backdrop, running 3rd-party app (YouTube 233637DE), or in dead session:
-            # Force launch Default Media Receiver CC1AD845 fresh
+            # If TV is on screensaver/backdrop (app=None), running 3rd-party app (e.g. YouTube 233637DE), or media ns missing:
+            # Launch Default Media Receiver CC1AD845 and wait until destination_id and media namespace are fully connected
             if cur_app != "CC1AD845" or not has_dest or not has_media_ns:
-                logger.info(f"Default Media Receiver not active on {ip} (app={cur_app}, dest={has_dest}, ns={has_media_ns}). Force launching CC1AD845...")
+                logger.info(f"Default Media Receiver not active on {ip} (app={cur_app}, dest={has_dest}, ns={has_media_ns}). Launching CC1AD845...")
                 try:
-                    cast.start_app("CC1AD845", force_launch=True)
-                    time.sleep(0.6)
+                    cast.socket_client.receiver_controller.launch_app("CC1AD845")
+                    for _ in range(28):
+                        time.sleep(0.15)
+                        c_app = getattr(cast, "app_id", None) or (cast.status.app_id if cast.status else None)
+                        c_dest = bool(cast.socket_client and cast.socket_client.destination_id)
+                        c_ns = bool(cast.socket_client and ("urn:x-cast:com.google.cast.media" in cast.socket_client.app_namespaces))
+                        if c_app == "CC1AD845" and c_dest and c_ns:
+                            logger.info(f"CC1AD845 media namespace ready on {ip} (dest={cast.socket_client.destination_id})")
+                            break
                 except Exception as ex:
-                    logger.debug(f"start_app CC1AD845 notice: {ex}")
+                    logger.debug(f"launch_app CC1AD845 notice: {ex}")
 
             mc = cast.media_controller
             mc.supporting_app_id = "CC1AD845"
@@ -90,6 +97,11 @@ class GoogleCastController:
 
             clean_title = title if title and not (title.startswith("http") or "proxy?url=" in title or "%2F" in title or "googlevideo.com" in title) else "Video Stream"
 
+            # Enforce max 8 tracks to prevent exceeding Google Cast 64KB TLS packet buffer
+            if media_info and "tracks" in media_info and len(media_info["tracks"]) > 8:
+                media_info = dict(media_info)
+                media_info["tracks"] = media_info["tracks"][:8]
+
             logger.info(f"Casting to {cast.name} ({ip}): {clean_title} [{content_type}] (stream_type={final_stream_type}, subtitles={bool(subtitles)})")
             mc.play_media(
                 url=url,
@@ -101,28 +113,12 @@ class GoogleCastController:
                 media_info=media_info
             )
 
-            # Verification: If the receiver stayed in IDLE (e.g. after a previous video finished),
-            # force launch CC1AD845 fresh and replay immediately!
-            time.sleep(0.5)
-            mc.send_message_nocheck({"type": "GET_STATUS"}, inc_session_id=True)
-            time.sleep(0.2)
-            p_state = mc.status.player_state if mc.status else "UNKNOWN"
-            if p_state in ["UNKNOWN", "IDLE"]:
-                logger.info(f"Player on {ip} remained in {p_state} (ended session). Force-relaunching CC1AD845 and retrying media load...")
-                try:
-                    cast.start_app("CC1AD845", force_launch=True)
-                    time.sleep(0.6)
-                    mc.play_media(
-                        url=url,
-                        content_type=content_type,
-                        title=clean_title,
-                        autoplay=True,
-                        stream_type=final_stream_type,
-                        subtitles=subtitles,
-                        media_info=media_info
-                    )
-                except Exception as retry_ex:
-                    logger.warning(f"Retry play_media on {ip}: {retry_ex}")
+            # Probe status non-blocking so player state transitions smoothly through BUFFERING to PLAYING
+            time.sleep(0.3)
+            try:
+                mc.send_message_nocheck({"type": "GET_STATUS"}, inc_session_id=True)
+            except Exception:
+                pass
 
             return True
         except Exception as e:

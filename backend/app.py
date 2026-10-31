@@ -812,11 +812,23 @@ async def cast_media(req: CastRequest, request: Request, client_ip: str = Depend
                 is_live = True
             cast_stream_type = "LIVE" if is_live else "BUFFERED"
 
-            # Format subtitle tracks into media_info so the receiver knows they exist without activating them
+            # Format subtitle tracks into media_info (cap at 6 priority tracks so payload never exceeds Cast 64KB packet limit)
             media_info = None
             if isinstance(resolved, dict) and resolved.get("subtitles"):
                 formatted_tracks = []
-                for idx, s in enumerate(resolved.get("subtitles", []), start=1):
+                priority_langs = ["ka", "en", "ru", "es", "de", "fr"]
+                raw_subs = resolved.get("subtitles", [])
+                picked = [s for s in raw_subs if s.get("code") in priority_langs]
+                if not picked:
+                    picked = raw_subs[:6]
+                else:
+                    for s in raw_subs:
+                        if len(picked) >= 6:
+                            break
+                        if s not in picked:
+                            picked.append(s)
+
+                for idx, s in enumerate(picked[:6], start=1):
                     sub_url = s.get("url")
                     lang = s.get("code") or s.get("lang") or "en"
                     if sub_url:
