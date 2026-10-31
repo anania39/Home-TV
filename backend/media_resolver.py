@@ -478,6 +478,12 @@ class MediaResolver:
                 'noplaylist': True,
                 'socket_timeout': 8,
             }
+            node_exe = r"C:\Users\Anania Light Laptop\Downloads\Blue Ocean\.tools\node\node.exe"
+            if os.path.exists(node_exe):
+                node_dir = os.path.dirname(node_exe)
+                if node_dir not in os.environ.get("PATH", ""):
+                    os.environ["PATH"] = node_dir + os.pathsep + os.environ.get("PATH", "")
+                ydl_opts['js_runtimes'] = {'node': {'path': node_exe}}
             with yt_dlp.YoutubeDL(ydl_opts) as ydl:
                 return ydl.extract_info(url, download=False)
 
@@ -537,6 +543,12 @@ class MediaResolver:
                 'socket_timeout': 3.5,
                 'format': 'best[protocol^=http]/best[ext=mp4]/best',
             }
+            node_exe = r"C:\Users\Anania Light Laptop\Downloads\Blue Ocean\.tools\node\node.exe"
+            if os.path.exists(node_exe):
+                node_dir = os.path.dirname(node_exe)
+                if node_dir not in os.environ.get("PATH", ""):
+                    os.environ["PATH"] = node_dir + os.pathsep + os.environ.get("PATH", "")
+                ydl_opts['js_runtimes'] = {'node': {'path': node_exe}}
             with yt_dlp.YoutubeDL(ydl_opts) as ydl:
                 return ydl.extract_info(url, download=False)
 

@@ -168,6 +168,27 @@ session_manager = ActiveStreamSessionManager()
 # High-Tech Adaptive Segment Ring-Buffer & Lookahead Prefetch Engine
 # ---------------------------------------------------------------------------
 
+def detect_segment_content_type(data: Optional[bytes], url: str, upstream_ctype: str = "") -> str:
+    """Accurately detect media segment MIME type from binary payload, URL patterns, or upstream headers."""
+    clean_u = url.split("?")[0].lower()
+    is_audio = "audio" in clean_u or "/itag/233" in url or "/itag/234" in url or clean_u.endswith((".aac", ".m4a", ".mp3"))
+    if data:
+        if len(data) >= 3 and data[:3] == b"ID3":
+            return "audio/aac"
+        if len(data) >= 2 and data[0] == 0xFF and (data[1] & 0xF6) == 0xF0:
+            return "audio/aac"
+        if len(data) >= 8 and (b"ftyp" in data[:16] or b"moof" in data[:16]):
+            return "audio/mp4" if is_audio else "video/mp4"
+        if len(data) > 0 and data[0] == 0x47:
+            return "video/mp2t"
+    if is_audio:
+        return "audio/aac"
+    if clean_u.endswith((".mp4", ".m4s")):
+        return "video/mp4"
+    if upstream_ctype and not any(fake in upstream_ctype.lower() for fake in ["text/", "image/", "font/", "javascript", "html", "octet-stream"]):
+        return upstream_ctype
+    return "video/mp2t"
+
 class SegmentCache:
     """
     In-memory ring buffer cache & conveyor-belt lookahead prefetcher.
@@ -320,11 +341,8 @@ class SegmentCache:
                 resp = await client.send(req)
                 if resp.status_code == 200:
                     data = resp.content
-                    ctype = resp.headers.get("content-type", "video/mp2t")
-                    if not ctype or any(fake in ctype.lower() for fake in ["text/", "image/", "font/", "javascript", "html"]):
-                        ctype = "video/mp2t"
-                    elif len(data) > 0 and data[0] == 0x47:
-                        ctype = "video/mp2t"
+                    raw_ctype = resp.headers.get("content-type", "")
+                    ctype = detect_segment_content_type(data, url, raw_ctype)
                     self.put_cache(url, data, ctype)
                     return data, ctype
                 elif resp.status_code in [403, 404]:
@@ -333,17 +351,11 @@ class SegmentCache:
                 if attempt == 2:
                     logger.debug(f"Segment fetch error for {url}: {e}")
                 await asyncio.sleep(0.1 * (attempt + 1))
-        return None, "video/mp2t"
+        return None, detect_segment_content_type(None, url)
 
     async def _fetch_and_store(self, url: str, headers: dict) -> Tuple[Optional[bytes], str]:
         try:
-            res = await self._fetch_upstream(url, headers)
-            # Conveyor belt: after completing a segment, auto-trigger next upcoming segments
-            clean_url = url.split("?")[0]
-            next_items = self._next_segments.get(url) or self._next_segments.get(clean_url)
-            if next_items:
-                self.prefetch(next_items, headers)
-            return res
+            return await self._fetch_upstream(url, headers)
         finally:
             self._in_flight.pop(url, None)
 
@@ -488,17 +500,28 @@ async def proxy_stream(url: str, request: Request, server_host: str):
 
     # Instant response for player HEAD probes (e.g. Chromecast / DLNA pre-flight checks)
     if request.method == "HEAD":
-        probe_ct = "video/mp2t" if is_segment else "application/vnd.apple.mpegurl"
-        return Response(
-            status_code=200,
-            headers={
+        clean_u = url.split("?")[0].lower()
+        cached = segment_engine.get_cached(url) or segment_engine.get_cached(clean_u)
+        if cached:
+            c_data, c_type = cached
+            resp_headers = {
+                "Content-Type": c_type,
+                "Content-Length": str(len(c_data)),
+                "Accept-Ranges": "bytes",
+                "Access-Control-Allow-Origin": "*",
+                "Access-Control-Allow-Headers": "*",
+                "Connection": "keep-alive"
+            }
+        else:
+            probe_ct = detect_segment_content_type(None, url) if is_segment else "application/vnd.apple.mpegurl"
+            resp_headers = {
                 "Content-Type": probe_ct,
                 "Accept-Ranges": "bytes",
                 "Access-Control-Allow-Origin": "*",
                 "Access-Control-Allow-Headers": "*",
                 "Connection": "keep-alive"
             }
-        )
+        return Response(status_code=200, headers=resp_headers)
 
     request_sid = request.query_params.get("sid")
     client_ip = request.client.host if request.client else "127.0.0.1"
@@ -541,10 +564,7 @@ async def proxy_stream(url: str, request: Request, server_host: str):
 
         if cached:
             data, content_type = cached
-            if not content_type or any(fake in content_type.lower() for fake in ["text/", "image/", "font/", "javascript", "html"]):
-                content_type = "video/mp2t"
-            elif len(data) > 0 and data[0] == 0x47:
-                content_type = "video/mp2t"
+            content_type = detect_segment_content_type(data, url, content_type)
             range_header = request.headers.get("range")
             if range_header and range_header.startswith("bytes="):
                 total_len = len(data)
@@ -588,15 +608,12 @@ async def proxy_stream(url: str, request: Request, server_host: str):
         # Fetch with deduplication engine and cache immediately in RAM
         data, content_type = await segment_engine.get_or_fetch(url, headers)
         if data is not None:
-            if not content_type or any(fake in (content_type or "").lower() for fake in ["text/", "image/", "font/", "javascript", "html"]):
-                content_type = "video/mp2t"
-            elif len(data) > 0 and data[0] == 0x47:
-                content_type = "video/mp2t"
+            content_type = detect_segment_content_type(data, url, content_type)
             return Response(
                 content=data,
                 status_code=200,
                 headers={
-                    "Content-Type": content_type or "video/mp2t",
+                    "Content-Type": content_type,
                     "Content-Length": str(len(data)),
                     "Access-Control-Allow-Origin": "*",
                     "Access-Control-Allow-Headers": "*",
@@ -982,10 +999,10 @@ async def proxy_stream(url: str, request: Request, server_host: str):
             "Access-Control-Allow-Origin": "*",
             "Access-Control-Allow-Headers": "*",
         }
-        if any(fake in (content_type or "").lower() for fake in ["image/", "font/", "text/", "javascript", "css", "html"]):
-            resp_headers["Content-Type"] = "video/mp2t"
+        if any(fake in (content_type or "").lower() for fake in ["image/", "font/", "text/", "javascript", "css", "html", "octet-stream"]):
+            resp_headers["Content-Type"] = detect_segment_content_type(None, url)
         else:
-            resp_headers["Content-Type"] = content_type or "video/mp2t"
+            resp_headers["Content-Type"] = content_type or detect_segment_content_type(None, url)
         for h in ["content-length", "content-range", "accept-ranges"]:
             if h in upstream_resp.headers:
                 resp_headers[h.title()] = upstream_resp.headers[h]
