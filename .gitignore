@@ -32,3 +32,6 @@ venv/
 
 data/blocklists/compiled_blocklist.txt
 data/blocklists/
+
+backend/.selected_device.json
+.selected_device.json

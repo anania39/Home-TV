@@ -8,6 +8,9 @@
   <meta name="apple-mobile-web-app-title" content="TV Hub">
   <meta name="theme-color" content="#070a13">
   <link rel="manifest" href="static/manifest.json">
+  <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+  <meta http-equiv="Pragma" content="no-cache">
+  <meta http-equiv="Expires" content="0">
   <title>TV Hub — Smart TV Remote & Cast</title>
   <!-- Preconnect & DNS-Prefetch for real channel logo CDNs -->
   <link rel="preconnect" href="https://upload.wikimedia.org" crossorigin>
@@ -277,34 +280,225 @@
       </div>
     </section>
 
-    <!-- TAB 3: Cast Media -->
+    <!-- TAB 3: Universal Ad-Free Cast -->
     <section id="tab-cast" class="tab-content">
-      <div class="cast-card">
-        <h3>
-          <svg viewBox="0 0 24 24"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>
-          Cast Video Stream URL
-        </h3>
-        <p style="font-size: 13px; color: var(--text-muted); margin-bottom: 12px;">
-          Paste any MP4, HLS (.m3u8), or RTSP stream link to play directly on your TV.
-        </p>
-        <div class="form-group">
-          <label>Stream URL</label>
-          <input type="text" id="cast-url-input" class="form-input" placeholder="https://example.com/stream.m3u8">
+      <!-- Preparation & Casting Visual Progress Widget -->
+      <div id="cast-progress-widget" class="cast-progress-card" style="display: none;">
+        <div class="progress-glow-bg"></div>
+        <div class="progress-header">
+          <div class="progress-status-left">
+            <div class="progress-radar-spinner">
+              <div class="radar-pulse"></div>
+              <span id="cast-progress-icon" class="progress-icon">⚡</span>
+            </div>
+            <div class="progress-text-col">
+              <div id="cast-progress-headline" class="progress-headline">Preparing Stream...</div>
+              <div id="cast-progress-subtext" class="progress-subtext">Analyzing YouTube video &amp; stripping ads</div>
+            </div>
+          </div>
+          <div id="cast-progress-percent" class="progress-percent">25%</div>
         </div>
-        <div class="form-group">
-          <label>Title (Optional)</label>
-          <input type="text" id="cast-title-input" class="form-input" placeholder="Live Sports / Movie Title">
+
+        <div class="progress-track">
+          <div id="cast-progress-fill" class="progress-fill" style="width: 25%;"></div>
         </div>
+
+        <div class="progress-steps-row">
+          <div id="cast-step-1" class="progress-step active">
+            <span class="step-dot">1</span>
+            <span class="step-label">Analyze</span>
+          </div>
+          <div id="cast-step-2" class="progress-step">
+            <span class="step-dot">2</span>
+            <span class="step-label">Strip Ads</span>
+          </div>
+          <div id="cast-step-3" class="progress-step">
+            <span class="step-dot">3</span>
+            <span class="step-label">Stream to TV</span>
+          </div>
+        </div>
+
+        <!-- Progress Error Container -->
+        <div id="cast-progress-error" class="progress-error-box" style="display: none;">
+          <div class="progress-error-msg" id="cast-error-msg">Connection error occurred.</div>
+          <button type="button" id="btn-cast-dismiss-err" class="btn-progress-dismiss">Dismiss</button>
+        </div>
+      </div>
+
+      <!-- Active Cast Playback Control Deck -->
+      <div id="active-cast-deck" class="active-cast-deck" style="display: none;">
+        <div class="deck-header">
+          <div class="deck-badge">
+            <span class="cyber-shield-dot"></span>
+            <span id="deck-status-text">ACTIVE PLAYBACK ON TV</span>
+          </div>
+          <button type="button" id="btn-deck-stop" class="btn-deck-stop" title="Stop Casting">⏹ Stop</button>
+        </div>
+
+        <div class="deck-media-info">
+          <img id="deck-thumb" class="deck-thumb" src="" alt="Thumbnail" style="display: none;">
+          <div class="deck-title-box">
+            <div id="deck-title" class="deck-title">Video Stream</div>
+            <div id="deck-target-tv" class="deck-target-tv">Smart TV • 100% Ad-Free</div>
+          </div>
+        </div>
+
+        <!-- Scrub / Timeline Bar -->
+        <div class="deck-timeline">
+          <span id="deck-time-current" class="time-text">00:00</span>
+          <input type="range" id="deck-scrubber" class="deck-scrub-slider" min="0" max="100" value="0" step="1">
+          <span id="deck-time-total" class="time-text">--:--</span>
+        </div>
+
+        <!-- Transport Controls (Rewind / Fast-Forward / Play / Pause) -->
+        <div class="deck-transport-row">
+          <button type="button" class="btn-deck-transport" id="btn-seek-back-30" title="Rewind 30s">
+            <span class="transport-icon">⏪</span>
+            <span class="transport-label">-30s</span>
+          </button>
+          <button type="button" class="btn-deck-transport" id="btn-seek-back-10" title="Rewind 10s">
+            <span class="transport-icon">⏪</span>
+            <span class="transport-label">-10s</span>
+          </button>
+          <button type="button" class="btn-deck-playpause" id="btn-deck-play" title="Play / Pause">
+            <svg id="deck-play-icon" viewBox="0 0 24 24"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+          </button>
+          <button type="button" class="btn-deck-transport" id="btn-seek-fwd-10" title="Forward 10s">
+            <span class="transport-icon">⏩</span>
+            <span class="transport-label">+10s</span>
+          </button>
+          <button type="button" class="btn-deck-transport" id="btn-seek-fwd-30" title="Forward 30s">
+            <span class="transport-icon">⏩</span>
+            <span class="transport-label">+30s</span>
+          </button>
+        </div>
+
+        <!-- Controls Grid: Speed, Quality, Subtitles, Volume -->
+        <div class="deck-controls-grid">
+          
+          <!-- Playback Speed -->
+          <div class="deck-control-block">
+            <label class="deck-label">⚡ Playback Speed</label>
+            <div class="speed-pill-group">
+              <button type="button" class="speed-pill" data-speed="0.5">0.5x</button>
+              <button type="button" class="speed-pill" data-speed="0.75">0.75x</button>
+              <button type="button" class="speed-pill active" data-speed="1.0">1.0x</button>
+              <button type="button" class="speed-pill" data-speed="1.25">1.25x</button>
+              <button type="button" class="speed-pill" data-speed="1.5">1.5x</button>
+              <button type="button" class="speed-pill" data-speed="2.0">2.0x</button>
+            </div>
+          </div>
+
+          <!-- Quality & Subtitles Row -->
+          <div class="deck-inline-row">
+            <div class="deck-control-block" style="flex: 1;">
+              <label class="deck-label" for="deck-quality-select">📺 Quality</label>
+              <select id="deck-quality-select" class="deck-select">
+                <option value="auto">Auto (Best Quality)</option>
+                <option value="1080p">1080p Full HD</option>
+                <option value="720p">720p HD</option>
+                <option value="480p">480p SD</option>
+                <option value="360p">360p</option>
+              </select>
+            </div>
+
+            <div class="deck-control-block" style="flex: 1;">
+              <label class="deck-label" for="deck-subs-select">💬 Subtitles (CC)</label>
+              <select id="deck-subs-select" class="deck-select">
+                <option value="off">Subtitles Off</option>
+                <option value="en">English</option>
+                <option value="ka">Georgian (ქართული)</option>
+                <option value="ru">Russian (Русский)</option>
+                <option value="es">Spanish (Español)</option>
+              </select>
+            </div>
+          </div>
+
+          <!-- Volume Slider Row -->
+          <div class="deck-control-block">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
+              <label class="deck-label" style="margin: 0;">🔊 TV Volume (<span id="deck-vol-label">50%</span>)</label>
+              <button type="button" id="btn-deck-mute" class="deck-mute-btn" title="Toggle Mute">🔊 Mute</button>
+            </div>
+            <input type="range" id="deck-vol-slider" class="deck-vol-slider" min="0" max="100" value="50">
+          </div>
+
+        </div>
+      </div>
+
+      <div class="cast-card universal-cast-card">
+        <div class="cast-card-header">
+          <div class="cast-badge-highlight">
+            <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.5"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
+            UNIVERSAL AD-FREE CASTING
+          </div>
+          <h3>Cast Any Video, Movie &amp; YouTube Link</h3>
+          <p style="font-size: 13px; color: var(--text-muted); margin-bottom: 14px; line-height: 1.45;">
+            Paste any <strong>YouTube link</strong>, <strong>movie platform URL</strong>, web player page, or direct <strong>MP4 / HLS (.m3u8)</strong> stream. TV Hub automatically extracts the clean video stream and plays it on your TV with <strong>ZERO ADS</strong>.
+          </p>
+        </div>
+
+        <div class="form-group">
+          <label for="cast-url-input">Video or Webpage URL</label>
+          <div class="input-with-action">
+            <input type="text" id="cast-url-input" class="form-input" placeholder="Paste YouTube link, movie platform URL, or MP4/HLS stream...">
+            <button type="button" id="btn-paste-cast-url" class="btn-input-action" title="Paste from clipboard">📋 Paste</button>
+          </div>
+          <!-- Real-Time Platform Detection Badge -->
+          <div id="cast-detected-badge" class="cast-detected-pill" style="display: none;"></div>
+          <!-- Live Resolved Preview Card -->
+          <div id="cast-preview-box" class="cast-preview-box" style="display: none;">
+            <img id="cast-preview-thumb" class="cast-preview-thumb" src="" alt="Thumbnail" style="display: none;">
+            <div class="cast-preview-info">
+              <div id="cast-preview-title" class="cast-preview-title">Detected Video</div>
+              <div class="cast-preview-tag" id="cast-preview-tag">✓ Clean Ad-Free Stream Ready</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label for="cast-title-input">Title (Auto-detected from video if blank)</label>
+          <input type="text" id="cast-title-input" class="form-input" placeholder="Auto-detected from YouTube / movie platform">
+        </div>
+
         <div style="margin-bottom: 14px; display: flex; align-items: center; gap: 8px;">
           <input type="checkbox" id="cast-use-proxy" checked>
           <label for="cast-use-proxy" style="font-size: 13px; color: var(--text-muted); margin: 0; cursor: pointer;">
-            Enable Compatibility Stream Proxy (Recommended for older TVs)
+            Enable Ad-Shield Stream Proxy (Strips stream ads &amp; optimizes for TV hardware)
           </label>
         </div>
-        <button id="btn-submit-cast" class="btn-primary">
+
+        <button id="btn-submit-cast" class="btn-primary" style="font-weight: 700;">
           <svg viewBox="0 0 24 24" style="width: 18px; height: 18px; stroke: #fff;"><path d="m22 2-7 20-4-9-9-4Z"/><path d="M22 2 11 13"/></svg>
-          Cast Stream to TV
+          <span id="btn-cast-text">Cast Ad-Free to TV</span>
         </button>
+      </div>
+
+      <!-- YouTube 100% Ad-Free Search & Quick Cast -->
+      <div class="cast-card yt-search-card">
+        <div class="cast-card-header">
+          <div class="cast-badge-highlight" style="background: rgba(239, 68, 68, 0.15); color: #f87171; border-color: rgba(239, 68, 68, 0.3);">
+            ⚡ YOUTUBE ZERO-ADS
+          </div>
+          <h3>Play or Search Any YouTube Video Without Ads</h3>
+          <p style="font-size: 13px; color: var(--text-muted); margin-bottom: 12px; line-height: 1.45;">
+            Paste any YouTube video or short URL, or search keywords. TV Hub strips all ads and plays it directly on your TV.
+          </p>
+        </div>
+
+        <div class="yt-search-form">
+          <input type="text" id="yt-search-input" class="form-input yt-input-field" placeholder="Paste YouTube link or type search keyword...">
+          <div class="yt-action-buttons">
+            <button type="button" id="btn-yt-paste" class="btn-yt-paste" title="Paste link from clipboard">
+              📋 Paste Link
+            </button>
+            <button type="button" id="btn-yt-search" class="btn-primary btn-yt-search">
+              ⚡ Cast / Search
+            </button>
+          </div>
+        </div>
+
+        <div id="yt-search-results" class="yt-results-grid" style="display: none; margin-top: 14px;"></div>
       </div>
 
       <div class="cast-card">
@@ -465,8 +659,51 @@
           </div>
         </div>
 
-        <!-- 2. 1-Click Router Auto-Pilot Card (Automated Router Setup for YouTube & Network-Wide Ads) -->
+        <!-- 2. YouTube Ad-Shield Engine Details -->
+        <div class="youtube-shield-card">
+          <div class="yt-shield-header">
+            <div class="yt-badge">
+              <svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor"><path d="M23.498 6.186a3.016 3.016 0 0 0-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 0 0 .502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 0 0 2.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 0 0 2.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z"/></svg>
+              ENHANCED YOUTUBE AD-SHIELD
+            </div>
+            <div class="yt-title">How TV Hub Blocks YouTube Video &amp; Banner Ads</div>
+          </div>
+          <div class="yt-features-grid">
+            <div class="yt-feat-card">
+              <div class="yt-feat-icon">🎯</div>
+              <div class="yt-feat-title">IMA Video Ad SDK Sinkhole</div>
+              <div class="yt-feat-desc">Google's Interactive Media Ads SDK (<code>imasdk.googleapis.com</code>) is sinkholed to <code>0.0.0.0</code>. When video players call the ad manifest, the player skips the pre-roll/mid-roll immediately.</div>
+            </div>
+            <div class="yt-feat-card">
+              <div class="yt-feat-icon">⚡</div>
+              <div class="yt-feat-title">QUIC Bypass Neutralizer</div>
+              <div class="yt-feat-desc">Chrome &amp; apps use UDP 443 (QUIC) to bypass local DNS. The 1-click PC shield firewall rule disables outbound QUIC, forcing YouTube through port 53 ad filtering.</div>
+            </div>
+            <div class="yt-feat-card">
+              <div class="yt-feat-icon">🛡️</div>
+              <div class="yt-feat-title">16,000+ YouTube Ad Servers</div>
+              <div class="yt-feat-desc">Blocks <code>s.youtube.com</code>, <code>video-stats.l.google.com</code>, <code>googleads.g.doubleclick.net</code> and 16,000 community YouTube ad manifest endpoints.</div>
+            </div>
+            <div class="yt-feat-card">
+              <div class="yt-feat-icon">📱</div>
+              <div class="yt-feat-title">Smart TV &amp; Mobile Setup</div>
+              <div class="yt-feat-desc">Turn off <strong>Android Private DNS</strong> on your Galaxy phone so in-app queries use TV Hub DNS. For TVs, stream YouTube directly via TV Hub Cast without ads.</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- 3. 1-Click Router Auto-Pilot Card (Automated Router Setup for YouTube & Network-Wide Ads) -->
         <div class="router-autopilot-card" id="router-autopilot-container">
+          <!-- Dynamic Router Status & Connected Badge -->
+          <div id="router-status-badge" class="router-status-pill connected" style="display: none;">
+            <div class="router-status-indicator">
+              <span class="status-dot green"></span>
+              <span id="router-status-title">Local Gateway Router • Configured &amp; Connected</span>
+            </div>
+            <div class="router-status-sub" id="router-status-sub">
+              24/7 Ad-Shield Active &bull; Saved on This Device
+            </div>
+          </div>
           <div class="autopilot-header">
             <div class="autopilot-title-group">
               <div class="autopilot-badge">
@@ -497,6 +734,15 @@
                   <button type="button" id="btn-toggle-pwd" class="btn-toggle-pwd" title="Show password">👁️</button>
                 </div>
               </div>
+            </div>
+
+            <!-- Remember Login & Stay Configured Row -->
+            <div class="router-save-row">
+              <label class="cyber-checkbox-label" style="display: inline-flex; align-items: center; gap: 8px; font-size: 12px; color: var(--text-muted); cursor: pointer;">
+                <input type="checkbox" id="chk-remember-router" checked style="accent-color: var(--accent-cyan); width: 16px; height: 16px; cursor: pointer;">
+                <span>Save router login &amp; stay logged in on this device</span>
+              </label>
+              <button type="button" id="btn-forget-router" class="btn-text-danger" style="display: none;" title="Clear saved credentials from this browser">Forget Saved Login</button>
             </div>
 
             <div class="autopilot-action-row">
@@ -802,6 +1048,6 @@
     </div>
   </div>
 
-  <script src="static/app.js?v=3.7"></script>
+  <script src="static/app.js?v=3.8"></script>
 </body>
 </html>
