@@ -237,16 +237,16 @@ class SegmentCache:
         self._prune()
 
     def register_playlist_sequence(self, segments: list[str]):
-        """Map each segment to its single immediate successor for gentle lookahead."""
+        """Map each segment to upcoming successors (up to 4 segments ahead) for conveyor-belt lookahead."""
         for idx, seg in enumerate(segments):
-            next_items = segments[idx + 1 : idx + 2]
+            next_items = segments[idx + 1 : idx + 5]
             self._next_segments[seg] = next_items
             clean_key = seg.split("?")[0]
             if clean_key != seg:
                 self._next_segments[clean_key] = next_items
 
     def trigger_lookahead(self, current_url: str, headers: dict):
-        """When TV decodes segment N, prefetch only the very next segment N+1 ahead of time."""
+        """When TV decodes segment N, prefetch upcoming segments N+1..N+4 into RAM buffer."""
         clean_url = current_url.split("?")[0]
         next_urls = self._next_segments.get(current_url) or self._next_segments.get(clean_url)
         if next_urls:
@@ -335,11 +335,25 @@ class SegmentCache:
                 await asyncio.sleep(0.1 * (attempt + 1))
         return None, "video/mp2t"
 
+    async def _fetch_and_store(self, url: str, headers: dict) -> Tuple[Optional[bytes], str]:
+        try:
+            res = await self._fetch_upstream(url, headers)
+            # Conveyor belt: after completing a segment, auto-trigger next upcoming segments
+            clean_url = url.split("?")[0]
+            next_items = self._next_segments.get(url) or self._next_segments.get(clean_url)
+            if next_items:
+                self.prefetch(next_items, headers)
+            return res
+        finally:
+            self._in_flight.pop(url, None)
+
     def prefetch(self, urls: list[str], headers: dict):
-        """Asynchronously prefetch only 1 upcoming segment without congesting local Wi-Fi."""
-        for url in urls[:1]:
-            if url not in self._cache and url not in self._in_flight:
-                task = asyncio.create_task(self._fetch_upstream(url, headers))
+        """Asynchronously prefetch upcoming segments into RAM without saturating Wi-Fi (max 2 in flight)."""
+        for url in urls[:4]:
+            if url in self._cache or url in self._in_flight:
+                continue
+            if len(self._in_flight) < 2:
+                task = asyncio.create_task(self._fetch_and_store(url, headers))
                 self._in_flight[url] = task
 
     async def prewarm_channel(self, url: str, headers: dict):
@@ -505,11 +519,26 @@ async def proxy_stream(url: str, request: Request, server_host: str):
 
     # --- CASE 1: Video Segment (.ts / .m4s / .aac) ---
     if is_segment:
-        # Conveyor-belt Lookahead: As TV decodes this segment, trigger prefetching of upcoming segments in RAM
-        segment_engine.trigger_lookahead(url, headers)
+        clean_url = url.split("?")[0]
 
         # 1. Instant RAM cache hit (< 1ms response to TV!)
-        cached = segment_engine.get_cached(url)
+        cached = segment_engine.get_cached(url) or segment_engine.get_cached(clean_url)
+
+        # 2. In-Flight Deduplication: If already downloading via lookahead, await the active task!
+        # Eliminates 100% of duplicate downloads and bandwidth contention on 8 Mbps lines!
+        if not cached:
+            in_flight_task = segment_engine._in_flight.get(url) or segment_engine._in_flight.get(clean_url)
+            if in_flight_task:
+                try:
+                    res_data, res_ctype = await asyncio.wait_for(asyncio.shield(in_flight_task), timeout=12.0)
+                    if res_data:
+                        cached = (res_data, res_ctype)
+                except Exception as e:
+                    logger.debug(f"In-flight task wait notice for {url}: {e}")
+
+        # 3. Conveyor-belt Lookahead: Now trigger prefetching of next 3-4 segments in RAM
+        segment_engine.trigger_lookahead(url, headers)
+
         if cached:
             data, content_type = cached
             if not content_type or any(fake in content_type.lower() for fake in ["text/", "image/", "font/", "javascript", "html"]):
@@ -555,77 +584,27 @@ async def proxy_stream(url: str, request: Request, server_host: str):
                 }
             )
 
-        # 2. Cold start segment fetch: Stream immediately to TV so playback starts with 0ms delay!
-        client = segment_engine.get_client()
-        try:
-            if "range" in request.headers:
-                headers["Range"] = request.headers["range"]
-
-            upstream_req = client.build_request("GET", url, headers=headers)
-            upstream_resp = await client.send(upstream_req, stream=True)
-
-            raw_content_type = upstream_resp.headers.get("content-type", "video/mp2t")
-            content_type = raw_content_type
-            if not content_type or any(fake in content_type.lower() for fake in ["text/", "image/", "font/", "javascript", "html"]):
+        # 4. Cold start segment fetch (if not in RAM and not in flight):
+        # Fetch with deduplication engine and cache immediately in RAM
+        data, content_type = await segment_engine.get_or_fetch(url, headers)
+        if data is not None:
+            if not content_type or any(fake in (content_type or "").lower() for fake in ["text/", "image/", "font/", "javascript", "html"]):
                 content_type = "video/mp2t"
-            buffer = bytearray()
-
-            async def segment_stream_and_cache():
-                nonlocal content_type
-                first_chunk = True
-                try:
-                    async for chunk in upstream_resp.aiter_bytes(chunk_size=131072):
-                        if first_chunk:
-                            first_chunk = False
-                            if len(chunk) > 0 and chunk[0] == 0x47:
-                                content_type = "video/mp2t"
-                        buffer.extend(chunk)
-                        yield chunk
-                    # Once fully streamed, store in RAM cache for subsequent seek/reuse
-                    if buffer:
-                        segment_engine.put_cache(url, bytes(buffer), content_type)
-                except asyncio.CancelledError:
-                    pass
-                finally:
-                    await upstream_resp.aclose()
-
-            resp_headers = {
-                "Access-Control-Allow-Origin": "*",
-                "Access-Control-Allow-Headers": "*",
-                "Content-Type": content_type or "video/mp2t",
-                "Cache-Control": "private, no-cache, no-store, must-revalidate",
-                "Accept-Ranges": "bytes",
-            }
-            if "content-length" in upstream_resp.headers:
-                resp_headers["Content-Length"] = upstream_resp.headers["content-length"]
-
-            return StreamingResponse(
-                segment_stream_and_cache(),
-                status_code=upstream_resp.status_code,
-                headers=resp_headers
+            elif len(data) > 0 and data[0] == 0x47:
+                content_type = "video/mp2t"
+            return Response(
+                content=data,
+                status_code=200,
+                headers={
+                    "Content-Type": content_type or "video/mp2t",
+                    "Content-Length": str(len(data)),
+                    "Access-Control-Allow-Origin": "*",
+                    "Access-Control-Allow-Headers": "*",
+                    "Accept-Ranges": "bytes",
+                    "Cache-Control": "private, no-cache, no-store, must-revalidate",
+                }
             )
-        except Exception as e:
-            logger.debug(f"Direct segment stream error for {url}: {e}")
-            # Fallback to retry engine
-            data, content_type = await segment_engine.get_or_fetch(url, headers)
-            if data is not None:
-                if not content_type or any(fake in (content_type or "").lower() for fake in ["text/", "image/", "font/", "javascript", "html"]):
-                    content_type = "video/mp2t"
-                elif len(data) > 0 and data[0] == 0x47:
-                    content_type = "video/mp2t"
-                return Response(
-                    content=data,
-                    status_code=200,
-                    headers={
-                        "Content-Type": content_type or "video/mp2t",
-                        "Content-Length": str(len(data)),
-                        "Access-Control-Allow-Origin": "*",
-                        "Access-Control-Allow-Headers": "*",
-                        "Accept-Ranges": "bytes",
-                        "Cache-Control": "private, no-cache, no-store, must-revalidate",
-                    }
-                )
-            return Response(content=f"Segment error: {e}", status_code=502)
+        return Response(content="Segment fetch failed", status_code=502)
 
     # --- CASE 2: HLS Playlist Manifest (.m3u8) or Direct Stream ---
     requested_url = url
@@ -821,10 +800,14 @@ async def proxy_stream(url: str, request: Request, server_host: str):
                         h = v["height"]
                         if h not in by_height or v["is_avc"]:
                             by_height[h] = v
-                    # For Auto: prioritize 1080p first so Chromecast starts cold playback instantaneously without choking on 4K 17Mbps
+                    # For Auto: prioritize 720p first so playback starts instantaneously and streams smoothly on 8 Mbps lines without buffer starvation
                     def auto_sort_key(h):
-                        if h == 1080:
+                        if h == 720:
                             return 999999
+                        elif h == 1080:
+                            return 888888
+                        elif h == 480:
+                            return 777777
                         return h
                     chosen_variants = [by_height[h] for h in sorted(by_height.keys(), key=auto_sort_key, reverse=True)]
 
@@ -942,10 +925,15 @@ async def proxy_stream(url: str, request: Request, server_host: str):
                     elif clean_seg.endswith(".m3u8"):
                         variant_playlists_to_prewarm.append(full_segment_url)
 
-            # Register playlist sequence and gentle lookahead prefetch (only 1 upcoming segment):
+            # Register playlist sequence and prefetch buffer:
             if segment_urls_for_prefetch:
                 segment_engine.register_playlist_sequence(segment_urls_for_prefetch)
-                segment_engine.prefetch(segment_urls_for_prefetch[-1:], headers)
+                if has_endlist:
+                    # For VOD / Movies: prefetch first 3 segments into RAM so playback begins with 0ms delay
+                    segment_engine.prefetch(segment_urls_for_prefetch[:3], headers)
+                else:
+                    # For Live IPTV: prefetch latest sliding window segments
+                    segment_engine.prefetch(segment_urls_for_prefetch[-2:], headers)
 
             if has_endlist and total_extinf_dur > 0:
                 try:

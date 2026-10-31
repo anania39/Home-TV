@@ -1124,6 +1124,12 @@ async def playback_action(req: PlaybackActionRequest):
                 logger.debug(f"Subtitle action error: {e}")
         elif action == "quality":
             target_q_url = req.url or (req.value if req.value and req.value.startswith("http") else None)
+            if not target_q_url and req.value:
+                cur_stream = ws_manager.current_state.get("stream_url", "")
+                if cur_stream:
+                    clean_stream = re.sub(r'[\?&]q=[^&]+', '', cur_stream)
+                    sep = "&" if "?" in clean_stream else "?"
+                    target_q_url = f"{clean_stream}{sep}q={req.value}"
             if target_q_url:
                 try:
                     cur_pos = 0.0

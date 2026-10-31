@@ -2830,7 +2830,7 @@ function updateActiveCastDeck(info) {
       activeDeckQualities = info.qualities;
       activeDeckQualityUrls = info.quality_urls || {};
       const curVal = qSelect.value;
-      qSelect.innerHTML = '<option value="Auto">Auto (Best Quality)</option>';
+      qSelect.innerHTML = '<option value="Auto">Auto (Smooth Playback)</option>';
       activeDeckQualities.forEach(q => {
         if (q !== "Auto") {
           const opt = document.createElement("option");

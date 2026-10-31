@@ -171,6 +171,7 @@ class MediaResolver:
                     seen_audio = set()
                     seen_subs = set()
 
+                    parsed_qualities = set()
                     for line in lines:
                         if line.startswith("#EXT-X-MEDIA:"):
                             if "TYPE=AUDIO" in line:
@@ -200,6 +201,30 @@ class MediaResolver:
                                     if norm_code not in seen_subs:
                                         seen_subs.add(norm_code)
                                         subs.append({"code": norm_code, "name": name, "url": full_sub})
+                        elif line.startswith("#EXT-X-STREAM-INF:"):
+                            res_m = re.search(r'RESOLUTION=\d+x(\d+)', line)
+                            if res_m:
+                                parsed_qualities.add(f"{res_m.group(1)}p")
+                            else:
+                                bw_m = re.search(r'BANDWIDTH=(\d+)', line)
+                                if bw_m:
+                                    bw = int(bw_m.group(1))
+                                    if bw >= 4500000:
+                                        parsed_qualities.add("1080p")
+                                    elif bw >= 2000000:
+                                        parsed_qualities.add("720p")
+                                    elif bw >= 900000:
+                                        parsed_qualities.add("480p")
+                                    else:
+                                        parsed_qualities.add("360p")
+
+                    def q_sort_key(q_str):
+                        try:
+                            return int(q_str.replace("p", ""))
+                        except Exception:
+                            return 0
+                    sorted_qs = sorted(list(parsed_qualities), key=q_sort_key, reverse=True)
+                    movie_qualities = ["Auto"] + [q for q in sorted_qs if q != "Auto"] if sorted_qs else ["Auto", "1080p", "720p", "480p"]
 
                     # Calculate total duration if VOD
                     if "#EXTINF:" in text:
@@ -226,6 +251,7 @@ class MediaResolver:
         return {
             "audio_tracks": audio_tracks,
             "subtitles": subs,
+            "qualities": movie_qualities if 'movie_qualities' in locals() else ["Auto", "1080p", "720p", "480p"],
             "duration": round(total_duration, 1)
         }
 
@@ -676,6 +702,7 @@ class MediaResolver:
                     dur_str = "Movie"
                     audio_tracks = []
                     subs = []
+                    movie_qs = ["Auto", "1080p", "720p", "480p"]
                     if ".m3u8" in f_path:
                         headers_dict = {"Referer": url}
                         meta = await self.extract_hls_metadata(f_path, headers_dict)
@@ -684,6 +711,8 @@ class MediaResolver:
                             dur_str = self._format_duration(dur)
                         audio_tracks = meta.get("audio_tracks", [])
                         subs = meta.get("subtitles", [])
+                        if meta.get("qualities"):
+                            movie_qs = meta["qualities"]
                     return {
                         "resolved": True,
                         "stream_url": f_path,
@@ -696,7 +725,7 @@ class MediaResolver:
                         "mime_type": mime,
                         "subtitles": subs,
                         "audio_tracks": audio_tracks,
-                        "qualities": ["Auto"],
+                        "qualities": movie_qs,
                         "headers": {"Referer": url}
                     }
                 elif any(ext in f_path for ext in (".plist", ".txt", ".json")):
