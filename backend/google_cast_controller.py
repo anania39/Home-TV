@@ -189,20 +189,25 @@ class GoogleCastController:
                             break
                         time.sleep(0.05)
 
-                sess_id = mc.status.media_session_id if mc.status else None
-                if not sess_id:
-                    logger.warning(f"No active media session on {ip} for seek")
-                    return False
-
                 # Calculate target position
                 if delta is not None:
-                    curr = float(mc.status.current_time or 0.0)
+                    curr = float(mc.status.current_time or 0.0) if mc.status else 0.0
                     target_time = max(0.0, curr + float(delta))
                 elif is_absolute:
                     target_time = max(0.0, float(seconds))
                 else:
-                    curr = float(mc.status.current_time or 0.0)
+                    curr = float(mc.status.current_time or 0.0) if mc.status else 0.0
                     target_time = max(0.0, curr + float(seconds))
+
+                sess_id = mc.status.media_session_id if mc.status else None
+                if not sess_id:
+                    try:
+                        mc.seek(target_time)
+                        logger.info(f"Dispatched fallback mc.seek to {target_time:.1f}s on {cast.name} ({ip})")
+                        return True
+                    except Exception as e2:
+                        logger.warning(f"No active media session and fallback seek failed on {ip}: {e2}")
+                        return False
 
                 # Non-blocking direct dispatch to active session
                 cmd = {

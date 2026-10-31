@@ -291,6 +291,17 @@ document.addEventListener("DOMContentLoaded", async () => {
   initSportsAggregator();
   initActiveCastDeck();
   initYouTubeSearch();
+
+  // Instant 0ms restore of active cast deck from localStorage on page refresh
+  try {
+    const savedCastStr = localStorage.getItem("tvhub_active_cast");
+    if (savedCastStr) {
+      const savedCast = JSON.parse(savedCastStr);
+      if (savedCast && savedCast.title && savedCast.state !== "STOPPED") {
+        updateActiveCastDeck(savedCast);
+      }
+    }
+  } catch (e) {}
 });
 
 // --- Tab Navigation ---
@@ -1268,7 +1279,9 @@ async function executeUniversalCast(url, title = "") {
           thumbnail: data.thumbnail,
           subtitles: data.subtitles,
           qualities: data.qualities,
-          quality_urls: data.quality_urls
+          quality_urls: data.quality_urls,
+          audio_tracks: data.audio_tracks,
+          audio_urls: data.audio_urls
         });
         window.scrollTo({ top: 0, behavior: "smooth" });
       }, 700);
@@ -2713,7 +2726,7 @@ function formatDeckTime(sec) {
 function startDeckProgressTicker() {
   if (deckTicker) clearInterval(deckTicker);
   deckTicker = setInterval(() => {
-    if (state.playbackState === "PLAYING") {
+    if (state.playbackState === "PLAYING" && !isScrubbing && Date.now() > (window._scrubLockUntil || 0)) {
       activeDeckCurrentTime += 1;
       if (activeDeckDuration > 0 && activeDeckCurrentTime > activeDeckDuration) {
         activeDeckCurrentTime = activeDeckDuration;
@@ -2739,6 +2752,7 @@ function updateActiveCastDeck(info) {
       clearInterval(deckTicker);
       deckTicker = null;
     }
+    try { localStorage.removeItem("tvhub_active_cast"); } catch (e) {}
     return;
   }
 
@@ -2799,13 +2813,14 @@ function updateActiveCastDeck(info) {
       : '<polygon points="5 3 19 12 5 21 5 3"/>';
   }
 
-  // Populate Subtitles
-  if (Array.isArray(info.subtitles) && info.subtitles.length > 0) {
+  // Populate Subtitles (with fallback to activeDeckSubtitles)
+  const availableSubs = (Array.isArray(info.subtitles) && info.subtitles.length > 0) ? info.subtitles : (activeDeckSubtitles.length > 0 ? activeDeckSubtitles : []);
+  if (availableSubs.length > 0) {
     const subsSelect = document.getElementById("deck-subs-select");
     if (subsSelect) {
-      const subsChanged = JSON.stringify(activeDeckSubtitles) !== JSON.stringify(info.subtitles);
+      const subsChanged = JSON.stringify(activeDeckSubtitles) !== JSON.stringify(availableSubs);
       if (subsSelect.options.length <= 1 || subsChanged) {
-        activeDeckSubtitles = info.subtitles;
+        activeDeckSubtitles = availableSubs;
         subsSelect.innerHTML = '<option value="off">Subtitles Off</option>';
         activeDeckSubtitles.slice(0, 20).forEach((s, idx) => {
           const opt = document.createElement("option");
@@ -2823,12 +2838,13 @@ function updateActiveCastDeck(info) {
     }
   }
 
-  // Populate Qualities (only if not already loaded or changed)
-  if (Array.isArray(info.qualities) && info.qualities.length > 0) {
+  // Populate Qualities (with fallback to activeDeckQualities)
+  const availableQualities = (Array.isArray(info.qualities) && info.qualities.length > 0) ? info.qualities : (activeDeckQualities.length > 0 ? activeDeckQualities : ["Auto", "1080p", "720p", "480p"]);
+  if (availableQualities.length > 0) {
     const qSelect = document.getElementById("deck-quality-select");
-    if (qSelect && (qSelect.options.length <= 1 || JSON.stringify(activeDeckQualities) !== JSON.stringify(info.qualities))) {
-      activeDeckQualities = info.qualities;
-      activeDeckQualityUrls = info.quality_urls || {};
+    if (qSelect && (qSelect.options.length <= 1 || JSON.stringify(activeDeckQualities) !== JSON.stringify(availableQualities))) {
+      activeDeckQualities = availableQualities;
+      if (info.quality_urls) activeDeckQualityUrls = info.quality_urls;
       const curVal = qSelect.value;
       qSelect.innerHTML = '<option value="Auto">Auto (Smooth Playback)</option>';
       activeDeckQualities.forEach(q => {
@@ -2846,14 +2862,15 @@ function updateActiveCastDeck(info) {
     }
   }
 
-  // Populate Audio Tracks / Voice Languages (Movies & YouTube Multi-Audio)
-  if (Array.isArray(info.audio_tracks) && info.audio_tracks.length > 0) {
+  // Populate Audio Tracks / Voice Languages (with fallback to activeDeckAudioTracks)
+  const availableAudio = (Array.isArray(info.audio_tracks) && info.audio_tracks.length > 0) ? info.audio_tracks : (activeDeckAudioTracks.length > 0 ? activeDeckAudioTracks : []);
+  if (availableAudio.length > 0) {
     const aSelect = document.getElementById("deck-audio-select");
     if (aSelect) {
-      const tracksChanged = JSON.stringify(activeDeckAudioTracks) !== JSON.stringify(info.audio_tracks);
+      const tracksChanged = JSON.stringify(activeDeckAudioTracks) !== JSON.stringify(availableAudio);
       if (aSelect.options.length <= 1 || tracksChanged) {
-        activeDeckAudioTracks = info.audio_tracks;
-        activeDeckAudioUrls = info.audio_urls || {};
+        activeDeckAudioTracks = availableAudio;
+        if (info.audio_urls) activeDeckAudioUrls = info.audio_urls;
         aSelect.innerHTML = "";
         activeDeckAudioTracks.forEach(a => {
           const opt = document.createElement("option");
@@ -2878,6 +2895,24 @@ function updateActiveCastDeck(info) {
       }
     }
   }
+
+  // Persist session into localStorage for instant 0ms restoration on refresh
+  try {
+    const sessionToSave = {
+      title: title,
+      thumbnail: thumb,
+      duration: activeDeckDuration,
+      duration_str: durationStr,
+      current_time: activeDeckCurrentTime,
+      subtitles: activeDeckSubtitles,
+      qualities: activeDeckQualities,
+      quality_urls: activeDeckQualityUrls,
+      audio_tracks: activeDeckAudioTracks,
+      audio_urls: activeDeckAudioUrls,
+      state: isPlaying ? "PLAYING" : (info.state || "PAUSED")
+    };
+    localStorage.setItem("tvhub_active_cast", JSON.stringify(sessionToSave));
+  } catch (e) {}
 
   if (isPlaying) {
     startDeckProgressTicker();
@@ -2981,12 +3016,13 @@ function initActiveCastDeck() {
     const triggerSeek = (pct) => {
       if (seekTimer) clearTimeout(seekTimer);
       seekTimer = setTimeout(async () => {
-        isScrubbing = false;
         const dur = (activeDeckDuration > 0) ? activeDeckDuration : (state.duration > 0 ? state.duration : 0);
         if (dur > 0) {
           vibrate(20);
           const targetSec = Math.floor((pct / 100) * dur);
           activeDeckCurrentTime = targetSec;
+          window._scrubLockUntil = Date.now() + 2500;
+          isScrubbing = false;
           if (timeCur) timeCur.textContent = formatDeckTime(activeDeckCurrentTime);
           showToast(`Jumped to ${formatDeckTime(targetSec)}`);
           await safeFetchWithRetry("/api/playback/action", {
@@ -2994,8 +3030,10 @@ function initActiveCastDeck() {
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ action: "seek", value: targetSec.toString(), is_absolute: true, device_id: state.currentTvId })
           });
+        } else {
+          isScrubbing = false;
         }
-      }, 50);
+      }, 30);
     };
 
     scrubber.onmousedown = scrubber.ontouchstart = () => { isScrubbing = true; };
@@ -3003,7 +3041,7 @@ function initActiveCastDeck() {
       isScrubbing = true;
       const dur = (activeDeckDuration > 0) ? activeDeckDuration : (state.duration > 0 ? state.duration : 0);
       if (dur > 0) {
-        const sec = (scrubber.value / 100) * dur;
+        const sec = (parseFloat(scrubber.value) / 100) * dur;
         if (timeCur) timeCur.textContent = formatDeckTime(sec);
       }
     };

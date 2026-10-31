@@ -667,6 +667,8 @@ async def resolve_media_url(url: str):
 @app.post("/api/cast")
 async def cast_media(req: CastRequest, request: Request, client_ip: str = Depends(verify_local_network)):
     device_id = req.device_id or device_manager.selected_device_id
+    if device_id:
+        device_manager.select_device(device_id)
     raw_stream_url = req.url.strip()
     title = req.title or "Live Stream"
 
@@ -1073,6 +1075,9 @@ async def playback_action(req: PlaybackActionRequest):
                     is_absolute=req.is_absolute or False,
                     delta=delta_val
                 )
+                if req.is_absolute and sec_val >= 0:
+                    ws_manager.update_state({"current_time": sec_val})
+                    await ws_manager.broadcast_to_controllers("playback_update", {"current_time": sec_val})
             except Exception as e:
                 logger.debug(f"Seek dispatch error: {e}")
         elif action in ("speed", "rate") and req.value:
@@ -1381,12 +1386,20 @@ async def get_current_state():
             cast_st = await asyncio.to_thread(google_cast_controller.get_status, dev["ip"])
             if cast_st.get("tv_online"):
                 updates = {
-                    "state": cast_st.get("state", ws_manager.current_state.get("state", "IDLE")),
                     "volume": cast_st.get("volume", ws_manager.current_state.get("volume", 20)),
                     "muted": cast_st.get("muted", False)
                 }
-                if cast_st.get("current_time") is not None:
+                r_state = cast_st.get("state")
+                if r_state in ("PLAYING", "PAUSED", "BUFFERING"):
+                    updates["state"] = r_state
+                elif r_state == "IDLE" and ws_manager.current_state.get("state") in ("PLAYING", "PAUSED"):
+                    pass
+                else:
+                    updates["state"] = r_state or ws_manager.current_state.get("state", "IDLE")
+
+                if cast_st.get("current_time") is not None and cast_st["current_time"] > 0:
                     updates["current_time"] = cast_st["current_time"]
+                # NEVER overwrite a known positive duration from media_resolver with 0 from Chromecast!
                 if cast_st.get("duration") and cast_st["duration"] > 0:
                     updates["duration"] = cast_st["duration"]
                 ws_manager.update_state(updates)

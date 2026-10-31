@@ -31,6 +31,7 @@ class ConnectionManager:
             "selected_tv_name": "TV Web Receiver",
             "selected_tv_ip": SERVER_IP
         }
+        self._load_saved_state()
 
     def next_version(self) -> int:
         self.cast_version += 1
@@ -106,7 +107,33 @@ class ConnectionManager:
     def get_receivers_debug_info(self) -> List[Dict[str, Any]]:
         return list(self.receiver_info.values())
 
+    def _load_saved_state(self):
+        try:
+            from pathlib import Path as P
+            p = P(__file__).parent / ".active_cast.json"
+            if p.exists():
+                import json as _json
+                data = _json.loads(p.read_text(encoding="utf-8"))
+                if isinstance(data, dict) and data.get("title") and data.get("title") != "Ready to cast":
+                    self.current_state.update(data)
+        except Exception:
+            pass
+
+    def _save_state(self):
+        try:
+            from pathlib import Path as P
+            p = P(__file__).parent / ".active_cast.json"
+            import json as _json
+            to_save = {}
+            for k, v in self.current_state.items():
+                if k != "media_info" and isinstance(v, (str, int, float, bool, list, dict, type(None))):
+                    to_save[k] = v
+            p.write_text(_json.dumps(to_save, ensure_ascii=False, indent=2), encoding="utf-8")
+        except Exception:
+            pass
+
     def update_state(self, updates: Dict[str, Any]):
         self.current_state.update(updates)
+        self._save_state()
 
 ws_manager = ConnectionManager()
