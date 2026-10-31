@@ -9,11 +9,18 @@ import asyncio
 import html
 import json
 import logging
+import os
+from pathlib import Path
 import re
 import time
 import urllib.parse
 from typing import Dict, Any, Optional, List, Tuple
 import httpx
+
+# Prepend local Node.js binary to PATH for yt-dlp JavaScript challenge solver
+node_tools = Path(r"C:\Users\Anania Light Laptop\Downloads\Blue Ocean\.tools\node")
+if node_tools.exists() and str(node_tools) not in os.environ.get("PATH", ""):
+    os.environ["PATH"] = str(node_tools) + os.pathsep + os.environ.get("PATH", "")
 
 try:
     from curl_cffi import requests as cffi_requests
@@ -99,23 +106,24 @@ class MediaResolver:
                 name = LANG_NAMES.get(short_code, code.upper())
                 subs_list.append({"code": short_code, "name": name, "url": vtts[0]})
 
-        # Qualities
-        qualities = ["Auto"]
+        # Qualities: extract all distinct video heights (1080, 720, 480, 360, etc.)
+        found_heights = set()
         quality_urls = {}
         for f in info.get("formats", []):
             h = f.get("height")
             fid = str(f.get("format_id", ""))
             ext = str(f.get("ext", "")).lower()
             vcodec = str(f.get("vcodec", "")).lower()
-            # Ignore storyboards and image tracks
-            if fid.startswith("sb") or ext in ("mhtml", "jpg", "jpeg", "webp") or vcodec == "none":
+            if fid.startswith("sb") or ext in ("mhtml", "jpg", "jpeg", "webp"):
                 continue
-            if h and h >= 144 and f.get("url"):
-                q_label = f"{h}p"
-                if q_label not in qualities:
-                    qualities.append(q_label)
+            if h and int(h) >= 144:
+                found_heights.add(int(h))
+                q_label = f"{int(h)}p"
+                if f.get("url") and q_label not in quality_urls and vcodec != "none":
                     quality_urls[q_label] = f["url"]
 
+        sorted_heights = sorted(list(found_heights), reverse=True)
+        qualities = ["Auto"] + [f"{h}p" for h in sorted_heights]
         return subs_list, qualities, quality_urls
 
     async def fetch_page(self, url: str, referer: Optional[str] = None) -> Tuple[int, str]:
@@ -328,18 +336,21 @@ class MediaResolver:
                 'quiet': True,
                 'no_warnings': True,
                 'noplaylist': True,
-                'socket_timeout': 7,
-                'format': 'best[protocol^=http]/best[ext=mp4]/best',
-                'extractor_args': {'youtube': {'player_client': ['android', 'web']}}
+                'socket_timeout': 8,
             }
             with yt_dlp.YoutubeDL(ydl_opts) as ydl:
                 return ydl.extract_info(url, download=False)
 
         try:
             info = await asyncio.to_thread(_extract)
-            stream_url = info.get("url")
+            manifest_url = None
+            for f in info.get("formats", []):
+                if f.get("manifest_url"):
+                    manifest_url = f.get("manifest_url")
+                    break
+
+            stream_url = manifest_url or info.get("url")
             if not stream_url:
-                # Search formats
                 prog = [f for f in info.get("formats", []) if f.get("vcodec") != "none" and f.get("acodec") != "none"]
                 if prog:
                     stream_url = prog[-1].get("url")
@@ -349,13 +360,14 @@ class MediaResolver:
                 thumbnail = info.get("thumbnail") or ""
                 duration = info.get("duration") or 0
                 ext = info.get("ext") or "mp4"
-                mime = "application/vnd.apple.mpegurl" if ".m3u8" in stream_url else ("video/mp4" if ext == "mp4" else "video/webm")
+                mime = "application/x-mpegurl" if (manifest_url or ".m3u8" in stream_url) else ("video/mp4" if ext == "mp4" else "video/webm")
                 subs_list, qualities, quality_urls = self._extract_subtitles_and_qualities(info)
                 dur_str = self._format_duration(duration)
-                logger.info(f"Successfully resolved YouTube stream: {title} (Zero Ads, {len(subs_list)} subs)")
+                logger.info(f"Successfully resolved YouTube stream: {title} (Zero Ads, {len(subs_list)} subs, {len(qualities)} qualities)")
                 return {
                     "resolved": True,
                     "stream_url": stream_url,
+                    "manifest_url": manifest_url,
                     "title": title,
                     "thumbnail": thumbnail,
                     "duration": duration,

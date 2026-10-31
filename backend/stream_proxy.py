@@ -456,6 +456,7 @@ async def proxy_stream(url: str, request: Request, server_host: str):
 
     # Forward custom headers from movie/stream session (e.g. embed referrers)
     req_sid = request.query_params.get("sid")
+    request_q = request.query_params.get("q") or request.query_params.get("quality")
     client_addr = request.client.host if request.client else "127.0.0.1"
     session_custom_headers = session_manager.get_session_headers(req_sid, client_addr)
     if session_custom_headers:
@@ -684,9 +685,93 @@ async def proxy_stream(url: str, request: Request, server_host: str):
             text = body.decode("utf-8", errors="ignore")
             lines = text.splitlines()
 
-            # Master Playlist Flattening: If playlist contains variant streams, resolve the best variant immediately
-            # so the TV receives a direct media playlist on request #1 with zero round-trip overhead.
             has_variants = any(l.startswith("#EXT-X-STREAM-INF") for l in lines)
+            has_media_tags = any(l.startswith("#EXT-X-MEDIA:") for l in lines)
+            is_youtube_or_demuxed = "googlevideo.com" in url or "hls_variant" in url or has_media_tags
+
+            # If the playlist has separate audio/subtitles (YouTube HLS) OR a specific quality was requested:
+            # We rewrite and serve as a Master Playlist so audio & video remain coupled and quality is preserved!
+            if has_variants and (is_youtube_or_demuxed or request_q):
+                use_absolute = FORCE_ABSOLUTE_LAN_URL or (
+                    server_host and not server_host.endswith(".trycloudflare.com") and not server_host.endswith(".ngrok-free.app")
+                )
+                base_proxy = f"http://{server_host}/api/stream/proxy" if (use_absolute and server_host) else "/api/stream/proxy"
+
+                def replace_media_uri(match):
+                    orig_uri = match.group(1)
+                    full_media = urljoin(url, orig_uri)
+                    proxied = f"{base_proxy}?url={quote(full_media, safe='')}&sid={active_sid}"
+                    return f'URI="{proxied}"'
+
+                parsed_variants = []
+                headers_lines = []
+                idx = 0
+                while idx < len(lines):
+                    line_s = lines[idx].strip()
+                    if not line_s:
+                        idx += 1
+                        continue
+                    if line_s.startswith("#EXT-X-MEDIA:"):
+                        line_s = re.sub(r'URI="([^"]+)"', replace_media_uri, line_s)
+                        headers_lines.append(line_s)
+                        idx += 1
+                    elif line_s.startswith("#EXT-X-STREAM-INF:"):
+                        inf_line = line_s
+                        s_url = lines[idx + 1].strip() if idx + 1 < len(lines) else ""
+                        idx += 2
+                        res_m = re.search(r'RESOLUTION=\d+x(\d+)', inf_line)
+                        h = int(res_m.group(1)) if res_m else 0
+                        is_avc = "avc1" in inf_line
+                        parsed_variants.append({
+                            "height": h,
+                            "inf": inf_line,
+                            "url": urljoin(url, s_url),
+                            "is_avc": is_avc
+                        })
+                    else:
+                        headers_lines.append(line_s)
+                        idx += 1
+
+                if request_q and request_q.lower() != "auto":
+                    try:
+                        target_h = int(str(request_q).lower().replace("p", ""))
+                        matches = [v for v in parsed_variants if v["height"] == target_h]
+                        if not matches:
+                            matches = sorted(parsed_variants, key=lambda v: abs(v["height"] - target_h))[:1]
+                        selected = sorted(matches, key=lambda v: (1 if v["is_avc"] else 0), reverse=True)[0]
+                        chosen_variants = [selected]
+                    except Exception:
+                        chosen_variants = parsed_variants
+                else:
+                    by_height = {}
+                    for v in parsed_variants:
+                        h = v["height"]
+                        if h not in by_height or v["is_avc"]:
+                            by_height[h] = v
+                    chosen_variants = [by_height[h] for h in sorted(by_height.keys(), reverse=True)]
+
+                rewritten_master_lines = list(headers_lines)
+                for v in chosen_variants:
+                    rewritten_master_lines.append(v["inf"])
+                    proxied_v = f"{base_proxy}?url={quote(v['url'], safe='')}&sid={active_sid}"
+                    rewritten_master_lines.append(proxied_v)
+
+                rewritten_master_bytes = "\n".join(rewritten_master_lines).encode("utf-8")
+                segment_engine.put_manifest(url, rewritten_master_bytes)
+                return Response(
+                    content=rewritten_master_bytes,
+                    status_code=200,
+                    headers={
+                        "Content-Type": "application/vnd.apple.mpegurl",
+                        "Access-Control-Allow-Origin": "*",
+                        "Access-Control-Allow-Headers": "*",
+                        "Cache-Control": "public, max-age=3, stale-while-revalidate=3",
+                        "Accept-Ranges": "bytes",
+                        "Connection": "keep-alive"
+                    }
+                )
+
+            # Master Playlist Flattening for simple IPTV feeds:
             if has_variants:
                 best_variant_url = None
                 for idx, line in enumerate(lines):

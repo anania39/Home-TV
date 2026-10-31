@@ -702,19 +702,39 @@ async def cast_media(req: CastRequest, request: Request, client_ip: str = Depend
     custom_headers = resolved.get("headers") if ('resolved' in locals() and isinstance(resolved, dict)) else None
     active_sid = session_manager.start_session(target_tv_ip, raw_stream_url, headers=custom_headers)
 
+    # For YouTube and HLS adaptive streams with manifest_url, populate all quality variants
+    manifest_url = resolved.get("manifest_url") if ('resolved' in locals() and isinstance(resolved, dict)) else None
+    if manifest_url:
+        qualities = resolved.get("qualities", ["Auto"])
+        q_urls = {}
+        for q in qualities:
+            if q == "Auto":
+                q_urls[q] = f"http://{SERVER_IP}:{PORT}/api/stream/proxy?url={quote(manifest_url, safe='')}&sid={active_sid}"
+            else:
+                q_urls[q] = f"http://{SERVER_IP}:{PORT}/api/stream/proxy?url={quote(manifest_url, safe='')}&q={q}&sid={active_sid}"
+        resolved["quality_urls"] = q_urls
+        raw_stream_url = q_urls["Auto"]
+        req.mime_type = "application/x-mpegurl"
+
     # Proxied URLs:
     relative_proxy_url = f"/api/stream/proxy?url={quote(raw_stream_url, safe='')}&sid={active_sid}"
     lan_proxy_url = f"http://{SERVER_IP}:{PORT}/api/stream/proxy?url={quote(raw_stream_url, safe='')}&sid={active_sid}"
 
-    # For Google TV / Android TV, direct Google video & HTTPS MP4 play natively with zero proxy latency
-    if dev and dev.get("is_google_tv") and ("googlevideo.com" in raw_stream_url or not req.use_proxy):
-        tv_stream_url = raw_stream_url
+    if dev and dev.get("is_google_tv"):
+        if manifest_url:
+            tv_stream_url = raw_stream_url
+        elif "googlevideo.com" in raw_stream_url and not req.use_proxy:
+            tv_stream_url = raw_stream_url
+        elif req.use_proxy or raw_stream_url.startswith("https://"):
+            tv_stream_url = lan_proxy_url
+        else:
+            tv_stream_url = raw_stream_url
     elif req.use_proxy or (raw_stream_url.startswith("https://") and device_id != "web_receiver"):
         tv_stream_url = lan_proxy_url if (dev and (dev.get("av_transport_url") or dev.get("is_google_tv"))) else relative_proxy_url
     else:
         tv_stream_url = raw_stream_url
 
-    web_stream_url = relative_proxy_url if req.use_proxy else raw_stream_url
+    web_stream_url = relative_proxy_url if (req.use_proxy and not manifest_url) else raw_stream_url
 
     # Ensure all channel sources are properly proxied with active_sid for seamless client failover
     proxied_sources = []
@@ -1047,9 +1067,19 @@ async def playback_action(req: PlaybackActionRequest):
             target_q_url = req.url or (req.value if req.value and req.value.startswith("http") else None)
             if target_q_url:
                 try:
-                    await asyncio.to_thread(google_cast_controller.cast_media, dev["ip"], target_q_url, ws_manager.current_state.get("title", "Video"))
-                except Exception:
-                    pass
+                    cur_pos = 0.0
+                    try:
+                        st = await asyncio.to_thread(google_cast_controller.get_status, dev["ip"])
+                        cur_pos = st.get("current_time", 0.0)
+                    except Exception:
+                        pass
+                    mime = "application/x-mpegurl" if (".m3u8" in target_q_url or "manifest" in target_q_url or "proxy?url=" in target_q_url) else "video/mp4"
+                    ok = await asyncio.to_thread(google_cast_controller.cast_media, dev["ip"], target_q_url, ws_manager.current_state.get("title", "Video"), mime)
+                    if ok and cur_pos > 1.0:
+                        await asyncio.sleep(0.6)
+                        await asyncio.to_thread(google_cast_controller.seek, dev["ip"], cur_pos)
+                except Exception as e:
+                    logger.debug(f"Quality action error: {e}")
 
     elif dev and dev.get("av_transport_url"):
         av_url = dev["av_transport_url"]

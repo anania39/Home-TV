@@ -2817,16 +2817,19 @@ function updateActiveCastDeck(info) {
       activeDeckQualities = info.qualities;
       activeDeckQualityUrls = info.quality_urls || {};
       const curVal = qSelect.value;
-      qSelect.innerHTML = '<option value="auto">Auto (Best Quality)</option>';
+      qSelect.innerHTML = '<option value="Auto">Auto (Best Quality)</option>';
       activeDeckQualities.forEach(q => {
         if (q !== "Auto") {
           const opt = document.createElement("option");
           opt.value = q;
-          opt.textContent = `${q} ${q === "1080p" ? "Full HD" : (q === "720p" ? "HD" : "SD")}`;
+          const badge = q === "1080p" ? "Full HD" : (q === "720p" ? "HD" : "SD");
+          opt.textContent = `${q} ${badge}`;
           qSelect.appendChild(opt);
         }
       });
-      if (curVal) qSelect.value = curVal;
+      if (curVal && activeDeckQualities.includes(curVal)) {
+        qSelect.value = curVal;
+      }
     }
   }
 
@@ -3008,7 +3011,7 @@ function initActiveCastDeck() {
     qSelect.onchange = async () => {
       vibrate(20);
       const q = qSelect.value;
-      const targetUrl = activeDeckQualityUrls[q] || null;
+      const targetUrl = activeDeckQualityUrls[q] || activeDeckQualityUrls[q.toLowerCase()] || activeDeckQualityUrls["Auto"] || null;
       showToast(`Switching Quality to ${q}...`);
       await safeFetchWithRetry("/api/playback/action", {
         method: "POST",
