@@ -2810,7 +2810,44 @@ function startDeckProgressTicker() {
   }, 1000);
 }
 
+function formatQualityDisplay(q) {
+  if (!q || q === "Auto") return { value: "Auto", tier: "Auto", label: "Auto (Smooth Playback)" };
+  const clean = String(q).trim();
+  const num = parseInt(clean.replace(/[^\d]/g, ""), 10);
+
+  let tier = "SD";
+  let label = clean;
+
+  if (clean === "4K" || num >= 2000) {
+    tier = "4K";
+    label = "4K (Ultra HD)";
+  } else if (clean === "1440p" || (num >= 1400 && num < 2000)) {
+    tier = "1440p";
+    label = "1440p (2K Quad HD)";
+  } else if (clean === "1080p" || (num >= 750 && num < 1400)) {
+    tier = "1080p";
+    label = "1080p (Full HD)";
+  } else if (clean === "720p" || (num >= 500 && num < 750)) {
+    tier = "720p";
+    label = "720p (HD)";
+  } else if (clean === "480p" || (num >= 340 && num < 500)) {
+    tier = "480p";
+    label = "480p (SD)";
+  } else if (clean === "360p" || (num >= 240 && num < 340)) {
+    tier = "360p";
+    label = "360p (Data Saver)";
+  } else if (clean === "240p" || (num >= 160 && num < 240)) {
+    tier = "240p";
+    label = "240p (Low)";
+  } else {
+    label = `${clean}`;
+  }
+
+  return { value: q, tier, label };
+}
+
 function updateActiveCastDeck(info) {
+
   const deck = document.getElementById("active-cast-deck");
   if (!deck) return;
 
@@ -2930,18 +2967,29 @@ function updateActiveCastDeck(info) {
       activeDeckQualities = availableQualities;
       if (info.quality_urls) activeDeckQualityUrls = info.quality_urls;
       const curVal = qSelect.value;
+      const seenTiers = new Set();
       qSelect.innerHTML = '<option value="Auto">Auto (Smooth Playback)</option>';
       activeDeckQualities.forEach(q => {
         if (q !== "Auto") {
-          const opt = document.createElement("option");
-          opt.value = q;
-          const badge = q === "1080p" ? "Full HD" : (q === "720p" ? "HD" : "SD");
-          opt.textContent = `${q} ${badge}`;
-          qSelect.appendChild(opt);
+          const { value, tier, label } = formatQualityDisplay(q);
+          if (!seenTiers.has(tier)) {
+            seenTiers.add(tier);
+            const opt = document.createElement("option");
+            opt.value = value;
+            opt.textContent = label;
+            qSelect.appendChild(opt);
+          }
         }
       });
-      if (curVal && activeDeckQualities.includes(curVal)) {
-        qSelect.value = curVal;
+      if (curVal) {
+        const curTier = formatQualityDisplay(curVal).tier;
+        for (let i = 0; i < qSelect.options.length; i++) {
+          const optVal = qSelect.options[i].value;
+          if (optVal === curVal || (optVal !== "Auto" && formatQualityDisplay(optVal).tier === curTier)) {
+            qSelect.selectedIndex = i;
+            break;
+          }
+        }
       }
     }
   }
@@ -3217,8 +3265,12 @@ function initActiveCastDeck() {
     qSelect.onchange = async () => {
       vibrate(20);
       const q = qSelect.value;
-      const targetUrl = activeDeckQualityUrls[q] || activeDeckQualityUrls[q.toLowerCase()] || activeDeckQualityUrls["Auto"] || null;
-      showToast(`Switching Quality to ${q}...`);
+      const displayInfo = formatQualityDisplay(q);
+      const targetUrl = activeDeckQualityUrls[q] ||
+                        activeDeckQualityUrls[displayInfo.tier] ||
+                        activeDeckQualityUrls[displayInfo.value] ||
+                        activeDeckQualityUrls["Auto"] || null;
+      showToast(`Switching Quality to ${displayInfo.label.split(" ")[0]}...`);
       await safeFetchWithRetry("/api/playback/action", {
         method: "POST",
         headers: { "Content-Type": "application/json" },

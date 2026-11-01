@@ -34,6 +34,43 @@ try:
 except ImportError:
     yt_dlp = None
 
+def normalize_quality_label(width: int = 0, height: int = 0) -> str:
+    """
+    Normalizes video stream dimensions into industry-standard resolution tiers.
+    Accurately maps cropped widescreen / cinemascope aspect ratios (e.g. 2.39:1 / 21:9):
+    - 1920x804 / 1920x822 -> 1080p
+    - 1280x536 / 1280x546 -> 720p
+    - 854x358 -> 480p
+    - 640x268 -> 360p
+    - 426x178 -> 240p
+    """
+    w = int(width or 0)
+    h = int(height or 0)
+
+    if w >= 3800 or h >= 2000:
+        return "4K"
+    if w >= 2500 or h >= 1400:
+        return "1440p"
+    if w >= 1700 or h >= 750:
+        return "1080p"
+    if w >= 1100 or h >= 500:
+        return "720p"
+    if w >= 700 or h >= 340:
+        return "480p"
+    if w >= 500 or h >= 240:
+        return "360p"
+    if w >= 350 or h >= 160:
+        return "240p"
+    if h > 0:
+        return f"{h}p"
+    return "Auto"
+
+QUALITY_TIER_RANK = {
+    "4k": 4000, "2160p": 2160, "1440p": 1440,
+    "1080p": 1080, "720p": 720, "480p": 480,
+    "360p": 360, "240p": 240, "144p": 144
+}
+
 logger = logging.getLogger("media_resolver")
 
 DIRECT_EXTENSIONS = (
@@ -202,9 +239,11 @@ class MediaResolver:
                                         seen_subs.add(norm_code)
                                         subs.append({"code": norm_code, "name": name, "url": full_sub})
                         elif line.startswith("#EXT-X-STREAM-INF:"):
-                            res_m = re.search(r'RESOLUTION=\d+x(\d+)', line)
+                            res_m = re.search(r'RESOLUTION=(\d+)x(\d+)', line)
                             if res_m:
-                                parsed_qualities.add(f"{res_m.group(1)}p")
+                                w = int(res_m.group(1))
+                                h = int(res_m.group(2))
+                                parsed_qualities.add(normalize_quality_label(w, h))
                             else:
                                 bw_m = re.search(r'BANDWIDTH=(\d+)', line)
                                 if bw_m:
@@ -219,8 +258,11 @@ class MediaResolver:
                                         parsed_qualities.add("360p")
 
                     def q_sort_key(q_str):
+                        clean = str(q_str).lower().strip()
+                        if clean in QUALITY_TIER_RANK:
+                            return QUALITY_TIER_RANK[clean]
                         try:
-                            return int(q_str.replace("p", ""))
+                            return int(clean.replace("p", ""))
                         except Exception:
                             return 0
                     sorted_qs = sorted(list(parsed_qualities), key=q_sort_key, reverse=True)

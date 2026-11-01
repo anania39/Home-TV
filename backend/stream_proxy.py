@@ -54,6 +54,19 @@ import logging
 from typing import Dict, Optional, Tuple, Any
 from .config import FORCE_ABSOLUTE_LAN_URL
 
+def normalize_quality_label(width: int = 0, height: int = 0) -> str:
+    w = int(width or 0)
+    h = int(height or 0)
+    if w >= 3800 or h >= 2000: return "4K"
+    if w >= 2500 or h >= 1400: return "1440p"
+    if w >= 1700 or h >= 750: return "1080p"
+    if w >= 1100 or h >= 500: return "720p"
+    if w >= 700 or h >= 340: return "480p"
+    if w >= 500 or h >= 240: return "360p"
+    if w >= 350 or h >= 160: return "240p"
+    if h > 0: return f"{h}p"
+    return "Auto"
+
 logger = logging.getLogger("stream_proxy")
 
 # ---------------------------------------------------------------------------
@@ -788,11 +801,20 @@ async def proxy_stream(url: str, request: Request, server_host: str):
                         inf_line = line_s
                         s_url = lines[idx + 1].strip() if idx + 1 < len(lines) else ""
                         idx += 2
-                        res_m = re.search(r'RESOLUTION=\d+x(\d+)', inf_line)
-                        h = int(res_m.group(1)) if res_m else 0
+                        res_m = re.search(r'RESOLUTION=(\d+)x(\d+)', inf_line)
+                        if res_m:
+                            w = int(res_m.group(1))
+                            h = int(res_m.group(2))
+                        else:
+                            res_m2 = re.search(r'RESOLUTION=\d+x(\d+)', inf_line)
+                            h = int(res_m2.group(1)) if res_m2 else 0
+                            w = 0
                         is_avc = "avc1" in inf_line
+                        tier = normalize_quality_label(w, h)
                         parsed_variants.append({
+                            "width": w,
                             "height": h,
+                            "tier": tier,
                             "inf": inf_line,
                             "url": urljoin(url, s_url),
                             "is_avc": is_avc
@@ -802,31 +824,36 @@ async def proxy_stream(url: str, request: Request, server_host: str):
                         idx += 1
 
                 if request_q and request_q.lower() != "auto":
-                    try:
-                        target_h = int(str(request_q).lower().replace("p", ""))
-                        matches = [v for v in parsed_variants if v["height"] == target_h]
-                        if not matches:
-                            matches = sorted(parsed_variants, key=lambda v: abs(v["height"] - target_h))[:1]
-                        selected = sorted(matches, key=lambda v: (1 if v["is_avc"] else 0), reverse=True)[0]
-                        chosen_variants = [selected]
-                    except Exception:
-                        chosen_variants = parsed_variants
+                    clean_req = str(request_q).lower().strip()
+                    target_tier = normalize_quality_label(height=int(clean_req.replace("p", "")) if clean_req.replace("p", "").isdigit() else 0) if ("x" not in clean_req) else clean_req
+                    matches = [v for v in parsed_variants if v.get("tier", "").lower() == clean_req or v.get("tier", "").lower() == target_tier.lower()]
+                    if not matches:
+                        try:
+                            target_h = int(clean_req.replace("p", ""))
+                            matches = [v for v in parsed_variants if v["height"] == target_h]
+                            if not matches:
+                                matches = sorted(parsed_variants, key=lambda v: abs(v["height"] - target_h))[:1]
+                        except Exception:
+                            matches = parsed_variants
+                    selected = sorted(matches, key=lambda v: (1 if v["is_avc"] else 0), reverse=True)[0]
+                    chosen_variants = [selected]
                 else:
-                    by_height = {}
+                    by_tier = {}
                     for v in parsed_variants:
-                        h = v["height"]
-                        if h not in by_height or v["is_avc"]:
-                            by_height[h] = v
+                        t = v.get("tier", str(v["height"]))
+                        if t not in by_tier or v["is_avc"]:
+                            by_tier[t] = v
                     # For Auto: prioritize 720p first so playback starts instantaneously and streams smoothly on 8 Mbps lines without buffer starvation
-                    def auto_sort_key(h):
-                        if h == 720:
+                    def auto_tier_sort_key(v):
+                        t = v.get("tier", "").lower()
+                        if t == "720p":
                             return 999999
-                        elif h == 1080:
+                        elif t == "1080p":
                             return 888888
-                        elif h == 480:
+                        elif t == "480p":
                             return 777777
-                        return h
-                    chosen_variants = [by_height[h] for h in sorted(by_height.keys(), key=auto_sort_key, reverse=True)]
+                        return v.get("height", 0)
+                    chosen_variants = sorted(by_tier.values(), key=auto_tier_sort_key, reverse=True)
 
                 rewritten_master_lines = list(headers_lines)
                 for v in chosen_variants:
