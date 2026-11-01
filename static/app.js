@@ -276,6 +276,19 @@ window.handleImgError = function(imgElement, name, genre, lang) {
 document.addEventListener("DOMContentLoaded", async () => {
   initTabs();
   initHubModal();
+  initActiveCastDeck();
+
+  // Instant 0ms restore of active cast deck from localStorage on page refresh
+  try {
+    const savedCastStr = localStorage.getItem("tvhub_active_cast");
+    if (savedCastStr) {
+      const savedCast = JSON.parse(savedCastStr);
+      if (savedCast && savedCast.title && savedCast.state !== "STOPPED") {
+        updateActiveCastDeck(savedCast);
+      }
+    }
+  } catch (e) {}
+
   const initialTvId = getSavedTvId() || "tv_192_168_50_249";
   populateDevicesList(DEFAULT_HOUSEHOLD_DEVICES, initialTvId);
   await autoDetectHub();
@@ -289,19 +302,7 @@ document.addEventListener("DOMContentLoaded", async () => {
   initModals();
   connectWebSocket();
   initSportsAggregator();
-  initActiveCastDeck();
   initYouTubeSearch();
-
-  // Instant 0ms restore of active cast deck from localStorage on page refresh
-  try {
-    const savedCastStr = localStorage.getItem("tvhub_active_cast");
-    if (savedCastStr) {
-      const savedCast = JSON.parse(savedCastStr);
-      if (savedCast && savedCast.title && savedCast.state !== "STOPPED") {
-        updateActiveCastDeck(savedCast);
-      }
-    }
-  } catch (e) {}
 });
 
 // --- Tab Navigation ---
@@ -2759,7 +2760,8 @@ function updateActiveCastDeck(info) {
   const isPlaying = state.playbackState === "PLAYING" || info.state === "PLAYING";
   const title = info.title || state.currentTitle || "Video Stream";
   const thumb = info.thumbnail || "";
-  const duration = (typeof info.duration === "number" && info.duration > 0) ? info.duration : activeDeckDuration;
+  const durNum = typeof info.duration === "number" ? info.duration : parseFloat(info.duration);
+  const duration = (durNum && !isNaN(durNum) && durNum > 0) ? durNum : activeDeckDuration;
   const durationStr = info.duration_str || (duration > 0 ? formatDeckTime(duration) : "--:--");
 
   deck.style.display = "block";
@@ -2795,8 +2797,9 @@ function updateActiveCastDeck(info) {
   if (timeTotal && (durationStr || duration > 0)) timeTotal.textContent = durationStr || formatDeckTime(duration);
   if (duration > 0) activeDeckDuration = duration;
 
-  if (typeof info.current_time === "number" && info.current_time >= 0 && !isScrubbing) {
-    activeDeckCurrentTime = info.current_time;
+  const curTimeNum = typeof info.current_time === "number" ? info.current_time : parseFloat(info.current_time);
+  if (!isNaN(curTimeNum) && curTimeNum >= 0 && !isScrubbing && Date.now() > (window._scrubLockUntil || 0)) {
+    activeDeckCurrentTime = curTimeNum;
     const timeCur = document.getElementById("deck-time-current");
     if (timeCur) timeCur.textContent = formatDeckTime(activeDeckCurrentTime);
     if (activeDeckDuration > 0) {
@@ -2831,9 +2834,22 @@ function updateActiveCastDeck(info) {
           subsSelect.appendChild(opt);
         });
       }
-      const curSub = info.current_subtitle || state.currentSubtitle;
-      if (curSub && curSub !== "off" && activeDeckSubtitles.some(s => s.code === curSub)) {
-        subsSelect.value = curSub;
+      const curSub = info.current_subtitle || state.currentSubtitle || localStorage.getItem("tvhub_selected_subtitle");
+      if (curSub && curSub !== "off") {
+        const curSubNorm = String(curSub).toLowerCase().trim();
+        const subMatch = activeDeckSubtitles.find(s => {
+          const sCodeNorm = (s.code || "").toLowerCase().trim();
+          const sNameNorm = (s.name || "").toLowerCase().trim();
+          return sCodeNorm === curSubNorm ||
+                 sNameNorm === curSubNorm ||
+                 s.url === curSub ||
+                 (sCodeNorm && curSubNorm.startsWith(sCodeNorm.slice(0, 2))) ||
+                 (curSubNorm && sCodeNorm && sCodeNorm.startsWith(curSubNorm.slice(0, 2)));
+        });
+        if (subMatch) {
+          subsSelect.value = subMatch.code;
+          state.currentSubtitle = subMatch.code;
+        }
       }
     }
   }
@@ -2886,9 +2902,25 @@ function updateActiveCastDeck(info) {
 
       // Synchronize selection: info.current_audio -> state.currentAudio -> localStorage -> default
       const curSaved = info.current_audio || state.currentAudio || localStorage.getItem("tvhub_selected_audio");
-      if (curSaved && activeDeckAudioTracks.some(a => a.name === curSaved)) {
-        aSelect.value = curSaved;
-        state.currentAudio = curSaved;
+      if (curSaved) {
+        const curSavedNorm = String(curSaved).toLowerCase().trim();
+        const match = activeDeckAudioTracks.find(a => {
+          const aNameNorm = (a.name || "").toLowerCase().trim();
+          const aCodeNorm = (a.code || "").toLowerCase().trim();
+          return aNameNorm === curSavedNorm ||
+                 aCodeNorm === curSavedNorm ||
+                 (aCodeNorm && curSavedNorm.startsWith(aCodeNorm.slice(0, 2))) ||
+                 (curSavedNorm && aCodeNorm && aCodeNorm.startsWith(curSavedNorm.slice(0, 2))) ||
+                 aNameNorm.includes(curSavedNorm) ||
+                 curSavedNorm.includes(aNameNorm);
+        });
+        if (match) {
+          aSelect.value = match.name;
+          state.currentAudio = match.name;
+        } else if (!aSelect.value || aSelect.value === "default") {
+          const defTrack = activeDeckAudioTracks.find(a => a.default);
+          if (defTrack) aSelect.value = defTrack.name;
+        }
       } else if (!aSelect.value || aSelect.value === "default") {
         const defTrack = activeDeckAudioTracks.find(a => a.default);
         if (defTrack) aSelect.value = defTrack.name;
@@ -3050,6 +3082,15 @@ function initActiveCastDeck() {
     };
     scrubber.onmouseup = scrubber.ontouchend = () => {
       triggerSeek(parseFloat(scrubber.value));
+    };
+    scrubber.onclick = (e) => {
+      const rect = scrubber.getBoundingClientRect();
+      if (rect.width > 0) {
+        const clickX = e.clientX - rect.left;
+        const pct = Math.max(0, Math.min(100, (clickX / rect.width) * 100));
+        scrubber.value = pct;
+        triggerSeek(pct);
+      }
     };
   }
 

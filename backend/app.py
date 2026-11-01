@@ -863,10 +863,13 @@ async def cast_media(req: CastRequest, request: Request, client_ip: str = Depend
             if isinstance(resolved, dict):
                 src_type = resolved.get("source_type", "")
                 if src_type:
-                    media_info["source_type"] = src_type
+                    media_info.setdefault("customData", {})["source_type"] = src_type
                 if src_type == "youtube":
-                    media_info["hlsSegmentFormat"] = "aac"
-                    media_info["hlsVideoSegmentFormat"] = "mpeg2_ts"
+                    # For YouTube HLS (MPEG-TS video + AAC audio): NEVER pass hlsSegmentFormat="aac"!
+                    # Setting hlsSegmentFormat="aac" causes Google Cast CAF receiver to treat the stream
+                    # as pure audio, disabling video rendering and displaying a black screen.
+                    media_info.pop("hlsSegmentFormat", None)
+                    media_info.setdefault("hlsVideoSegmentFormat", "mpeg2_ts")
 
                 raw_subs = resolved.get("subtitles", [])
                 if raw_subs:

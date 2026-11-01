@@ -99,10 +99,14 @@ class GoogleCastController:
 
             media_info = dict(media_info or {})
             is_youtube = ("googlevideo.com" in url.lower() or "youtube" in url.lower() or "youtu.be" in url.lower()
-                          or media_info.get("source_type") == "youtube")
+                          or media_info.get("source_type") == "youtube"
+                          or media_info.get("customData", {}).get("source_type") == "youtube")
+            # Clean up internal source_type so CAF payload only carries valid standard media keys
+            media_info.pop("source_type", None)
             if is_m3u8:
                 if is_youtube:
-                    media_info.setdefault("hlsSegmentFormat", "aac")
+                    # For YouTube HLS: NEVER pass hlsSegmentFormat="aac" as it triggers audio-only playback!
+                    media_info.pop("hlsSegmentFormat", None)
                     media_info.setdefault("hlsVideoSegmentFormat", "mpeg2_ts")
                 else:
                     media_info.setdefault("hlsSegmentFormat", "ts")
