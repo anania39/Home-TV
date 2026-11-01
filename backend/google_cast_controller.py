@@ -51,7 +51,7 @@ class GoogleCastController:
             # Refresh receiver status
             try:
                 cast.socket_client.receiver_controller.update_status()
-                time.sleep(0.1)
+                time.sleep(0.08)
             except Exception:
                 pass
 
@@ -59,14 +59,37 @@ class GoogleCastController:
             has_dest = bool(cast.socket_client and cast.socket_client.destination_id)
             has_media_ns = bool(cast.socket_client and ("urn:x-cast:com.google.cast.media" in cast.socket_client.app_namespaces))
 
-            # If TV is on screensaver/backdrop (app=None), running 3rd-party app (e.g. YouTube 233637DE), or media ns missing:
-            # Launch Default Media Receiver CC1AD845 and wait until destination_id and media namespace are fully connected
-            if cur_app != "CC1AD845" or not has_dest or not has_media_ns:
-                logger.info(f"Default Media Receiver not active on {ip} (app={cur_app}, dest={has_dest}, ns={has_media_ns}). Launching CC1AD845...")
+            mc = cast.media_controller
+            mc.supporting_app_id = "CC1AD845"
+
+            # Check if media controller has an active media session or if it's finished/idle
+            try:
+                mc.send_message_nocheck({"type": "GET_STATUS"}, inc_session_id=True)
+                time.sleep(0.08)
+            except Exception:
+                pass
+
+            is_idle_or_finished = (
+                not mc.status
+                or mc.status.player_state in ("IDLE", "UNKNOWN")
+                or mc.status.idle_reason in ("FINISHED", "CANCELLED", "ERROR")
+                or getattr(mc.status, "media_session_id", None) is None
+            )
+
+            is_youtube_stream = ("googlevideo.com" in url.lower() or "youtube" in url.lower() or "youtu.be" in url.lower()
+                                 or (media_info and (media_info.get("source_type") == "youtube" or media_info.get("customData", {}).get("source_type") == "youtube")))
+
+            # If Default Media Receiver is not active, destination missing, media namespace missing,
+            # previous video has finished/ended (leaving the video hardware decoder surface detached),
+            # OR casting a YouTube demuxed stream:
+            # We force-launch CC1AD845 so a completely fresh web receiver and hardware video decoder surface are created.
+            need_fresh_launch = (cur_app != "CC1AD845" or not has_dest or not has_media_ns or is_idle_or_finished or is_youtube_stream)
+            if need_fresh_launch:
+                logger.info(f"Launching clean CC1AD845 instance on {ip} (app={cur_app}, dest={has_dest}, ns={has_media_ns}, idle_or_finished={is_idle_or_finished}, youtube={is_youtube_stream})...")
                 try:
-                    cast.socket_client.receiver_controller.launch_app("CC1AD845")
+                    cast.socket_client.receiver_controller.launch_app("CC1AD845", force_launch=True)
                     for _ in range(28):
-                        time.sleep(0.15)
+                        time.sleep(0.12)
                         c_app = getattr(cast, "app_id", None) or (cast.status.app_id if cast.status else None)
                         c_dest = bool(cast.socket_client and cast.socket_client.destination_id)
                         c_ns = bool(cast.socket_client and ("urn:x-cast:com.google.cast.media" in cast.socket_client.app_namespaces))
@@ -75,16 +98,13 @@ class GoogleCastController:
                             break
                 except Exception as ex:
                     logger.debug(f"launch_app CC1AD845 notice: {ex}")
-
-            mc = cast.media_controller
-            mc.supporting_app_id = "CC1AD845"
-
-            # Fast status probe
-            try:
-                mc.send_message_nocheck({"type": "GET_STATUS"}, inc_session_id=True)
-                time.sleep(0.08)
-            except Exception:
-                pass
+            else:
+                # If a media session was already actively playing, cleanly stop it first before loading new stream
+                try:
+                    mc.stop()
+                    time.sleep(0.1)
+                except Exception:
+                    pass
 
             is_m3u8 = ".m3u8" in url or "mpegurl" in mime_type.lower()
             content_type = "application/x-mpegurl" if is_m3u8 else (mime_type or "video/mp4")

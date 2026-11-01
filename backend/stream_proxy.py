@@ -838,8 +838,10 @@ async def proxy_stream(url: str, request: Request, server_host: str):
                     selected = sorted(matches, key=lambda v: (1 if v["is_avc"] else 0), reverse=True)[0]
                     chosen_variants = [selected]
                 else:
+                    has_avc = any(v.get("is_avc") for v in parsed_variants)
+                    cand_variants = [v for v in parsed_variants if v.get("is_avc")] if has_avc else parsed_variants
                     by_tier = {}
-                    for v in parsed_variants:
+                    for v in cand_variants:
                         t = v.get("tier", str(v["height"]))
                         if t not in by_tier or v["is_avc"]:
                             by_tier[t] = v
