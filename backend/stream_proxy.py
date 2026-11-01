@@ -361,10 +361,10 @@ class SegmentCache:
 
     def prefetch(self, urls: list[str], headers: dict):
         """Asynchronously prefetch upcoming segments into RAM without saturating Wi-Fi (max 2 in flight)."""
-        for url in urls[:4]:
+        for url in urls[:6]:
             if url in self._cache or url in self._in_flight:
                 continue
-            if len(self._in_flight) < 2:
+            if len(self._in_flight) < 3:
                 task = asyncio.create_task(self._fetch_and_store(url, headers))
                 self._in_flight[url] = task
 
@@ -947,7 +947,7 @@ async def proxy_stream(url: str, request: Request, server_host: str):
                 segment_engine.register_playlist_sequence(segment_urls_for_prefetch)
                 if has_endlist:
                     # For VOD / Movies: prefetch first 3 segments into RAM so playback begins with 0ms delay
-                    segment_engine.prefetch(segment_urls_for_prefetch[:3], headers)
+                    segment_engine.prefetch(segment_urls_for_prefetch[:6], headers)
                 else:
                     # For Live IPTV: prefetch latest sliding window segments
                     segment_engine.prefetch(segment_urls_for_prefetch[-2:], headers)

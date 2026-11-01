@@ -8,6 +8,13 @@ if sys.platform == "win32":
         sys.stderr.reconfigure(encoding="utf-8", errors="replace")
     except Exception:
         pass
+    try:
+        import ctypes
+        # ES_CONTINUOUS (0x80000000) | ES_SYSTEM_REQUIRED (0x00000001) | ES_AWAYMODE_REQUIRED (0x00000040)
+        # Prevents Windows from going into standby/sleep while TV Hub is running as a home media appliance
+        ctypes.windll.kernel32.SetThreadExecutionState(0x80000001 | 0x00000040)
+    except Exception:
+        pass
 
 from backend.config import PORT, SERVER_IP
 
