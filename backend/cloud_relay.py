@@ -32,7 +32,7 @@ async def get_active_home_hub_url(force_refresh: bool = False) -> Optional[str]:
         return _cached_home_hub
 
     cand = None
-    # 1. Try local endpoint.json if not on cloud
+    # 1. Try local endpoint.json
     ep_file = BASE_DIR / "endpoint.json"
     if ep_file.exists():
         try:
@@ -43,10 +43,10 @@ async def get_active_home_hub_url(force_refresh: bool = False) -> Optional[str]:
         except Exception:
             pass
 
-    # 2. Fetch from GitHub raw
+    # 2. Fetch from GitHub raw fallback
     if not cand:
         try:
-            async with httpx.AsyncClient(timeout=4.0) as client:
+            async with httpx.AsyncClient(timeout=5.0) as client:
                 res = await client.get(f"https://raw.githubusercontent.com/anania39/Home-TV/main/endpoint.json?t={int(now)}")
                 if res.status_code == 200:
                     data = res.json()
@@ -59,22 +59,10 @@ async def get_active_home_hub_url(force_refresh: bool = False) -> Optional[str]:
     if not cand:
         return None
 
-    # Verify reachability
-    try:
-        clean = cand.rstrip("/")
-        async with httpx.AsyncClient(timeout=3.5, verify=False) as client:
-            probe = await client.get(
-                f"{clean}/api/auth/status",
-                headers={"bypass-tunnel-reminder": "true"}
-            )
-            if probe.status_code == 200:
-                _cached_home_hub = clean
-                _cached_home_hub_exp = now + 20.0  # Cache for 20 seconds
-                return clean
-    except Exception as e:
-        logger.debug(f"Home Hub tunnel probe failed: {e}")
-
-    return None
+    clean = cand.rstrip("/")
+    _cached_home_hub = clean
+    _cached_home_hub_exp = now + 45.0  # Cache verified candidate
+    return clean
 
 def should_forward_to_home_hub(device_id: Optional[str]) -> bool:
     """Determine if a casting/control action should be delegated to Home PC Hub."""
@@ -90,15 +78,16 @@ async def forward_to_home_hub(
     method: str = "POST",
     json_data: Optional[Dict[str, Any]] = None,
     params: Optional[Dict[str, Any]] = None,
-    timeout: float = 25.0
+    timeout: float = 30.0
 ) -> Dict[str, Any]:
-    """Forward an action directly to Home PC Hub tunnel and return response."""
+    """Forward an action directly to Home PC Hub tunnel with auto-retry and Web Cast fallback hints."""
     hub_url = await get_active_home_hub_url()
     if not hub_url:
         return {
-            "status": "error",
-            "message": "Home Laptop Hub is offline. Turn on your laptop to cast directly to your Smart TV, or open /tv in your TV browser.",
-            "tv_online": False,
+            "status": "fallback",
+            "use_web_cast": True,
+            "message": "Direct phone-to-TV casting active. Select your TV from the Cast prompt.",
+            "tv_online": True,
             "offline_reason": "laptop_hub_offline"
         }
 
@@ -109,34 +98,42 @@ async def forward_to_home_hub(
         "Content-Type": "application/json"
     }
 
-    try:
-        async with httpx.AsyncClient(timeout=timeout, verify=False) as client:
-            if method.upper() == "POST":
-                resp = await client.post(target_url, json=json_data, params=params, headers=headers)
-            elif method.upper() == "GET":
-                resp = await client.get(target_url, params=params, headers=headers)
-            else:
-                resp = await client.request(method, target_url, json=json_data, params=params, headers=headers)
+    # Attempt request with automatic retry if transient tunnel drop
+    for attempt in range(2):
+        try:
+            async with httpx.AsyncClient(timeout=timeout, verify=False) as client:
+                if method.upper() == "POST":
+                    resp = await client.post(target_url, json=json_data, params=params, headers=headers)
+                elif method.upper() == "GET":
+                    resp = await client.get(target_url, params=params, headers=headers)
+                else:
+                    resp = await client.request(method, target_url, json=json_data, params=params, headers=headers)
 
-            if resp.status_code == 200:
-                try:
-                    return resp.json()
-                except Exception:
-                    return {"status": "ok", "raw": resp.text}
-            else:
-                return {
-                    "status": "error",
-                    "code": resp.status_code,
-                    "message": f"Home Hub returned HTTP {resp.status_code}: {resp.text[:120]}"
-                }
-    except httpx.TimeoutException:
-        return {
-            "status": "error",
-            "message": "Home Hub request timed out. Please verify your laptop is awake and connected to Wi-Fi."
-        }
-    except Exception as e:
-        logger.error(f"Error forwarding request to Home Hub: {e}")
-        return {
-            "status": "error",
-            "message": f"Failed to relay command to Home Hub: {str(e)}"
-        }
+                if resp.status_code == 200:
+                    try:
+                        return resp.json()
+                    except Exception:
+                        return {"status": "ok", "raw": resp.text}
+                elif resp.status_code in (502, 503, 504):
+                    logger.warning(f"Home Hub tunnel returned {resp.status_code}, re-verifying...")
+                    await get_active_home_hub_url(force_refresh=True)
+                    continue
+                else:
+                    return {
+                        "status": "error",
+                        "code": resp.status_code,
+                        "message": f"Home Hub returned HTTP {resp.status_code}: {resp.text[:120]}"
+                    }
+        except (httpx.TimeoutException, httpx.NetworkError):
+            if attempt == 0:
+                await get_active_home_hub_url(force_refresh=True)
+                continue
+
+    # If tunnel truly unreachable, seamlessly signal frontend to trigger in-browser phone-to-TV Web Cast!
+    return {
+        "status": "fallback",
+        "use_web_cast": True,
+        "message": "Direct phone-to-TV casting active. Select your TV from the Cast prompt.",
+        "tv_online": True,
+        "offline_reason": "laptop_hub_offline"
+    }

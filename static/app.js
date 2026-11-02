@@ -1042,6 +1042,16 @@ async function castChannel(channel) {
     const data = await res.json();
     if (signal.aborted) return;
     if (data.status === "superseded") return;
+    if (data.status === "fallback" || data.use_web_cast) {
+      showToast(`Casting ${channel.name} to TV via Web Cast...`);
+      const streamUrl = (channel.sources && channel.sources[0]?.url) || channel.url;
+      if (isWebCastActive()) {
+        castViaWebCast(streamUrl, channel.name, channel.logo || "");
+      } else {
+        requestWebCastSession();
+      }
+      return;
+    }
     if (data.status === "waking" || data.tv_online === false) {
       showToast("⚡ TV is in Standby! Sent Wake packet, please power on TV.");
       updateHardwareStatus({
@@ -1367,6 +1377,17 @@ async function executeUniversalCast(url, title = "") {
     }
 
     const data = await res.json();
+    if (data.status === "fallback" || data.use_web_cast) {
+      clearTimeout(stepTimer);
+      hideCastProgress();
+      showToast("Connecting directly to TV via Web Cast...");
+      if (isWebCastActive()) {
+        castViaWebCast(url, title || "Video Stream");
+      } else {
+        requestWebCastSession();
+      }
+      return;
+    }
     if (data.status === "ok") {
       showCastProgress(3, `Connected to ${targetTv}!`, 100, "Starting 100% ad-free playback on TV");
       const finalTitle = data.title || title || "Video Stream";
