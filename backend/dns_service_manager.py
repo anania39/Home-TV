@@ -119,6 +119,8 @@ def is_daemon_running() -> bool:
 
 def start_daemon() -> bool:
     """Starts the 24/7 background DNS daemon decoupled from the current process."""
+    if sys.platform != "win32":
+        return False
     if is_daemon_running():
         logger.info("DNS Ad-Blocker daemon is already running.")
         install_startup_launcher()

@@ -40,7 +40,9 @@ def ensure_cloudflared_binary(binary_path: Path) -> bool:
         if sys.platform == "win32":
             url = "https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-windows-amd64.exe"
         else:
-            url = "https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-amd64"
+            import platform
+            arch = "arm64" if ("aarch64" in platform.machine().lower() or "arm64" in platform.machine().lower()) else "amd64"
+            url = f"https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-{arch}"
         logger.info(f"Downloading official cloudflared binary to {binary_path}...")
         urllib.request.urlretrieve(url, str(binary_path))
         if sys.platform != "win32" and binary_path.exists():
