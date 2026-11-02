@@ -37,9 +37,14 @@ def ensure_cloudflared_binary(binary_path: Path) -> bool:
         return True
     try:
         binary_path.parent.mkdir(parents=True, exist_ok=True)
-        url = "https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-windows-amd64.exe"
+        if sys.platform == "win32":
+            url = "https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-windows-amd64.exe"
+        else:
+            url = "https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-amd64"
         logger.info(f"Downloading official cloudflared binary to {binary_path}...")
         urllib.request.urlretrieve(url, str(binary_path))
+        if sys.platform != "win32" and binary_path.exists():
+            os.chmod(str(binary_path), 0o755)
         return binary_path.exists()
     except Exception as e:
         logger.warning(f"Could not auto-download cloudflared: {e}")
@@ -144,9 +149,29 @@ class PublicTunnelManager:
         self.public_url: str | None = None
         self.short_url: str | None = None
         self._lock = threading.Lock()
-        self.binary_path = BASE_DIR / "tools" / "cloudflared.exe"
+        ext = ".exe" if sys.platform == "win32" else ""
+        self.binary_path = BASE_DIR / "tools" / f"cloudflared{ext}"
 
     def start(self):
+        # 0. Check for cloud deployment URL (Render, Koyeb, Railway, or custom PUBLIC_URL)
+        cloud_url = (
+            os.environ.get("PUBLIC_URL")
+            or os.environ.get("RENDER_EXTERNAL_URL")
+            or os.environ.get("KOYEB_PUBLIC_DOMAIN")
+            or os.environ.get("RAILWAY_STATIC_URL")
+        )
+        if cloud_url:
+            if not cloud_url.startswith("http"):
+                cloud_url = f"https://{cloud_url}"
+            with self._lock:
+                self.public_url = cloud_url
+                self.short_url = cloud_url
+            logger.info("=" * 65)
+            logger.info(f"🌐 CLOUD HOSTING DETECTED: {self.public_url}")
+            logger.info("=" * 65)
+            publish_endpoint(self.public_url)
+            return self
+
         # 1. First, check if an existing persistent tunnel is already running from previous iteration
         if CACHE_FILE.exists():
             try:

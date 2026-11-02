@@ -15,6 +15,21 @@
 
 ---
 
+## ☁️ 1-Click Free Cloud Deployment (24/7 Online When Laptop Is Off)
+
+TV Hub is pre-configured with **Docker** and **Render Blueprints** for 100% free 24/7 cloud hosting:
+
+[![Deploy to Render](https://render.com/images/deploy-to-render-button.svg)](https://render.com/deploy?repo=https://github.com/anania39/Home-TV)
+
+### Quick 1-Click Setup:
+1. Click the **[Deploy to Render](https://render.com/deploy?repo=https://github.com/anania39/Home-TV)** button above (or visit [render.com](https://render.com) and click **Sign in with GitHub**).
+2. Render detects 
+ender.yaml automatically, selects Frankfurt or Oregon, and provisions a free Web Service.
+3. Click **Create Web Service**. TV Hub builds and starts in under 2 minutes.
+4. When TV Hub starts on Render, it automatically updates endpoint.json on GitHub so your phone controller at **[https://anania39.github.io/Home-TV/](https://anania39.github.io/Home-TV/)** connects to it 24/7 — even when your laptop is completely powered off!
+
+---
+
 ## 🏆 NEW: Live Sports Streaming Aggregator (FBStream Integration)
 
 Integrated live sports match streaming aggregator with zero ads and automated conversion to **Tbilisi Local Time** (`Asia/Tbilisi`, UTC+4):

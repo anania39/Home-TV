@@ -242,10 +242,21 @@ app.add_middleware(
 
 # Authentication / Local Network check dependency
 def verify_local_network(request: Request):
-    # Allow requests routed through secure public tunnel
-    host = request.headers.get("host", "")
-    if "trycloudflare.com" in host or "cf-ray" in request.headers:
-        return "Public Tunnel Client"
+    # Allow requests routed through secure public tunnel or cloud deployment
+    host = request.headers.get("host", "").lower()
+    if (
+        os.environ.get("CLOUD_HOSTED", "0") == "1"
+        or os.environ.get("RENDER")
+        or os.environ.get("KOYEB")
+        or "onrender.com" in host
+        or "koyeb.app" in host
+        or "railway.app" in host
+        or "trycloudflare.com" in host
+        or "cf-ray" in request.headers
+        or host.startswith("localhost")
+        or host.startswith("127.0.0.1")
+    ):
+        return "Public Client"
 
     client_ip = request.client.host if request.client else "127.0.0.1"
     if not is_local_network(client_ip):
