@@ -10,6 +10,7 @@
 |---|---|---|
 | 🌟 **Permanent Web Controller (Phone / PC)** | Hosted on GitHub Pages CDN — **never expires** | **[https://anania39.github.io/Home-TV/](https://anania39.github.io/Home-TV/)** |
 | 📺 **Permanent TV Web Receiver** | Fullscreen player for TV browser | **[https://anania39.github.io/Home-TV/tv.html](https://anania39.github.io/Home-TV/tv.html)** |
+| ☁️ **24/7 Cloud Hub (Live & SSL)** | Always online, even when laptop is turned off | **[https://tvhub.92.5.71.162.sslip.io](https://tvhub.92.5.71.162.sslip.io)** |
 | 🏠 **Local Wi-Fi Hub** | Ultra-low latency direct LAN connection | **[http://192.168.50.250:8000](http://192.168.50.250:8000)** |
 | 🌐 **GitHub Repository** | Full source code, channels & assets | **[https://github.com/anania39/Home-TV](https://github.com/anania39/Home-TV)** |
 
