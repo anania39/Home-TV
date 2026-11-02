@@ -38,12 +38,12 @@ def get_default_gateway() -> str:
             import subprocess
             import re
             out = subprocess.check_output("route print 0.0.0.0", shell=True).decode("utf-8", errors="ignore")
-        for line in out.splitlines():
-            parts = line.strip().split()
-            if len(parts) >= 5 and parts[0] == "0.0.0.0" and parts[1] == "0.0.0.0":
-                gw = parts[2]
-                if re.match(r"^\d+\.\d+\.\d+\.\d+$", gw) and not gw.startswith("127."):
-                    return gw
+            for line in out.splitlines():
+                parts = line.strip().split()
+                if len(parts) >= 5 and parts[0] == "0.0.0.0" and parts[1] == "0.0.0.0":
+                    gw = parts[2]
+                    if re.match(r"^\d+\.\d+\.\d+\.\d+$", gw) and not gw.startswith("127."):
+                        return gw
         except Exception:
             pass
     lip = get_local_ip()
