@@ -183,42 +183,40 @@ async function autoDetectHub(forceRefresh = false) {
   const pcTunnel = endpointData && endpointData.hub_url ? endpointData.hub_url : null;
   const cloudHub = (endpointData && endpointData.cloud_hub_url) ? endpointData.cloud_hub_url : "https://tvhub.92.5.71.162.sslip.io";
 
-  // Fast verify existing cached HUB_BASE if healthy and not forceRefresh
-  if (!forceRefresh) {
-    let currentBase = localStorage.getItem("tvhub_backend_url") || HUB_BASE;
-    if (currentBase && !currentBase.includes("github.io")) {
-      const isAlive = await probeEndpoint(currentBase, 1500);
-      if (isAlive) {
-        HUB_BASE = currentBase.replace(/\/+$/, "");
-        _activeHubType = HUB_BASE.includes("sslip.io") ? "cloud" : "pc_tunnel";
-        updateHubStatusBadge(true);
-        state.hubOnline = true;
-        return true;
-      }
-    }
-  }
-
-  // Priority 1: Check PC Hub Tunnel (user's home laptop with TVs & unblocked residential YouTube)
+  // Priority 1: Always check Home PC Hub Tunnel FIRST (user's home laptop with physical TVs)
   if (pcTunnel && !pcTunnel.includes("github.io")) {
-    const pcAlive = await probeEndpoint(pcTunnel, 1800);
+    const pcAlive = await probeEndpoint(pcTunnel, 2600);
     if (pcAlive) {
       setHubBase(pcTunnel);
       _activeHubType = "pc_tunnel";
       console.log("Connected to Home PC Hub via Public Tunnel:", pcTunnel);
-      updateHubStatusBadge(true, "PC Hub Linked");
+      updateHubStatusBadge(true, "Home PC Hub (TVs Linked)");
       state.hubOnline = true;
       return true;
     }
   }
 
-  // Priority 2: Failover to 24/7 Cloud Hub
+  // Priority 2: Failover to 24/7 Cloud Hub (Relays to Home PC Hub if online)
   if (cloudHub && !cloudHub.includes("github.io")) {
-    const cloudAlive = await probeEndpoint(cloudHub, 2000);
+    const cloudAlive = await probeEndpoint(cloudHub, 2600);
     if (cloudAlive) {
       setHubBase(cloudHub);
       _activeHubType = "cloud";
       console.log("Connected to 24/7 Cloud Server:", cloudHub);
-      updateHubStatusBadge(true, "Cloud Online");
+      updateHubStatusBadge(true, "Cloud Relay Active");
+      state.hubOnline = true;
+      return true;
+    }
+  }
+
+  // Fast verify existing cached HUB_BASE if healthy as last resort
+  let currentBase = localStorage.getItem("tvhub_backend_url") || HUB_BASE;
+  if (currentBase && !currentBase.includes("github.io")) {
+    const isAlive = await probeEndpoint(currentBase, 1500);
+    if (isAlive) {
+      HUB_BASE = currentBase.replace(/\/+$/, "");
+      _activeHubType = HUB_BASE.includes("sslip.io") ? "cloud" : "pc_tunnel";
+      updateHubStatusBadge(true);
       state.hubOnline = true;
       return true;
     }
@@ -2866,19 +2864,19 @@ function formatQualityDisplay(q) {
   } else if (clean === "1440p" || (num >= 1400 && num < 2000)) {
     tier = "1440p";
     label = "1440p (2K Quad HD)";
-  } else if (clean === "1080p" || (num >= 750 && num < 1400)) {
+  } else if (clean === "1080p" || clean === "804p" || (num >= 750 && num < 1400)) {
     tier = "1080p";
     label = "1080p (Full HD)";
-  } else if (clean === "720p" || (num >= 500 && num < 750)) {
+  } else if (clean === "720p" || clean === "536p" || (num >= 500 && num < 750)) {
     tier = "720p";
     label = "720p (HD)";
-  } else if (clean === "480p" || (num >= 340 && num < 500)) {
+  } else if (clean === "480p" || clean === "358p" || (num >= 340 && num < 500)) {
     tier = "480p";
     label = "480p (SD)";
-  } else if (clean === "360p" || (num >= 240 && num < 340)) {
+  } else if (clean === "360p" || clean === "268p" || (num >= 240 && num < 340)) {
     tier = "360p";
     label = "360p (Data Saver)";
-  } else if (clean === "240p" || (num >= 160 && num < 240)) {
+  } else if (clean === "240p" || clean === "178p" || (num >= 160 && num < 240)) {
     tier = "240p";
     label = "240p (Low)";
   } else {

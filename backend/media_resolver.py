@@ -592,8 +592,11 @@ class MediaResolver:
                             if cand and "trycloudflare.com" in cand:
                                 hub_tunnel = cand
 
+                if not hub_tunnel:
+                    from .cloud_relay import get_active_home_hub_url
+                    hub_tunnel = await get_active_home_hub_url()
                 if hub_tunnel:
-                    async with httpx.AsyncClient(timeout=9.0, verify=False) as c:
+                    async with httpx.AsyncClient(timeout=35.0, verify=False) as c:
                         r = await c.get(
                             f"{hub_tunnel}/api/media/resolve",
                             params={"url": url},

@@ -54,9 +54,33 @@ def ensure_cloudflared_binary(binary_path: Path) -> bool:
 
 def publish_endpoint(public_url: str):
     """Publish current tunnel and local endpoint to endpoint.json locally and sync to GitHub."""
+    endpoint_file = BASE_DIR / "endpoint.json"
+    existing_data = {}
+    if endpoint_file.exists():
+        try:
+            existing_data = json.loads(endpoint_file.read_text(encoding="utf-8"))
+        except Exception:
+            pass
+
+    is_cloud = (
+        os.environ.get("CLOUD_HOSTED", "0") == "1"
+        or os.environ.get("RENDER") is not None
+        or os.environ.get("KOYEB") is not None
+        or SERVER_IP.startswith("10.")
+        or SERVER_IP.startswith("172.")
+        or not SERVER_IP.startswith("192.168.50.")
+    )
+
+    if is_cloud:
+        hub_url = existing_data.get("hub_url") or "https://trunk-drainage-academy-stolen.trycloudflare.com"
+        cloud_url = public_url
+    else:
+        hub_url = public_url
+        cloud_url = existing_data.get("cloud_hub_url") or "https://tvhub.92.5.71.162.sslip.io"
+
     data = {
-        "hub_url": public_url,
-        "cloud_hub_url": "https://tvhub.92.5.71.162.sslip.io",
+        "hub_url": hub_url,
+        "cloud_hub_url": cloud_url,
         "local_url": f"http://{SERVER_IP}:{PORT}",
         "local_ip": SERVER_IP,
         "port": PORT,
@@ -67,13 +91,15 @@ def publish_endpoint(public_url: str):
     }
 
     # 1. Update local endpoint.json
-    endpoint_file = BASE_DIR / "endpoint.json"
     try:
         endpoint_file.write_text(json.dumps(data, indent=2), encoding="utf-8")
     except Exception as e:
         logger.debug(f"Failed to write local endpoint.json: {e}")
 
-    # 2. Async GitHub API sync
+    # 2. Async GitHub API sync (only performed by Home PC Hub to avoid race conditions)
+    if is_cloud:
+        return
+
     def _sync():
         token = get_github_token()
         if not token:

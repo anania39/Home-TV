@@ -1,3 +1,4 @@
+from .cloud_relay import should_forward_to_home_hub, forward_to_home_hub, is_cloud_instance
 import os
 import subprocess
 import re
@@ -435,6 +436,10 @@ async def get_auth_status(request: Request, client_ip: str = Depends(verify_loca
 
 @app.get("/api/devices")
 async def get_devices():
+    if is_cloud_instance():
+        home_devs = await forward_to_home_hub("/api/devices", method="GET", timeout=3.5)
+        if isinstance(home_devs, dict) and "devices" in home_devs:
+            return home_devs
     devices = device_manager.get_devices()
     web_rec = {
         "id": "web_receiver",
@@ -469,6 +474,8 @@ async def scan_devices():
 
 @app.post("/api/devices/select")
 async def select_device(req: DeviceSelectRequest):
+    if should_forward_to_home_hub(req.device_id):
+        asyncio.create_task(forward_to_home_hub("/api/devices/select", method="POST", json_data=req.dict(), timeout=3.5))
     success = device_manager.select_device(req.device_id)
     if success:
         dev = device_manager.get_device(req.device_id)
@@ -678,6 +685,9 @@ async def resolve_media_url(url: str):
 @app.post("/api/cast")
 async def cast_media(req: CastRequest, request: Request, client_ip: str = Depends(verify_local_network)):
     device_id = req.device_id or device_manager.selected_device_id
+    if should_forward_to_home_hub(device_id):
+        logger.info(f"Relaying cast request for {device_id} to Home PC Hub...")
+        return await forward_to_home_hub("/api/cast", method="POST", json_data=req.dict(), timeout=35.0)
     if device_id:
         device_manager.select_device(device_id)
     raw_stream_url = req.url.strip()
@@ -1092,6 +1102,8 @@ async def cast_media(req: CastRequest, request: Request, client_ip: str = Depend
 @app.post("/api/playback/action")
 async def playback_action(req: PlaybackActionRequest):
     device_id = req.device_id or device_manager.selected_device_id
+    if should_forward_to_home_hub(device_id):
+        return await forward_to_home_hub("/api/playback/action", method="POST", json_data=req.dict(), timeout=6.0)
     dev = device_manager.get_device(device_id) if device_id != "web_receiver" else None
     action = req.action.lower()
 
@@ -1286,6 +1298,8 @@ async def playback_action(req: PlaybackActionRequest):
 @app.post("/api/playback/volume")
 async def adjust_volume(req: VolumeRequest):
     device_id = req.device_id or device_manager.selected_device_id
+    if should_forward_to_home_hub(device_id):
+        return await forward_to_home_hub("/api/playback/volume", method="POST", json_data=req.dict(), timeout=6.0)
     dev = device_manager.get_device(device_id) if device_id != "web_receiver" else None
     current_vol = ws_manager.current_state.get("volume", 20)
 
@@ -1321,6 +1335,8 @@ async def adjust_volume(req: VolumeRequest):
 @app.post("/api/remote/key")
 async def send_remote_key(req: RemoteKeyRequest):
     device_id = req.device_id or device_manager.selected_device_id
+    if should_forward_to_home_hub(device_id):
+        return await forward_to_home_hub("/api/remote/key", method="POST", json_data=req.dict(), timeout=6.0)
     dev = device_manager.get_device(device_id) if device_id != "web_receiver" else None
     key = req.key.lower()
 
@@ -1421,6 +1437,10 @@ async def get_stream_health(
 async def get_current_state():
     """Returns current playback state including channel_id, url, title, sources, real-time position and version with zero side-effects."""
     selected_id = device_manager.selected_device_id
+    if is_cloud_instance() and should_forward_to_home_hub(selected_id):
+        relay_st = await forward_to_home_hub("/api/state/current", method="GET", timeout=3.0)
+        if isinstance(relay_st, dict) and relay_st.get("status") != "error":
+            return relay_st
     dev = device_manager.get_device(selected_id) if selected_id != "web_receiver" else None
     if dev and dev.get("is_google_tv"):
         try:
@@ -1464,6 +1484,11 @@ async def cast_channel(
     device_id: Optional[str] = None,
     client_ip: str = Depends(verify_local_network)
 ):
+    target_dev = device_id or device_manager.selected_device_id
+    if should_forward_to_home_hub(target_dev):
+        logger.info(f"Relaying IPTV cast for channel {channel_id} on {target_dev} to Home PC Hub...")
+        p = {"device_id": target_dev} if target_dev else None
+        return await forward_to_home_hub(f"/api/iptv/cast/{channel_id}", method="POST", params=p, timeout=25.0)
     channel = iptv_manager.get_channel_by_id(channel_id)
     if not channel:
         raise HTTPException(status_code=404, detail="Channel not found")
