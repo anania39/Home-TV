@@ -799,9 +799,13 @@ async def cast_media(req: CastRequest, request: Request, client_ip: str = Depend
                 a_urls[a_name] = f"{base_proxy_url}/proxy?url={quote(manifest_url, safe='')}&audio={quote(a_name)}&sid={active_sid}"
             resolved["audio_urls"] = a_urls
 
-    # Proxied URLs:
-    relative_proxy_url = f"/proxy?url={quote(raw_stream_url, safe='')}&sid={active_sid}"
-    lan_proxy_url = f"{base_proxy_url}/proxy?url={quote(raw_stream_url, safe='')}&sid={active_sid}"
+    # Proxied URLs (avoid re-wrapping if already proxied via q_urls):
+    if "/proxy?url=" in raw_stream_url:
+        lan_proxy_url = raw_stream_url if raw_stream_url.startswith("http") else f"{base_proxy_url}{raw_stream_url}"
+        relative_proxy_url = "/" + lan_proxy_url.split("/", 3)[-1]
+    else:
+        relative_proxy_url = f"/proxy?url={quote(raw_stream_url, safe='')}&sid={active_sid}"
+        lan_proxy_url = f"{base_proxy_url}/proxy?url={quote(raw_stream_url, safe='')}&sid={active_sid}"
 
     if dev and dev.get("is_google_tv"):
         if manifest_url:
@@ -825,7 +829,10 @@ async def cast_media(req: CastRequest, request: Request, client_ip: str = Depend
     for s in (req.sources or []):
         s_url = s.get("url") if isinstance(s, dict) else s
         if s_url:
-            p_url = f"{base_proxy_url}/proxy?url={quote(s_url, safe='')}&sid={active_sid}" if (req.use_proxy or s_url.startswith("http://")) else s_url
+            if "/proxy?url=" in s_url:
+                p_url = s_url if s_url.startswith("http") else f"{base_proxy_url}{s_url}"
+            else:
+                p_url = f"{base_proxy_url}/proxy?url={quote(s_url, safe='')}&sid={active_sid}" if (req.use_proxy or s_url.startswith("http://")) else s_url
             proxied_sources.append({"url": p_url, "type": "hls"})
     if not proxied_sources and web_stream_url:
         proxied_sources = [{"url": web_stream_url, "type": "hls"}]
