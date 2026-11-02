@@ -1,5 +1,7 @@
 // TV Hub Dynamic Backend & Permanent GitHub Pages Resolution
 let HUB_BASE = localStorage.getItem("tvhub_backend_url") || "";
+let _activeHubType = "cloud"; // "local_wifi", "pc_tunnel", "cloud"
+let _cachedEndpointData = null;
 
 function getHubBase() {
   if (HUB_BASE) return HUB_BASE.replace(/\/+$/, "");
@@ -39,7 +41,7 @@ async function safeFetchWithRetry(path, options = {}) {
   let url = getApiUrl(path);
   if (!url) {
     // If backend is offline on GitHub Pages, throw descriptive error instead of 405
-    throw new Error("TV Hub server is offline. Please make sure TV Hub is running on your laptop.");
+    throw new Error("TV Hub server is connecting. Please wait a moment.");
   }
 
   options = options || {};
@@ -60,20 +62,22 @@ async function safeFetchWithRetry(path, options = {}) {
     }
     return res;
   } catch (err) {
-    console.warn(`Request to ${url} failed, attempting endpoint recovery...`, err);
+    console.warn(`Request to ${url} failed, attempting failover recovery...`, err);
     if (isGithubPages) {
       const recovered = await autoDetectHub(true);
       if (recovered && getHubBase()) {
-        url = getApiUrl(path);
-        if (url) {
-          const retryRes = await fetch(url, options);
-          if (retryRes.status !== 405 && retryRes.status !== 502 && retryRes.status !== 504 && retryRes.status !== 503) {
-            return retryRes;
-          }
+        const retryUrl = getApiUrl(path);
+        if (retryUrl) {
+          try {
+            const retryRes = await fetch(retryUrl, options);
+            if (retryRes.status !== 405 && retryRes.status !== 502 && retryRes.status !== 504 && retryRes.status !== 503) {
+              return retryRes;
+            }
+          } catch (e2) {}
         }
       }
     }
-    throw new Error("Unable to reach TV Hub server. Make sure TV Hub is running on your laptop or check your connection.");
+    throw new Error("Unable to reach TV Hub server. Check your connection or restart TV Hub.");
   }
 }
 
@@ -135,38 +139,33 @@ function updateHubStatusBadge(isOnline, labelText = null) {
   const badge = document.getElementById("network-badge-text");
   if (!badge) return;
   if (!window.location.hostname.includes("github.io")) {
-    badge.textContent = "Local Network";
+    const localHost = window.location.hostname;
+    badge.innerHTML = `<span style="color: var(--accent-cyan); font-weight: 600;" title="Running on Local Wi-Fi Host">🟢 Wi-Fi Host (${localHost})</span>`;
     return;
   }
   const base = getHubBase();
-  const label = labelText || (isOnline ? "Hub Linked" : (base ? "Hub Reconnecting..." : "Hub Offline"));
+  let label = labelText;
+  if (!label) {
+    if (isOnline) {
+      label = _activeHubType === "pc_tunnel" ? "PC Hub Linked" : (_activeHubType === "local_wifi" ? "Wi-Fi Host" : "Cloud Online");
+    } else {
+      label = base ? "Reconnecting..." : "Hub Offline";
+    }
+  }
   const color = isOnline ? "var(--accent-cyan)" : (base ? "#f59e0b" : "#ef4444");
-  badge.innerHTML = `<span style="color: ${color}; cursor: pointer;" title="Tap to configure TV Hub connection">🌐 GitHub Pages (${label})</span>`;
+  badge.innerHTML = `<span style="color: ${color}; cursor: pointer; font-weight: 500;" title="Tap to view Wi-Fi & Cloud Host Info">🌐 GitHub (${label})</span>`;
 }
 
 async function autoDetectHub(forceRefresh = false) {
   const isGithubPages = window.location.hostname.includes("github.io");
   if (!isGithubPages) {
-    updateHubStatusBadge(true, "Local Network");
+    _activeHubType = "local_wifi";
+    updateHubStatusBadge(true, `Wi-Fi Host (${window.location.hostname})`);
+    state.hubOnline = true;
     return true;
   }
 
-  // 1. Verify if existing cached HUB_BASE is actually online right now
-  if (!forceRefresh) {
-    let currentBase = localStorage.getItem("tvhub_backend_url") || HUB_BASE;
-    if (currentBase && !currentBase.includes("github.io")) {
-      const isAlive = await probeEndpoint(currentBase, 1800);
-      if (isAlive) {
-        HUB_BASE = currentBase.replace(/\/+$/, "");
-        console.log("Current Hub confirmed responsive:", HUB_BASE);
-        updateHubStatusBadge(true, "Hub Linked");
-        state.hubOnline = true;
-        return true;
-      }
-    }
-  }
-
-  // 2. Fetch fresh endpoint.json (direct + GitHub raw fallback)
+  // 1. Fetch fresh endpoint.json (direct + GitHub raw fallback)
   let endpointData = null;
   try {
     const res = await fetch("./endpoint.json?t=" + Date.now());
@@ -180,16 +179,49 @@ async function autoDetectHub(forceRefresh = false) {
     } catch (e) {}
   }
 
-  if (endpointData && endpointData.hub_url) {
-    setHubBase(endpointData.hub_url);
-    console.log("Connected to Home TV Hub via Public Tunnel:", endpointData.hub_url);
-    updateHubStatusBadge(true, "Hub Linked");
-    state.hubOnline = true;
-    probeEndpoint(endpointData.hub_url, 3000).then(alive => {
-      updateHubStatusBadge(alive, alive ? "Hub Linked" : "Hub Reconnecting...");
-      state.hubOnline = alive;
-    });
-    return true;
+  _cachedEndpointData = endpointData;
+  const pcTunnel = endpointData && endpointData.hub_url ? endpointData.hub_url : null;
+  const cloudHub = (endpointData && endpointData.cloud_hub_url) ? endpointData.cloud_hub_url : "https://tvhub.92.5.71.162.sslip.io";
+
+  // Fast verify existing cached HUB_BASE if healthy and not forceRefresh
+  if (!forceRefresh) {
+    let currentBase = localStorage.getItem("tvhub_backend_url") || HUB_BASE;
+    if (currentBase && !currentBase.includes("github.io")) {
+      const isAlive = await probeEndpoint(currentBase, 1500);
+      if (isAlive) {
+        HUB_BASE = currentBase.replace(/\/+$/, "");
+        _activeHubType = HUB_BASE.includes("sslip.io") ? "cloud" : "pc_tunnel";
+        updateHubStatusBadge(true);
+        state.hubOnline = true;
+        return true;
+      }
+    }
+  }
+
+  // Priority 1: Check PC Hub Tunnel (user's home laptop with TVs & unblocked residential YouTube)
+  if (pcTunnel && !pcTunnel.includes("github.io")) {
+    const pcAlive = await probeEndpoint(pcTunnel, 1800);
+    if (pcAlive) {
+      setHubBase(pcTunnel);
+      _activeHubType = "pc_tunnel";
+      console.log("Connected to Home PC Hub via Public Tunnel:", pcTunnel);
+      updateHubStatusBadge(true, "PC Hub Linked");
+      state.hubOnline = true;
+      return true;
+    }
+  }
+
+  // Priority 2: Failover to 24/7 Cloud Hub
+  if (cloudHub && !cloudHub.includes("github.io")) {
+    const cloudAlive = await probeEndpoint(cloudHub, 2000);
+    if (cloudAlive) {
+      setHubBase(cloudHub);
+      _activeHubType = "cloud";
+      console.log("Connected to 24/7 Cloud Server:", cloudHub);
+      updateHubStatusBadge(true, "Cloud Online");
+      state.hubOnline = true;
+      return true;
+    }
   }
 
   updateHubStatusBadge(false, "Hub Offline");

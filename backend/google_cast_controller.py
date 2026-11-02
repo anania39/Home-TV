@@ -79,17 +79,17 @@ class GoogleCastController:
             is_youtube_stream = ("googlevideo.com" in url.lower() or "youtube" in url.lower() or "youtu.be" in url.lower()
                                  or (media_info and (media_info.get("source_type") == "youtube" or media_info.get("customData", {}).get("source_type") == "youtube")))
 
-            # If Default Media Receiver is not active, destination missing, media namespace missing,
-            # previous video has finished/ended (leaving the video hardware decoder surface detached),
-            # OR casting a YouTube demuxed stream:
-            # We force-launch CC1AD845 so a completely fresh web receiver and hardware video decoder surface are created.
-            need_fresh_launch = (cur_app != "CC1AD845" or not has_dest or not has_media_ns or is_idle_or_finished or is_youtube_stream)
-            if need_fresh_launch:
-                logger.info(f"Launching clean CC1AD845 instance on {ip} (app={cur_app}, dest={has_dest}, ns={has_media_ns}, idle_or_finished={is_idle_or_finished}, youtube={is_youtube_stream})...")
+            # If Default Media Receiver is not the active app (e.g. YouTube app 2C6A6E3D, Netflix, or Home screen),
+            # launch CC1AD845 and wait for the media namespace to be established.
+            # If CC1AD845 is ALREADY running, NEVER force-relaunch it! Relaunching an already running
+            # receiver causes a race condition where the hardware video decoder surface is detached,
+            # leaving only audio playing while the screen stays on the backdrop splash.
+            if cur_app != "CC1AD845" or not has_dest or not has_media_ns:
+                logger.info(f"Switching TV {cast.name} ({ip}) from {cur_app} to CC1AD845...")
                 try:
-                    cast.socket_client.receiver_controller.launch_app("CC1AD845", force_launch=True)
-                    for _ in range(28):
-                        time.sleep(0.12)
+                    cast.socket_client.receiver_controller.launch_app("CC1AD845")
+                    for _ in range(30):
+                        time.sleep(0.15)
                         c_app = getattr(cast, "app_id", None) or (cast.status.app_id if cast.status else None)
                         c_dest = bool(cast.socket_client and cast.socket_client.destination_id)
                         c_ns = bool(cast.socket_client and ("urn:x-cast:com.google.cast.media" in cast.socket_client.app_namespaces))
@@ -99,10 +99,11 @@ class GoogleCastController:
                 except Exception as ex:
                     logger.debug(f"launch_app CC1AD845 notice: {ex}")
             else:
-                # If a media session was already actively playing, cleanly stop it first before loading new stream
+                # Receiver is already running. If a media stream was actively playing, stop it cleanly
                 try:
-                    mc.stop()
-                    time.sleep(0.1)
+                    if mc.status and mc.status.player_state in ("PLAYING", "PAUSED", "BUFFERING"):
+                        mc.stop()
+                        time.sleep(0.12)
                 except Exception:
                     pass
 
@@ -123,14 +124,9 @@ class GoogleCastController:
                           or media_info.get("customData", {}).get("source_type") == "youtube")
             # Clean up internal source_type so CAF payload only carries valid standard media keys
             media_info.pop("source_type", None)
-            if is_m3u8:
-                if is_youtube:
-                    # For YouTube HLS: NEVER pass hlsSegmentFormat="aac" as it triggers audio-only playback!
-                    media_info.pop("hlsSegmentFormat", None)
-                    media_info.setdefault("hlsVideoSegmentFormat", "mpeg2_ts")
-                else:
-                    media_info.setdefault("hlsSegmentFormat", "ts")
-                    media_info.setdefault("hlsVideoSegmentFormat", "mpeg2_ts")
+            # Remove any segment format overrides that trigger audio-only mode on Google TV
+            media_info.pop("hlsSegmentFormat", None)
+            media_info.pop("hlsVideoSegmentFormat", None)
 
             # Enforce max 8 tracks to prevent exceeding Google Cast 64KB TLS packet buffer
             if "tracks" in media_info and len(media_info["tracks"]) > 8:

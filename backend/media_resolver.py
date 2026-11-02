@@ -519,6 +519,8 @@ class MediaResolver:
                 'no_warnings': True,
                 'noplaylist': True,
                 'socket_timeout': 8,
+                'remote_components': ['ejs:github'],
+                'extractor_args': {'youtube': {'player_client': ['web', 'web_embedded', 'mweb', 'android', 'ios']}},
             }
             node_exe = r"C:\Users\Anania Light Laptop\Downloads\Blue Ocean\.tools\node\node.exe"
             if os.path.exists(node_exe):
@@ -569,7 +571,29 @@ class MediaResolver:
                     "audio_tracks": audio_tracks
                 }
         except Exception as e:
-            logger.warning(f"YouTube extraction error for {url}: {e}")
+            logger.warning(f"Local YouTube extraction notice for {url}: {e}")
+            # Residential relay fallback for Cloud VPS instances:
+            # If running on cloud and hit by YouTube datacenter IP challenge,
+            # query the Home PC Hub residential tunnel to resolve without bot blocks.
+            try:
+                ep_file = Path(__file__).resolve().parent.parent / "endpoint.json"
+                if ep_file.exists():
+                    ep_data = json.loads(ep_file.read_text(encoding="utf-8"))
+                    hub_tunnel = ep_data.get("hub_url")
+                    if hub_tunnel and "trycloudflare.com" in hub_tunnel:
+                        async with httpx.AsyncClient(timeout=9.0, verify=False) as c:
+                            r = await c.get(
+                                f"{hub_tunnel}/api/media/resolve",
+                                params={"url": url},
+                                headers={"bypass-tunnel-reminder": "true"}
+                            )
+                            if r.status_code == 200:
+                                data = r.json()
+                                if data.get("resolved") and data.get("stream_url"):
+                                    logger.info(f"YouTube stream resolved via Home PC Hub residential tunnel: {data.get('title')}")
+                                    return data
+            except Exception as relay_err:
+                logger.debug(f"Home hub delegation notice: {relay_err}")
 
         return {"resolved": False, "error": "Failed to extract YouTube stream"}
 

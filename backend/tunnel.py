@@ -56,6 +56,7 @@ def publish_endpoint(public_url: str):
     """Publish current tunnel and local endpoint to endpoint.json locally and sync to GitHub."""
     data = {
         "hub_url": public_url,
+        "cloud_hub_url": "https://tvhub.92.5.71.162.sslip.io",
         "local_url": f"http://{SERVER_IP}:{PORT}",
         "local_ip": SERVER_IP,
         "port": PORT,
