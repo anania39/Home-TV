@@ -40,8 +40,9 @@
             <p id="network-badge-text">Local Network</p>
           </div>
         </div>
-        <div class="header-actions" style="display: flex; gap: 8px;">
-                    <button id="btn-web-cast" class="btn-icon" title="Cast directly from Browser to any TV on this Wi-Fi">
+        <div class="header-actions" style="display: flex; gap: 8px; align-items: center;">
+          <google-cast-launcher class="cast-launcher-native" style="width: 32px; height: 32px; display: inline-flex; align-items: center; justify-content: center; --connected-color: var(--accent-cyan); --disconnected-color: var(--text-muted); cursor: pointer;" title="Direct Cast from Phone to TV over Wi-Fi"></google-cast-launcher>
+          <button id="btn-web-cast" class="btn-icon" title="Cast directly from Phone to TV on this Wi-Fi">
             <svg viewBox="0 0 24 24"><path d="M2 16.1A5 5 0 0 1 5.9 20M2 12.05A9 9 0 0 1 9.95 20M2 8V6a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2h-6M2 20h.01"/></svg>
           </button>
           <button id="btn-hub-settings" class="btn-icon" title="Hub Server Connection">
@@ -1081,6 +1082,6 @@
     </div>
   </div>
 
-  <script src="static/app.js?v=5.3"></script>
+  <script src="static/app.js?v=5.8"></script>
 </body>
 </html>
