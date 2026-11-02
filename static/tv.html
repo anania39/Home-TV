@@ -608,13 +608,45 @@
       const session = ++playSessionId;
       console.log(`playStream initiated: session=${session} url=${url}`);
 
+      // Sanitize URL for Web Receiver on Cloud/HTTPS/GitHub Pages
+      const cloudHost = "https://tvhub.92.5.71.162.sslip.io";
+      const hubBase = getHubBase() || cloudHost;
+
+      // 1. Resolve relative URLs against active hub or cloud host
+      if (url && url.startsWith("/")) {
+        url = `${hubBase}${url}`;
+      }
+      // 2. Rewrite unreachable private cloud IPs (10.0.0.84, 127.0.0.1)
+      if (url && (url.includes("10.0.0.84") || url.includes("127.0.0.1:8002"))) {
+        url = url.replace(/http:\/\/10\.0\.0\.84:8002/g, cloudHost)
+                 .replace(/http:\/\/127\.0\.0\.1:8002/g, cloudHost);
+      }
+      // 3. Prevent Mixed Content on HTTPS: route http:// streams through HTTPS proxy
+      if (url && window.location.protocol === "https:" && url.startsWith("http://")) {
+        if (!url.includes("/proxy") && !url.includes("/api/stream/proxy")) {
+          url = `${hubBase}/proxy?url=${encodeURIComponent(url)}&sid=s_rec_${Date.now()}`;
+        } else {
+          url = url.replace(/^http:\/\//, "https://");
+        }
+      }
+
       currentPlayingUrl = url;
       currentTitle = title;
       currentLogoUrl = logoUrl;
       currentChannelId = opts.channelId || null;
 
       if (opts.sources && Array.isArray(opts.sources) && opts.sources.length) {
-        currentSources = opts.sources;
+        currentSources = opts.sources.map(s => {
+          let sUrl = typeof s === "object" ? s.url : s;
+          if (sUrl && sUrl.startsWith("/")) sUrl = `${hubBase}${sUrl}`;
+          if (sUrl && (sUrl.includes("10.0.0.84") || sUrl.includes("127.0.0.1:8002"))) {
+            sUrl = sUrl.replace(/http:\/\/10\.0\.0\.84:8002/g, cloudHost).replace(/http:\/\/127\.0\.0\.1:8002/g, cloudHost);
+          }
+          if (sUrl && window.location.protocol === "https:" && sUrl.startsWith("http://")) {
+            sUrl = sUrl.replace(/^http:\/\//, "https://");
+          }
+          return { url: sUrl, type: (typeof s === "object" && s.type) ? s.type : "hls" };
+        });
         currentSourceIndex = typeof opts.sourceIndex === "number" ? opts.sourceIndex : 0;
       } else if (!opts.isFailover) {
         currentSources = [{ url: url, type: "hls" }];
@@ -673,7 +705,17 @@
             hls.startLevel = 0;
             hls.loadLevel = 0;
           }
-          video.play().catch(e => console.log("Autoplay notice:", e));
+          const playPromise = video.play();
+          if (playPromise !== undefined) {
+            playPromise.catch(e => {
+              console.log("Autoplay notice:", e);
+              if (e.name === "NotAllowedError" || e.name === "AbortError") {
+                video.muted = true;
+                video.play().catch(err => console.error("Muted playback notice:", err));
+                showOSD(title, "🔊 Audio muted by TV browser. Tap screen or press OK on remote to unmute", logoUrl, currentSourceIndex, currentSources.length);
+              }
+            });
+          }
         });
 
         // Error recovery & failover logic
@@ -966,6 +1008,21 @@
     }
 
     connectWS();
+
+    // Unmute on tap or remote key press
+    document.addEventListener("click", () => {
+      if (video && video.muted) {
+        video.muted = false;
+        showOSD(currentTitle, "🔊 Audio Unmuted", currentLogoUrl);
+      }
+    });
+    document.addEventListener("keydown", (e) => {
+      if (video && video.muted && (e.key === "Enter" || e.key === " " || e.key === "Play" || e.key === "Ok" || e.key === "Select")) {
+        video.muted = false;
+        showOSD(currentTitle, "🔊 Audio Unmuted", currentLogoUrl);
+      }
+    });
+
 
     // Fallback sync poll: every 5s check GET /api/state/current
     // In case WebSocket disconnected or dropped packets, keep state monotonically in sync

@@ -16,6 +16,7 @@ MEDIA_DIR.mkdir(exist_ok=True)
 
 PORT = int(os.environ.get("TVHUB_PORT", os.environ.get("PORT", 8000)))
 NO_DEVICES = os.environ.get("TVHUB_NO_DEVICES", "0") == "1"
+PUBLIC_URL = os.environ.get("PUBLIC_URL", "").rstrip("/")
 
 def get_local_ip() -> str:
     """Detect the active local LAN IP address."""

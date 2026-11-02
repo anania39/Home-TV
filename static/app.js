@@ -177,10 +177,21 @@ function updateHubStatusBadge(isOnline, labelText = null) {
 }
 
 async function autoDetectHub(forceRefresh = false) {
-  const isGithubPages = window.location.hostname.includes("github.io");
-  if (!isGithubPages) {
+  const hn = window.location.hostname;
+  const isGithubPages = hn.includes("github.io");
+  const isCloudHost = hn.includes("sslip.io") || hn.includes("trycloudflare.com") || hn.includes("render.com") || hn.includes("koyeb.app");
+
+  if (!isGithubPages && !isCloudHost) {
     _activeHubType = "local_wifi";
-    updateHubStatusBadge(true, `Wi-Fi Host (${window.location.hostname})`);
+    updateHubStatusBadge(true, `Wi-Fi Host (${hn})`);
+    state.hubOnline = true;
+    return true;
+  }
+
+  if (isCloudHost) {
+    _activeHubType = "cloud";
+    setHubBase(window.location.origin);
+    updateHubStatusBadge(true, "24/7 Cloud Host");
     state.hubOnline = true;
     return true;
   }
@@ -1072,6 +1083,19 @@ async function castChannel(channel) {
         if (barTitle) barTitle.textContent = `${channel.name}${sBadge}`;
         showToast(`Playing ${channel.name} on TV!`);
         return;
+      }
+      if (data && (data.status === "fallback" || data.use_web_cast)) {
+        if (typeof cast !== "undefined" && cast.framework) {
+          showToast(`Select your TV to cast ${channel.name}...`);
+          requestWebCastSession({
+            url: streamUrl,
+            title: channel.name,
+            poster: channel.logo || "",
+            isChannel: true,
+            channel: channel
+          });
+          return;
+        }
       }
     } catch (e) {
       console.warn("PC Hub cast attempt failed, falling back to direct phone cast...", e);

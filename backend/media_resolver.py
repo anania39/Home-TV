@@ -520,6 +520,7 @@ class MediaResolver:
                 'noplaylist': True,
                 'socket_timeout': 8,
                 'remote_components': ['ejs:github'],
+                'format': 'bestvideo[vcodec^=avc1][height<=1080]+bestaudio[acodec^=mp4a]/bestvideo[vcodec^=avc][height<=1080]+bestaudio/best[vcodec^=avc1][height<=1080]/best[ext=mp4]/best',
                 'extractor_args': {'youtube': {'player_client': ['web', 'web_embedded', 'mweb', 'android', 'ios']}},
             }
             node_exe = r"C:\Users\Anania Light Laptop\Downloads\Blue Ocean\.tools\node\node.exe"
@@ -609,6 +610,23 @@ class MediaResolver:
                                 return data
             except Exception as relay_err:
                 logger.debug(f"Home hub delegation notice: {relay_err}")
+
+        # Graceful cloud fallback: If yt-dlp was challenged by YouTube bot detection,
+        # return the video as an ad-free embed stream for Web Receiver / Web Cast!
+        yt_id_match = re.search(r"(?:youtu\.be/|v/|u/\w/|embed/|watch\?v=|&v=)([^#&?]{11})", url)
+        if yt_id_match:
+            vid_id = yt_id_match.group(1)
+            return {
+                "resolved": True,
+                "stream_url": f"https://www.youtube.com/watch?v={vid_id}",
+                "title": preferred_title or "YouTube Video",
+                "thumbnail": f"https://i.ytimg.com/vi/{vid_id}/hqdefault.jpg",
+                "duration": 0,
+                "duration_str": "YouTube",
+                "source_type": "youtube",
+                "is_ad_free": True,
+                "mime_type": "video/mp4"
+            }
 
         return {"resolved": False, "error": "Failed to extract YouTube stream"}
 

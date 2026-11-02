@@ -18,7 +18,7 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 
-from .config import PORT, SERVER_IP, STATIC_DIR, MEDIA_DIR, is_local_network, BASE_DIR, NO_DEVICES
+from .config import PORT, SERVER_IP, STATIC_DIR, MEDIA_DIR, is_local_network, BASE_DIR, NO_DEVICES, PUBLIC_URL
 from .discovery import device_manager
 from .dlna_controller import dlna_controller
 from .hisense_remote import get_hisense_remote, send_wake_on_lan
@@ -707,11 +707,27 @@ async def cast_media(req: CastRequest, request: Request, client_ip: str = Depend
             if resolved.get("mime_type"):
                 req.mime_type = resolved["mime_type"]
         elif not media_resolver.is_direct_stream(raw_stream_url):
-            logger.warning(f"Could not extract video stream from webpage: {raw_stream_url}")
-            return {
-                "status": "error",
-                "message": resolved.get("error") or "Could not extract video from this webpage. Please paste the direct video or embed player link."
-            }
+            is_yt = ("youtube.com" in raw_stream_url or "youtu.be" in raw_stream_url)
+            if is_yt:
+                logger.info(f"Using native YouTube embed stream for: {raw_stream_url}")
+                yt_id_match = re.search(r"(?:youtu\.be/|v/|u/\w/|embed/|watch\?v=|&v=)([^#&?]{11})", raw_stream_url)
+                yt_id = yt_id_match.group(1) if yt_id_match else ""
+                title = req.title if req.title and req.title not in ("Live Stream", "Video Stream") else "YouTube Video"
+                raw_stream_url = f"https://www.youtube.com/watch?v={yt_id}" if yt_id else raw_stream_url
+                resolved = {
+                    "resolved": True,
+                    "stream_url": raw_stream_url,
+                    "title": title,
+                    "source_type": "youtube",
+                    "is_ad_free": True,
+                    "mime_type": "video/mp4"
+                }
+            else:
+                logger.warning(f"Could not extract video stream from webpage: {raw_stream_url}")
+                return {
+                    "status": "error",
+                    "message": resolved.get("error") or "Could not extract video from this webpage. Please paste the direct video or embed player link."
+                }
     except Exception as e:
         logger.warning(f"Media resolution notice: {e}")
 
@@ -729,9 +745,14 @@ async def cast_media(req: CastRequest, request: Request, client_ip: str = Depend
     manifest_url = resolved.get("manifest_url") if ('resolved' in locals() and isinstance(resolved, dict)) else None
     if not manifest_url and ('resolved' in locals() and isinstance(resolved, dict)) and resolved.get("stream_url") and ".m3u8" in resolved.get("stream_url"):
         manifest_url = resolved.get("stream_url")
-    req_proto = "https" if (request.headers.get("x-forwarded-proto") == "https" or request.url.scheme == "https") else "http"
-    req_host = request.headers.get("x-forwarded-host") or request.headers.get("host") or f"{SERVER_IP}:{PORT}"
-    base_proxy_url = f"{req_proto}://{req_host}"
+    if is_cloud_instance() or PUBLIC_URL:
+        base_proxy_url = (PUBLIC_URL or "https://tvhub.92.5.71.162.sslip.io").rstrip("/")
+    else:
+        req_proto = "https" if (request.headers.get("x-forwarded-proto") == "https" or request.url.scheme == "https") else "http"
+        req_host = request.headers.get("x-forwarded-host") or request.headers.get("host") or f"{SERVER_IP}:{PORT}"
+        if "sslip.io" in req_host or "trycloudflare.com" in req_host:
+            req_proto = "https"
+        base_proxy_url = f"{req_proto}://{req_host}"
 
     if manifest_url:
         qualities = resolved.get("qualities", ["Auto"])
@@ -796,14 +817,15 @@ async def cast_media(req: CastRequest, request: Request, client_ip: str = Depend
     else:
         tv_stream_url = raw_stream_url
 
-    web_stream_url = relative_proxy_url if (req.use_proxy and not manifest_url) else raw_stream_url
+    # For web_receiver, ALWAYS emit absolute HTTPS stream URLs so GitHub Pages & external receivers load cleanly
+    web_stream_url = lan_proxy_url if (req.use_proxy or raw_stream_url.startswith("http://")) else raw_stream_url
 
     # Ensure all channel sources are properly proxied with active_sid for seamless client failover
     proxied_sources = []
     for s in (req.sources or []):
         s_url = s.get("url") if isinstance(s, dict) else s
         if s_url:
-            p_url = f"/api/stream/proxy?url={quote(s_url, safe='')}&sid={active_sid}" if req.use_proxy else s_url
+            p_url = f"{base_proxy_url}/proxy?url={quote(s_url, safe='')}&sid={active_sid}" if (req.use_proxy or s_url.startswith("http://")) else s_url
             proxied_sources.append({"url": p_url, "type": "hls"})
     if not proxied_sources and web_stream_url:
         proxied_sources = [{"url": web_stream_url, "type": "hls"}]
