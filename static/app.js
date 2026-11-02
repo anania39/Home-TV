@@ -1013,67 +1013,67 @@ async function castChannel(channel) {
   const signal = castAbortController.signal;
 
   vibrate(35);
+  const streamUrl = (channel.sources && channel.sources[0]?.url) || channel.url;
 
-  // Check 1: Direct in-browser Google Cast session (works on ANY Wi-Fi network without laptop)
+  // Path 1: Direct in-browser Google Cast is active -> Cast straight from Phone to TV over Wi-Fi
   if (isWebCastActive()) {
-    showToast(`Casting ${channel.name} to TV via Web Cast...`);
-    const streamUrl = (channel.sources && channel.sources[0]?.url) || channel.url;
+    showToast(`Casting ${channel.name} to TV via Direct Cast...`);
     castViaWebCast(streamUrl, channel.name, channel.logo || "");
     return;
   }
 
-  // Check 2: If hub is offline on GitHub Pages, fallback directly to in-app phone player
-  const isGithubPages = window.location.hostname.includes("github.io");
-  if (isGithubPages && (!getHubBase() || state.hubOnline === false)) {
-    showToast(`TV Hub offline. Playing ${channel.name} on device`);
-    openInAppPlayer(channel);
+  // Path 2: Target is TV Web Receiver (Browser at /tv on TV screen)
+  if (state.currentTvId === "web_receiver") {
+    showToast(`Sending ${channel.name} to TV Web Receiver...`);
+    try {
+      await safeFetchWithRetry(`/api/iptv/cast/${channel.id}?device_id=web_receiver`, { method: "POST", signal });
+      showToast(`Playing ${channel.name} on TV!`);
+    } catch (e) {
+      openInAppPlayer(channel);
+    }
     return;
   }
 
-  showToast(`Casting ${channel.name} to TV...`);
-  if (!state.tvOnline) {
-    sendWakeOnLan();
+  // Path 3: Laptop Hub is online -> Relay cast via laptop local network daemon
+  if (_activeHubType === "local_wifi" || (_activeHubType === "pc_tunnel" && state.hubOnline)) {
+    showToast(`Casting ${channel.name} to TV...`);
+    if (!state.tvOnline) sendWakeOnLan();
+    try {
+      const devParam = state.currentTvId ? `?device_id=${encodeURIComponent(state.currentTvId)}` : "";
+      const res = await safeFetchWithRetry(`/api/iptv/cast/${channel.id}${devParam}`, { method: "POST", signal });
+      if (signal.aborted) return;
+      const data = await res.json();
+      if (res.ok && data.status === "ok") {
+        state.currentTitle = channel.name;
+        const sCount = (channel.sources && channel.sources.length) ? channel.sources.length : (channel.source_count || 1);
+        const sBadge = sCount > 1 ? " (S1)" : "";
+        const barTitle = document.getElementById("bar-title");
+        if (barTitle) barTitle.textContent = `${channel.name}${sBadge}`;
+        showToast(`Playing ${channel.name} on TV!`);
+        return;
+      }
+    } catch (e) {
+      console.warn("PC Hub cast attempt failed, falling back to direct phone cast...", e);
+    }
   }
 
-  try {
-    const devParam = state.currentTvId ? `?device_id=${encodeURIComponent(state.currentTvId)}` : "";
-    const res = await safeFetchWithRetry(`/api/iptv/cast/${channel.id}${devParam}`, { method: "POST", signal });
-    if (signal.aborted) return;
-    const data = await res.json();
-    if (signal.aborted) return;
-    if (data.status === "superseded") return;
-    if (data.status === "fallback" || data.use_web_cast) {
-      showToast(`Casting ${channel.name} to TV via Web Cast...`);
-      const streamUrl = (channel.sources && channel.sources[0]?.url) || channel.url;
-      if (isWebCastActive()) {
-        castViaWebCast(streamUrl, channel.name, channel.logo || "");
-      } else {
-        requestWebCastSession();
-      }
-      return;
-    }
-    if (data.status === "waking" || data.tv_online === false) {
-      showToast("⚡ TV is in Standby! Sent Wake packet, please power on TV.");
-      updateHardwareStatus({
-        tv_online: false,
-        state: "STANDBY",
-        status_text: `${state.currentTvName} is in Standby (Turn TV on to play)`
-      });
-    } else if (res.ok) {
-      state.currentTitle = channel.name;
-      const sCount = (channel.sources && channel.sources.length) ? channel.sources.length : (channel.source_count || 1);
-      const sBadge = sCount > 1 ? " (S1)" : "";
-      const barTitle = document.getElementById("bar-title");
-      if (barTitle) barTitle.textContent = `${channel.name}${sBadge}`;
-      showToast(`Playing ${channel.name} on TV!`);
-    }
-  } catch (e) {
-    if (e.name === "AbortError" || signal.aborted) return;
-    console.error("Cast channel failed:", e);
-    // If backend failed, automatically open in-app player so stream is NEVER lost
-    showToast(`TV Hub unreachable. Playing ${channel.name} on device`);
-    openInAppPlayer(channel);
+  // Path 4: Laptop is offline / Cloud mode -> Phone casts DIRECTLY to TV over Wi-Fi!
+  // Synchronously invoked right in the click handler so Chrome allows the Cast picker!
+  if (typeof cast !== "undefined" && cast.framework) {
+    showToast(`Select your TV to play ${channel.name}...`);
+    requestWebCastSession({
+      url: streamUrl,
+      title: channel.name,
+      poster: channel.logo || "",
+      isChannel: true,
+      channel: channel
+    });
+    return;
   }
+
+  // Path 5: High-performance in-app player fallback (plays on phone directly with zero fail)
+  showToast(`Playing ${channel.name} on device`);
+  openInAppPlayer(channel);
 }
 
 // --- Remote Control ---
@@ -1327,6 +1327,27 @@ async function executeUniversalCast(url, title = "") {
     const castInput = document.getElementById("cast-url-input");
     if (castInput) castInput.focus();
     return;
+  }
+
+  // Path A: Direct in-browser Google Cast is active -> Cast straight from Phone to TV over Wi-Fi
+  if (isWebCastActive()) {
+    showToast("Casting to TV via Direct Cast...");
+    castViaWebCast(url, title || "Video Stream");
+    return;
+  }
+
+  // Path B: Laptop is offline / Cloud active -> Prompt Phone-to-TV Cast dialog synchronously
+  if ((!state.hubOnline || _activeHubType === "cloud") && state.currentTvId !== "web_receiver") {
+    if (typeof cast !== "undefined" && cast.framework) {
+      showToast("Select your TV to cast directly from phone...");
+      requestWebCastSession({
+        url,
+        title: title || "Video Stream",
+        poster: "",
+        isChannel: false
+      });
+      return;
+    }
   }
 
   const btnSubmitCast = document.getElementById("btn-submit-cast");
@@ -3534,36 +3555,82 @@ function initGoogleCastWebSdk() {
   }
 }
 
+let pendingWebCastMedia = null;
+
 function handleWebCastStateChange(castState) {
   const btnCast = document.getElementById("btn-web-cast");
-  if (!btnCast) return;
   if (typeof cast !== "undefined" && cast.framework && castState === cast.framework.CastState.CONNECTED) {
     gCastConnected = true;
-    btnCast.classList.add("active");
-    btnCast.title = "Connected to TV via Web Cast (Tap to Disconnect / Change)";
+    if (btnCast) {
+      btnCast.classList.add("active");
+      btnCast.title = "Connected to TV via Web Cast (Tap to Disconnect / Change)";
+    }
+    try {
+      const session = cast.framework.CastContext.getInstance().getCurrentSession();
+      if (session && session.getCastDevice()) {
+        const devName = session.getCastDevice().friendlyName || "Smart TV";
+        state.currentTvName = devName;
+        state.tvOnline = true;
+        updateHardwareStatus({
+          tv_online: true,
+          state: "READY",
+          status_text: `${devName} Connected (Direct Wi-Fi Cast)`
+        });
+      }
+    } catch (e) {}
   } else {
     gCastConnected = false;
-    btnCast.classList.remove("active");
-    btnCast.title = "Cast directly from Browser to any TV on this Wi-Fi";
+    if (btnCast) {
+      btnCast.classList.remove("active");
+      btnCast.title = "Cast directly from Phone/Browser to any TV on this Wi-Fi";
+    }
   }
 }
 
-function requestWebCastSession() {
+function requestWebCastSession(pendingMedia = null) {
+  if (pendingMedia) {
+    pendingWebCastMedia = pendingMedia;
+  }
   if (typeof cast !== "undefined" && cast.framework) {
     const context = cast.framework.CastContext.getInstance();
-    context.requestSession().then(
-      () => {
-        showToast("Connected to TV via Web Cast!");
-        handleWebCastStateChange(context.getCastState());
-      },
-      (err) => {
-        if (err !== "cancel") {
-          console.warn("Web Cast session notice:", err);
+    try {
+      context.requestSession().then(
+        () => {
+          showToast("Connected to TV via Web Cast!");
+          handleWebCastStateChange(context.getCastState());
+          if (pendingWebCastMedia) {
+            const m = pendingWebCastMedia;
+            pendingWebCastMedia = null;
+            castViaWebCast(m.url, m.title || "Live Stream", m.poster || "");
+          }
+        },
+        (err) => {
+          if (err !== "cancel") {
+            console.warn("Web Cast session notice:", err);
+          }
+          if (pendingWebCastMedia) {
+            const m = pendingWebCastMedia;
+            pendingWebCastMedia = null;
+            if (m.isChannel && m.channel) {
+              openInAppPlayer(m.channel);
+            }
+          }
         }
+      );
+    } catch (e) {
+      console.warn("requestSession exception:", e);
+      if (pendingWebCastMedia && pendingWebCastMedia.isChannel && pendingWebCastMedia.channel) {
+        openInAppPlayer(pendingWebCastMedia.channel);
+        pendingWebCastMedia = null;
       }
-    );
+    }
   } else {
-    showToast("Web Cast initializing... Use Google Chrome on Wi-Fi for direct TV casting.");
+    if (pendingMedia && pendingMedia.isChannel && pendingMedia.channel) {
+      showToast("Playing on phone player...");
+      openInAppPlayer(pendingMedia.channel);
+    } else {
+      showToast("Web Cast initializing... Use Chrome on Wi-Fi for direct TV casting.");
+    }
   }
 }
 
