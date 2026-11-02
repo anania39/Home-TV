@@ -3,14 +3,19 @@ let HUB_BASE = localStorage.getItem("tvhub_backend_url") || "";
 let _activeHubType = "cloud"; // "local_wifi", "pc_tunnel", "cloud"
 let _cachedEndpointData = null;
 
+const CLOUD_FALLBACK_URL = "https://tvhub.92.5.71.162.sslip.io";
+
 function getHubBase() {
-  if (HUB_BASE) return HUB_BASE.replace(/\/+$/, "");
+  if (HUB_BASE && !HUB_BASE.includes("github.io")) return HUB_BASE.replace(/\/+$/, "");
   const params = new URLSearchParams(window.location.search);
   const hubParam = params.get("hub");
-  if (hubParam) {
+  if (hubParam && !hubParam.includes("github.io")) {
     HUB_BASE = hubParam.replace(/\/+$/, "");
     localStorage.setItem("tvhub_backend_url", HUB_BASE);
     return HUB_BASE;
+  }
+  if (window.location.hostname.includes("github.io")) {
+    return CLOUD_FALLBACK_URL;
   }
   return "";
 }
@@ -21,11 +26,26 @@ function getApiUrl(path) {
   if (base) {
     return `${base}${cleanPath}`;
   }
-  // On GitHub Pages, NEVER return relative API path to avoid HTTP 405 Method Not Allowed!
   if (window.location.hostname.includes("github.io")) {
-    return "";
+    return `${CLOUD_FALLBACK_URL}${cleanPath}`;
   }
   return cleanPath;
+}
+
+function makePlayableUrl(rawUrl) {
+  if (!rawUrl) return "";
+  // If we are on HTTPS and the stream is HTTP, route through /proxy to ensure HTTPS + CORS
+  if (window.location.protocol === "https:" && rawUrl.startsWith("http://")) {
+    const base = getHubBase() || CLOUD_FALLBACK_URL;
+    return `${base}/proxy?url=${encodeURIComponent(rawUrl)}`;
+  }
+  return rawUrl;
+}
+
+function isDirectMediaUrl(u) {
+  if (!u) return false;
+  const clean = u.split("?")[0].toLowerCase();
+  return clean.endsWith(".m3u8") || clean.endsWith(".mp4") || clean.endsWith(".webm") || clean.endsWith(".mkv") || clean.endsWith(".ts") || u.includes(".m3u8");
 }
 
 async function safeFetchWithRetry(path, options = {}) {
@@ -1013,7 +1033,8 @@ async function castChannel(channel) {
   const signal = castAbortController.signal;
 
   vibrate(35);
-  const streamUrl = (channel.sources && channel.sources[0]?.url) || channel.url;
+  const rawStreamUrl = (channel.sources && channel.sources[0]?.url) || channel.url;
+  const streamUrl = makePlayableUrl(rawStreamUrl);
 
   // Path 1: Direct in-browser Google Cast is active -> Cast straight from Phone to TV over Wi-Fi
   if (isWebCastActive()) {
@@ -1336,12 +1357,12 @@ async function executeUniversalCast(url, title = "") {
     return;
   }
 
-  // Path B: Laptop is offline / Cloud active -> Prompt Phone-to-TV Cast dialog synchronously
-  if ((!state.hubOnline || _activeHubType === "cloud") && state.currentTvId !== "web_receiver") {
+  // Path B: Direct playable media links (MP4/HLS) can prompt phone-to-TV Cast immediately
+  if (isDirectMediaUrl(url) && (!state.hubOnline || _activeHubType === "cloud") && state.currentTvId !== "web_receiver") {
     if (typeof cast !== "undefined" && cast.framework) {
       showToast("Select your TV to cast directly from phone...");
       requestWebCastSession({
-        url,
+        url: makePlayableUrl(url),
         title: title || "Video Stream",
         poster: "",
         isChannel: false
@@ -3648,15 +3669,18 @@ function castViaWebCast(url, title = "Video Stream", poster = "") {
   try {
     const session = cast.framework.CastContext.getInstance().getCurrentSession();
     if (!session) return false;
-    const isM3u8 = url.includes(".m3u8");
+    const playUrl = makePlayableUrl(url);
+    const isM3u8 = playUrl.includes(".m3u8");
     const mimeType = isM3u8 ? "application/x-mpegurl" : "video/mp4";
-    const mediaInfo = new chrome.cast.media.MediaInfo(url, mimeType);
+    const mediaInfo = new chrome.cast.media.MediaInfo(playUrl, mimeType);
     mediaInfo.metadata = new chrome.cast.media.GenericMediaMetadata();
     mediaInfo.metadata.title = title;
     if (poster) {
       mediaInfo.metadata.images = [{ url: poster }];
     }
+    mediaInfo.streamType = isM3u8 ? chrome.cast.media.StreamType.LIVE : chrome.cast.media.StreamType.BUFFERED;
     const request = new chrome.cast.media.LoadRequest(mediaInfo);
+    request.autoplay = true;
     session.loadMedia(request).then(
       () => {
         showToast(`Playing ${title} on TV via Web Cast!`);

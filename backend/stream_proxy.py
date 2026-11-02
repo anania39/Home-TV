@@ -988,7 +988,6 @@ async def proxy_stream(url: str, request: Request, server_host: str):
                     if not cur_d or cur_d <= 0 or abs(cur_d - total_extinf_dur) > 5:
                         dur_sec = round(total_extinf_dur, 1)
                         ws_manager.update_state({"duration": dur_sec})
-                        import asyncio
                         asyncio.create_task(ws_manager.broadcast_to_controllers("playback_update", {"duration": dur_sec}))
                 except Exception:
                     pass

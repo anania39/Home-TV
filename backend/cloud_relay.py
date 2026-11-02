@@ -24,11 +24,24 @@ def is_cloud_instance() -> bool:
         or not SERVER_IP.startswith("192.168.50.")
     )
 
+async def probe_tunnel(url: str, timeout: float = 1.8) -> bool:
+    """Fast health probe to determine if Home PC Hub tunnel is actively alive."""
+    try:
+        clean = url.rstrip("/")
+        async with httpx.AsyncClient(timeout=timeout, verify=False) as client:
+            r = await client.get(
+                f"{clean}/api/auth/status",
+                headers={"bypass-tunnel-reminder": "true"}
+            )
+            return r.status_code == 200
+    except Exception:
+        return False
+
 async def get_active_home_hub_url(force_refresh: bool = False) -> Optional[str]:
-    """Retrieve verified active Home PC Hub Cloudflare tunnel URL."""
+    """Retrieve verified active Home PC Hub Cloudflare tunnel URL with fast health check."""
     global _cached_home_hub, _cached_home_hub_exp
     now = time.time()
-    if not force_refresh and _cached_home_hub and now < _cached_home_hub_exp:
+    if not force_refresh and now < _cached_home_hub_exp:
         return _cached_home_hub
 
     cand = None
@@ -46,7 +59,7 @@ async def get_active_home_hub_url(force_refresh: bool = False) -> Optional[str]:
     # 2. Fetch from GitHub raw fallback
     if not cand:
         try:
-            async with httpx.AsyncClient(timeout=5.0) as client:
+            async with httpx.AsyncClient(timeout=3.0) as client:
                 res = await client.get(f"https://raw.githubusercontent.com/anania39/Home-TV/main/endpoint.json?t={int(now)}")
                 if res.status_code == 200:
                     data = res.json()
@@ -57,12 +70,21 @@ async def get_active_home_hub_url(force_refresh: bool = False) -> Optional[str]:
             logger.debug(f"GitHub endpoint fetch notice: {e}")
 
     if not cand:
+        _cached_home_hub = None
+        _cached_home_hub_exp = now + 15.0
         return None
 
     clean = cand.rstrip("/")
-    _cached_home_hub = clean
-    _cached_home_hub_exp = now + 45.0  # Cache verified candidate
-    return clean
+    # Quick probe: if laptop is asleep/off, this fails in 1.8s instead of hanging for 70s!
+    is_alive = await probe_tunnel(clean, timeout=1.8)
+    if is_alive:
+        _cached_home_hub = clean
+        _cached_home_hub_exp = now + 45.0  # Cache verified candidate
+        return clean
+
+    _cached_home_hub = None
+    _cached_home_hub_exp = now + 12.0  # Cache offline state
+    return None
 
 def should_forward_to_home_hub(device_id: Optional[str]) -> bool:
     """Determine if a casting/control action should be delegated to Home PC Hub."""
@@ -78,9 +100,9 @@ async def forward_to_home_hub(
     method: str = "POST",
     json_data: Optional[Dict[str, Any]] = None,
     params: Optional[Dict[str, Any]] = None,
-    timeout: float = 30.0
+    timeout: float = 6.0
 ) -> Dict[str, Any]:
-    """Forward an action directly to Home PC Hub tunnel with auto-retry and Web Cast fallback hints."""
+    """Forward an action directly to Home PC Hub tunnel with fast fallback if laptop is off."""
     hub_url = await get_active_home_hub_url()
     if not hub_url:
         return {
@@ -98,36 +120,31 @@ async def forward_to_home_hub(
         "Content-Type": "application/json"
     }
 
-    # Attempt request with automatic retry if transient tunnel drop
-    for attempt in range(2):
-        try:
-            async with httpx.AsyncClient(timeout=timeout, verify=False) as client:
-                if method.upper() == "POST":
-                    resp = await client.post(target_url, json=json_data, params=params, headers=headers)
-                elif method.upper() == "GET":
-                    resp = await client.get(target_url, params=params, headers=headers)
-                else:
-                    resp = await client.request(method, target_url, json=json_data, params=params, headers=headers)
+    try:
+        async with httpx.AsyncClient(timeout=timeout, verify=False) as client:
+            if method.upper() == "POST":
+                resp = await client.post(target_url, json=json_data, params=params, headers=headers)
+            elif method.upper() == "GET":
+                resp = await client.get(target_url, params=params, headers=headers)
+            else:
+                resp = await client.request(method, target_url, json=json_data, params=params, headers=headers)
 
-                if resp.status_code == 200:
-                    try:
-                        return resp.json()
-                    except Exception:
-                        return {"status": "ok", "raw": resp.text}
-                elif resp.status_code in (502, 503, 504):
-                    logger.warning(f"Home Hub tunnel returned {resp.status_code}, re-verifying...")
-                    await get_active_home_hub_url(force_refresh=True)
-                    continue
-                else:
-                    return {
-                        "status": "error",
-                        "code": resp.status_code,
-                        "message": f"Home Hub returned HTTP {resp.status_code}: {resp.text[:120]}"
-                    }
-        except (httpx.TimeoutException, httpx.NetworkError):
-            if attempt == 0:
+            if resp.status_code == 200:
+                try:
+                    return resp.json()
+                except Exception:
+                    return {"status": "ok", "raw": resp.text}
+            elif resp.status_code in (502, 503, 504):
+                logger.warning(f"Home Hub tunnel returned {resp.status_code}")
                 await get_active_home_hub_url(force_refresh=True)
-                continue
+            else:
+                return {
+                    "status": "error",
+                    "code": resp.status_code,
+                    "message": f"Home Hub returned HTTP {resp.status_code}: {resp.text[:120]}"
+                }
+    except Exception as e:
+        logger.debug(f"Home hub forward notice: {e}")
 
     # If tunnel truly unreachable, seamlessly signal frontend to trigger in-browser phone-to-TV Web Cast!
     return {

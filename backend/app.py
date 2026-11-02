@@ -729,14 +729,18 @@ async def cast_media(req: CastRequest, request: Request, client_ip: str = Depend
     manifest_url = resolved.get("manifest_url") if ('resolved' in locals() and isinstance(resolved, dict)) else None
     if not manifest_url and ('resolved' in locals() and isinstance(resolved, dict)) and resolved.get("stream_url") and ".m3u8" in resolved.get("stream_url"):
         manifest_url = resolved.get("stream_url")
+    req_proto = "https" if (request.headers.get("x-forwarded-proto") == "https" or request.url.scheme == "https") else "http"
+    req_host = request.headers.get("x-forwarded-host") or request.headers.get("host") or f"{SERVER_IP}:{PORT}"
+    base_proxy_url = f"{req_proto}://{req_host}"
+
     if manifest_url:
         qualities = resolved.get("qualities", ["Auto"])
         q_urls = {}
         for q in qualities:
             if q == "Auto":
-                q_urls[q] = f"http://{SERVER_IP}:{PORT}/api/stream/proxy?url={quote(manifest_url, safe='')}&sid={active_sid}"
+                q_urls[q] = f"{base_proxy_url}/proxy?url={quote(manifest_url, safe='')}&sid={active_sid}"
             else:
-                q_urls[q] = f"http://{SERVER_IP}:{PORT}/api/stream/proxy?url={quote(manifest_url, safe='')}&q={q}&sid={active_sid}"
+                q_urls[q] = f"{base_proxy_url}/proxy?url={quote(manifest_url, safe='')}&q={q}&sid={active_sid}"
         resolved["quality_urls"] = q_urls
         raw_stream_url = q_urls["Auto"]
         req.mime_type = "application/x-mpegurl"
@@ -755,9 +759,9 @@ async def cast_media(req: CastRequest, request: Request, client_ip: str = Depend
             for q in hls_meta["qualities"]:
                 if q not in q_urls:
                     if q == "Auto":
-                        q_urls[q] = f"http://{SERVER_IP}:{PORT}/api/stream/proxy?url={quote(manifest_url, safe='')}&sid={active_sid}"
+                        q_urls[q] = f"{base_proxy_url}/proxy?url={quote(manifest_url, safe='')}&sid={active_sid}"
                     else:
-                        q_urls[q] = f"http://{SERVER_IP}:{PORT}/api/stream/proxy?url={quote(manifest_url, safe='')}&q={q}&sid={active_sid}"
+                        q_urls[q] = f"{base_proxy_url}/proxy?url={quote(manifest_url, safe='')}&q={q}&sid={active_sid}"
             tier_alias_map = {"1080p": "804p", "720p": "536p", "480p": "358p", "360p": "268p", "240p": "178p"}
             for std_q, wide_q in tier_alias_map.items():
                 if std_q in q_urls and wide_q not in q_urls:
@@ -771,12 +775,12 @@ async def cast_media(req: CastRequest, request: Request, client_ip: str = Depend
             a_urls = {}
             for a in audio_tracks:
                 a_name = a["name"]
-                a_urls[a_name] = f"http://{SERVER_IP}:{PORT}/api/stream/proxy?url={quote(manifest_url, safe='')}&audio={quote(a_name)}&sid={active_sid}"
+                a_urls[a_name] = f"{base_proxy_url}/proxy?url={quote(manifest_url, safe='')}&audio={quote(a_name)}&sid={active_sid}"
             resolved["audio_urls"] = a_urls
 
     # Proxied URLs:
-    relative_proxy_url = f"/api/stream/proxy?url={quote(raw_stream_url, safe='')}&sid={active_sid}"
-    lan_proxy_url = f"http://{SERVER_IP}:{PORT}/api/stream/proxy?url={quote(raw_stream_url, safe='')}&sid={active_sid}"
+    relative_proxy_url = f"/proxy?url={quote(raw_stream_url, safe='')}&sid={active_sid}"
+    lan_proxy_url = f"{base_proxy_url}/proxy?url={quote(raw_stream_url, safe='')}&sid={active_sid}"
 
     if dev and dev.get("is_google_tv"):
         if manifest_url:
