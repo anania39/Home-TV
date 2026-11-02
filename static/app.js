@@ -494,9 +494,9 @@ document.getElementById("btn-copy-local-link")?.addEventListener("click", () => 
 
 // Household Smart TVs for immediate zero-latency access
 const DEFAULT_HOUSEHOLD_DEVICES = [
+  { id: "tv_192_168_50_205", name: "TCL Smart TV Pro (Google TV)", is_google_tv: true },
   { id: "tv_192_168_50_249", name: "Hisense VIDAA TV (Living Room)", is_hisense: true },
   { id: "tv_192_168_50_3", name: "Xiaomi Mi TV (Google TV)", is_google_tv: true },
-  { id: "tv_192_168_50_205", name: "TCL Smart TV Pro (Google TV)", is_google_tv: true },
   { id: "web_receiver", name: "TV Web Receiver (Browser at /tv)", type: "browser" }
 ];
 let _isBackgroundScanning = false;
@@ -548,10 +548,20 @@ async function fetchDevices() {
     if (res.ok) {
       const data = await res.json();
       if (data.devices && data.devices.length > 0) {
+        let devList = data.devices;
+        const hasHardwareTvs = devList.some(d => d.id !== "web_receiver");
+        if (!hasHardwareTvs) {
+          // Merge known household smart TVs so user never loses TCL/Hisense options
+          devList = DEFAULT_HOUSEHOLD_DEVICES;
+        }
         const savedId = getSavedTvId();
-        const activeId = (savedId && data.devices.some(d => d.id === savedId)) ? savedId : (data.selected_device_id || state.currentTvId || "tv_192_168_50_249");
-        populateDevicesList(data.devices, activeId);
-        if (savedId && data.selected_device_id !== savedId && data.devices.some(d => d.id === savedId)) {
+        const activeId = (savedId && devList.some(d => d.id === savedId))
+          ? savedId
+          : ((data.selected_device_id && data.selected_device_id !== "web_receiver")
+              ? data.selected_device_id
+              : (devList.some(d => d.id === "tv_192_168_50_205") ? "tv_192_168_50_205" : devList[0].id));
+        populateDevicesList(devList, activeId);
+        if (savedId && data.selected_device_id !== savedId && devList.some(d => d.id === savedId)) {
           fetch(getApiUrl("/api/devices/select"), {
             method: "POST",
             headers: { "Content-Type": "application/json" },
@@ -568,7 +578,7 @@ async function fetchDevices() {
   // Resilient fallback: ensure household TVs are always ready
   const dropdown = document.getElementById("tv-dropdown");
   if (!dropdown || dropdown.options.length <= 1) {
-    populateDevicesList(DEFAULT_HOUSEHOLD_DEVICES, state.currentTvId || "tv_192_168_50_249");
+    populateDevicesList(DEFAULT_HOUSEHOLD_DEVICES, state.currentTvId || "tv_192_168_50_205");
   }
 }
 
