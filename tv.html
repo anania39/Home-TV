@@ -19,7 +19,8 @@
   <link rel="dns-prefetch" href="https://bloomberg.com">
 
   <!-- Pinned Hls.js version (1.5.17) for stable IPTV playback -->
-  <script src="https://cdn.jsdelivr.net/npm/hls.js@1.5.17">
+  <script src="https://cdn.jsdelivr.net/npm/hls.js@1.5.17"></script>
+  <script>
     // Subtitles Management
     function setSubtitles(vttUrl, lang) {
       const tracks = video.querySelectorAll("track");
@@ -138,7 +139,12 @@
     /* Standby Screen */
     #standby-screen {
       position: absolute;
-      inset: 0;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      width: 100%;
+      height: 100%;
       display: flex;
       flex-direction: column;
       align-items: center;
@@ -355,7 +361,7 @@
       qrImg.src = `https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=${encodeURIComponent(fallbackUrl)}`;
     }
 
-    fetch("/api/auth/status")
+    fetch(getHubBase() ? `${getHubBase()}/api/auth/status` : "/api/auth/status")
       .then(r => r.json())
       .then(d => {
         const activeUrl = d.short_url || fallbackUrl;
@@ -965,7 +971,7 @@
     // In case WebSocket disconnected or dropped packets, keep state monotonically in sync
     setInterval(async () => {
       try {
-        const res = await fetch("/api/state/current");
+        const res = await fetch(getHubBase() ? `${getHubBase()}/api/state/current` : "/api/state/current");
         if (!res.ok) return;
         const data = await res.json();
         if (typeof data.version === "number" && data.version > appliedVersion) {

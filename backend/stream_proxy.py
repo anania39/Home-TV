@@ -497,6 +497,15 @@ async def proxy_stream(url: str, request: Request, server_host: str):
     elif "cinerama" in url:
         headers["Referer"] = "https://cinerama.uz/"
 
+    # Scheme detection: enforce HTTPS for SSL domains and cloud proxies to prevent Chromecast Mixed Content errors
+    is_https = (
+        request.headers.get("x-forwarded-proto") == "https"
+        or request.url.scheme == "https"
+        or (request.headers.get("host") and ("sslip.io" in request.headers.get("host", "") or "trycloudflare.com" in request.headers.get("host", "")))
+        or (server_host and ("sslip.io" in server_host or "trycloudflare.com" in server_host))
+    )
+    scheme = "https" if is_https else "http"
+
     # Forward custom headers from movie/stream session (e.g. embed referrers)
     req_sid = request.query_params.get("sid")
     request_q = request.query_params.get("q") or request.query_params.get("quality")
@@ -763,7 +772,7 @@ async def proxy_stream(url: str, request: Request, server_host: str):
                 use_absolute = FORCE_ABSOLUTE_LAN_URL or (
                     server_host and not server_host.endswith(".trycloudflare.com") and not server_host.endswith(".ngrok-free.app")
                 )
-                base_proxy = f"http://{server_host}/api/stream/proxy" if (use_absolute and server_host) else "/api/stream/proxy"
+                base_proxy = f"{scheme}://{server_host}/proxy" if (use_absolute and server_host) else "/proxy"
 
                 def replace_media_uri(match):
                     orig_uri = match.group(1)
@@ -945,9 +954,9 @@ async def proxy_stream(url: str, request: Request, server_host: str):
                             key_uri = match.group(1)
                             full_key_url = urljoin(url, key_uri)
                             if use_absolute and server_host:
-                                rewritten_key = f"http://{server_host}/api/stream/proxy?url={quote(full_key_url, safe='')}&sid={active_sid}"
+                                rewritten_key = f"{scheme}://{server_host}/proxy?url={quote(full_key_url, safe='')}&sid={active_sid}"
                             else:
-                                rewritten_key = f"/api/stream/proxy?url={quote(full_key_url, safe='')}&sid={active_sid}"
+                                rewritten_key = f"/proxy?url={quote(full_key_url, safe='')}&sid={active_sid}"
                             return f'URI="{rewritten_key}"'
                         rewritten_line = re.sub(r'URI="([^"]+)"', replace_key_uri, line)
                         rewritten_lines.append(rewritten_line)
@@ -961,9 +970,9 @@ async def proxy_stream(url: str, request: Request, server_host: str):
                     seg_param = "&is_seg=1" if is_seg else ""
 
                     if use_absolute and server_host:
-                        proxied_segment = f"http://{server_host}/api/stream/proxy?url={quote(full_segment_url, safe='')}&sid={active_sid}{seg_param}"
+                        proxied_segment = f"{scheme}://{server_host}/proxy?url={quote(full_segment_url, safe='')}&sid={active_sid}{seg_param}"
                     else:
-                        proxied_segment = f"/api/stream/proxy?url={quote(full_segment_url, safe='')}&sid={active_sid}{seg_param}"
+                        proxied_segment = f"/proxy?url={quote(full_segment_url, safe='')}&sid={active_sid}{seg_param}"
                     rewritten_lines.append(proxied_segment)
 
                     if is_seg:
