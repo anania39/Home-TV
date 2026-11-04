@@ -1,4 +1,5 @@
 import time
+import re
 import logging
 from typing import Dict, Any, Optional
 import pychromecast
@@ -78,6 +79,28 @@ class GoogleCastController:
 
             is_youtube_stream = ("googlevideo.com" in url.lower() or "youtube" in url.lower() or "youtu.be" in url.lower()
                                  or (media_info and (media_info.get("source_type") == "youtube" or media_info.get("customData", {}).get("source_type") == "youtube")))
+
+            # Check for YouTube video ID to launch official native YouTube app receiver (233637DE)
+            yt_id = None
+            yt_m = re.search(r"(?:youtu\.be/|v/|u/\w/|embed/|watch\?v=|&v=)([^#&?]{11})", url)
+            if yt_m:
+                yt_id = yt_m.group(1)
+            elif media_info and media_info.get("youtube_id"):
+                yt_id = media_info.get("youtube_id")
+            elif media_info and media_info.get("customData", {}).get("youtube_id"):
+                yt_id = media_info.get("customData", {}).get("youtube_id")
+
+            if yt_id:
+                logger.info(f"Using official native YouTube app receiver (233637DE) for video {yt_id} on {ip}...")
+                try:
+                    from pychromecast.controllers.youtube import YouTubeController
+                    yt_ctrl = YouTubeController()
+                    cast.register_handler(yt_ctrl)
+                    yt_ctrl.play_video(yt_id)
+                    logger.info(f"Successfully started native YouTube playback for {yt_id} on {ip}")
+                    return True
+                except Exception as ex:
+                    logger.warning(f"YouTubeController launch notice on {ip}: {ex}, continuing to CC1AD845 fallback")
 
             # If Default Media Receiver is not the active app (e.g. YouTube app 2C6A6E3D, Netflix, or Home screen),
             # launch CC1AD845 and wait for the media namespace to be established.

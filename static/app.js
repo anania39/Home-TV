@@ -1354,14 +1354,24 @@ if (castUrlInput) {
 if (btnPasteCast && castUrlInput) {
   btnPasteCast.onclick = async () => {
     vibrate(20);
-    try {
-      const clipText = await navigator.clipboard.readText();
-      if (clipText) {
-        castUrlInput.value = clipText.trim();
-        handleCastUrlInput(castUrlInput.value);
-        showToast("Pasted link from clipboard");
+    let clipText = "";
+    if (window.TVHubAndroid && typeof window.TVHubAndroid.getClipboardText === "function") {
+      try {
+        clipText = window.TVHubAndroid.getClipboardText();
+      } catch (e) {
+        console.warn("Native clipboard read notice:", e);
       }
-    } catch (e) {
+    }
+    if (!clipText && navigator.clipboard && navigator.clipboard.readText) {
+      try {
+        clipText = await navigator.clipboard.readText();
+      } catch (e) {}
+    }
+    if (clipText) {
+      castUrlInput.value = clipText.trim();
+      handleCastUrlInput(castUrlInput.value);
+      showToast("Pasted link from clipboard");
+    } else {
       castUrlInput.focus();
       showToast("Tap and hold to paste");
     }
@@ -1474,6 +1484,20 @@ async function executeUniversalCast(url, title = "") {
   const ytMatch = url.match(/(?:youtu\.be\/|v\/|u\/\w\/|embed\/|watch\?v=|&v=)([^#&?]{11})/);
   if (ytMatch) {
     ytId = ytMatch[1];
+  }
+
+  // Path 0: Native Android TV Hub App -> Cast directly to TV via phone local Wi-Fi!
+  if (window.TVHubAndroid && typeof window.TVHubAndroid.isNativeApp === "function" && window.TVHubAndroid.isNativeApp()) {
+    const target = resolveSelectedTarget(state.currentTvId);
+    showToast(`Casting to ${target.name}...`);
+    window.TVHubAndroid.castToTv(target.ip, target.dev_type, makeCastPlayableUrl(playUrl), playTitle, mimeType, ytId);
+    state.currentTitle = playTitle;
+    const barTitle = document.getElementById("bar-title");
+    if (barTitle) barTitle.textContent = state.currentTitle;
+    return;
+  }
+
+  if (ytMatch) {
     showToast("⚡ Resolving YouTube stream...");
     try {
       const res = await safeFetchWithRetry(`/api/media/resolve?url=${encodeURIComponent(url)}`);
@@ -1489,17 +1513,6 @@ async function executeUniversalCast(url, title = "") {
     } catch (e) {
       console.warn("Media resolve notice:", e);
     }
-  }
-
-  // Path 0: Native Android TV Hub App -> Cast directly to TV via phone local Wi-Fi!
-  if (window.TVHubAndroid && typeof window.TVHubAndroid.isNativeApp === "function" && window.TVHubAndroid.isNativeApp()) {
-    const target = resolveSelectedTarget(state.currentTvId);
-    showToast(`Casting to ${target.name}...`);
-    window.TVHubAndroid.castToTv(target.ip, target.dev_type, makeCastPlayableUrl(playUrl), playTitle, mimeType, ytId);
-    state.currentTitle = playTitle;
-    const barTitle = document.getElementById("bar-title");
-    if (barTitle) barTitle.textContent = state.currentTitle;
-    return;
   }
 
   // Path A: Direct in-browser Google Cast is active -> Cast straight from Phone to TV over Wi-Fi
@@ -3808,8 +3821,11 @@ function requestWebCastSession(pendingMedia = null) {
     }
   } else {
     if (pendingMedia && pendingMedia.isChannel && pendingMedia.channel) {
-      showToast("Playing on phone player...");
-      openInAppPlayer(pendingMedia.channel);
+      if (window.TVHubAndroid && typeof window.TVHubAndroid.isNativeApp === "function" && window.TVHubAndroid.isNativeApp()) {
+        castChannel(pendingMedia.channel);
+      } else {
+        openInAppPlayer(pendingMedia.channel);
+      }
     } else {
       showToast("Web Cast initializing... Use Chrome on Wi-Fi for direct TV casting.");
     }
@@ -4012,3 +4028,30 @@ function triggerAirPlay(streamUrl) {
   }
   return false;
 }
+
+// Global handler for shared video URLs from Android native share sheet
+window.handleSharedUrl = function(sharedText) {
+  if (!sharedText) return;
+  const urlMatch = sharedText.match(/https?:\/\/[^\s]+/);
+  const targetUrl = urlMatch ? urlMatch[0] : sharedText.trim();
+  const input = document.getElementById("cast-url-input");
+  if (input) {
+    input.value = targetUrl;
+    handleCastUrlInput(targetUrl);
+  }
+  showToast("Shared video detected! Resolving & Casting...");
+  executeUniversalCast(targetUrl);
+};
+
+// Check for pending shared URL on startup
+function checkPendingSharedUrl() {
+  if (window.TVHubAndroid && typeof window.TVHubAndroid.getPendingSharedUrl === "function") {
+    try {
+      const pending = window.TVHubAndroid.getPendingSharedUrl();
+      if (pending) {
+        setTimeout(() => window.handleSharedUrl(pending), 400);
+      }
+    } catch (e) {}
+  }
+}
+setTimeout(checkPendingSharedUrl, 600);

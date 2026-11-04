@@ -1,6 +1,6 @@
 #!/bin/bash
 set -e
-echo '=== Building Fully Autonomous TV Hub Android Host App (v7.6.0) ==='
+echo '=== Building Fully Autonomous TV Hub Android Host App (v7.8.0) ==='
 
 BUILD_DIR=/home/ubuntu/tvhub_apk_build
 rm -rf $BUILD_DIR
@@ -71,8 +71,8 @@ cat << 'MANIFEST' > $BUILD_DIR/AndroidManifest.xml
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     package="com.tvhub.app"
-    android:versionCode="760"
-    android:versionName="7.6.0">
+    android:versionCode="780"
+    android:versionName="7.8.0">
 
     <uses-sdk android:minSdkVersion="26" android:targetSdkVersion="34" />
 
@@ -100,6 +100,11 @@ cat << 'MANIFEST' > $BUILD_DIR/AndroidManifest.xml
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+            <intent-filter>
+                <action android:name="android.intent.action.SEND" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <data android:mimeType="text/plain" />
             </intent-filter>
         </activity>
     </application>
@@ -130,9 +135,15 @@ import android.webkit.WebViewClient;
 import android.widget.FrameLayout;
 import android.widget.Toast;
 
+import android.content.ClipboardManager;
+import android.content.ClipData;
+import android.content.Intent;
+import java.io.BufferedReader;
 import java.io.ByteArrayOutputStream;
 import java.io.InputStream;
+import java.io.InputStreamReader;
 import java.io.OutputStream;
+import java.net.URLEncoder;
 import java.net.DatagramPacket;
 import java.net.DatagramSocket;
 import java.net.HttpURLConnection;
@@ -173,9 +184,36 @@ public class MainActivity extends Activity {
         }
     }
 
+    private String pendingSharedUrl = "";
+
+    @Override
+    protected void onNewIntent(Intent intent) {
+        super.onNewIntent(intent);
+        setIntent(intent);
+        handleIncomingIntent(intent);
+    }
+
+    private void handleIncomingIntent(Intent intent) {
+        if (intent != null && Intent.ACTION_SEND.equals(intent.getAction()) && "text/plain".equals(intent.getType())) {
+            String sharedText = intent.getStringExtra(Intent.EXTRA_TEXT);
+            if (sharedText != null && !sharedText.isEmpty()) {
+                pendingSharedUrl = sharedText.trim();
+                if (webView != null) {
+                    webView.post(new Runnable() {
+                        @Override
+                        public void run() {
+                            webView.evaluateJavascript("if (typeof handleSharedUrl === 'function') { handleSharedUrl('" + escapeJson(pendingSharedUrl) + "'); }", null);
+                        }
+                    });
+                }
+            }
+        }
+    }
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+        handleIncomingIntent(getIntent());
         mainHandler = new Handler(Looper.getMainLooper());
 
         // Keep screen awake while streaming TV
@@ -229,7 +267,7 @@ public class MainActivity extends Activity {
         settings.setBuiltInZoomControls(true);
         settings.setDisplayZoomControls(false);
         settings.setCacheMode(WebSettings.LOAD_NO_CACHE);
-        settings.setUserAgentString("Mozilla/5.0 (Linux; Android 14; Pixel 8) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Mobile Safari/537.36 TVHubHostApp/7.6");
+        settings.setUserAgentString("Mozilla/5.0 (Linux; Android 14; Pixel 8) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Mobile Safari/537.36 TVHubHostApp/7.7");
 
         // Expose Native TV Hub Android Host Bridge
         webView.addJavascriptInterface(new TVHubBridge(), "TVHubAndroid");
@@ -246,7 +284,7 @@ public class MainActivity extends Activity {
                 view.postDelayed(new Runnable() {
                     @Override
                     public void run() {
-                        view.loadUrl("https://tvhub.92.5.71.162.sslip.io?v=7.6.0");
+                        view.loadUrl("https://tvhub.92.5.71.162.sslip.io?v=7.8.0");
                     }
                 }, 2000);
             }
@@ -286,7 +324,7 @@ public class MainActivity extends Activity {
             }
         });
 
-        webView.loadUrl("https://tvhub.92.5.71.162.sslip.io?v=7.6.0");
+        webView.loadUrl("https://tvhub.92.5.71.162.sslip.io?v=7.8.0");
     }
 
     // --- Native Android Host Bridge Exposed to JavaScript ---
@@ -294,6 +332,28 @@ public class MainActivity extends Activity {
         @JavascriptInterface
         public boolean isNativeApp() {
             return true;
+        }
+
+        @JavascriptInterface
+        public String getClipboardText() {
+            try {
+                final ClipboardManager cm = (ClipboardManager) getSystemService(Context.CLIPBOARD_SERVICE);
+                if (cm != null && cm.hasPrimaryClip()) {
+                    ClipData clip = cm.getPrimaryClip();
+                    if (clip != null && clip.getItemCount() > 0) {
+                        CharSequence text = clip.getItemAt(0).getText();
+                        if (text != null) return text.toString();
+                    }
+                }
+            } catch (Exception ignored) {}
+            return "";
+        }
+
+        @JavascriptInterface
+        public String getPendingSharedUrl() {
+            String url = pendingSharedUrl;
+            pendingSharedUrl = "";
+            return url;
         }
 
         @JavascriptInterface
@@ -346,8 +406,16 @@ public class MainActivity extends Activity {
         // 1. Wake TV from standby via direct local UDP magic packet
         sendWakeOnLanPacket();
 
-        // 2. Google Cast V2 Protocol for TCL Smart TV Pro (192.168.50.205:8009) & Google TVs
+        // 2. Google Cast Protocol for TCL Smart TV Pro (192.168.50.205:8009) & Google TVs
         if (type.contains("google_tv") || targetIp.endsWith(".205") || targetIp.endsWith(".3")) {
+            if (youtubeId != null && !youtubeId.isEmpty()) {
+                notifyUser("Launching YouTube on TCL Smart TV Pro...");
+                boolean ytOk = castYouTubeToGoogleTv(targetIp, youtubeId);
+                if (ytOk) {
+                    notifyUser("🎉 Playing YouTube on TCL Smart TV Pro!");
+                    return;
+                }
+            }
             notifyUser("Connecting to TCL Smart TV Pro via Cast V2...");
             boolean castOk = castToGoogleTv(targetIp, streamUrl, title);
             if (castOk) {
@@ -377,6 +445,12 @@ public class MainActivity extends Activity {
         }
 
         // 5. Universal Fallback: Try Cast V2 on 8009 then DLNA on 38400
+        if (youtubeId != null && !youtubeId.isEmpty()) {
+            if (castYouTubeToGoogleTv(targetIp, youtubeId)) {
+                notifyUser("🎉 Playing YouTube on Smart TV!");
+                return;
+            }
+        }
         boolean castFallback = castToGoogleTv(targetIp, streamUrl, title);
         if (castFallback) {
             notifyUser("🎉 Playing " + title + " on Smart TV!");
@@ -587,6 +661,155 @@ public class MainActivity extends Activity {
             bodyRead += r;
         }
         return body;
+    }
+
+    // --- Native Google TV YouTube App Engine (App 233637DE + MDX Lounge Pairing) ---
+    private boolean castYouTubeToGoogleTv(String ip, String videoId) {
+        try {
+            TrustManager[] trustAll = new TrustManager[]{
+                new X509TrustManager() {
+                    public X509Certificate[] getAcceptedIssuers() { return new X509Certificate[0]; }
+                    public void checkClientTrusted(X509Certificate[] c, String a) {}
+                    public void checkServerTrusted(X509Certificate[] c, String a) {}
+                }
+            };
+            SSLContext sc = SSLContext.getInstance("TLS");
+            sc.init(null, trustAll, new SecureRandom());
+            SSLSocket socket = (SSLSocket) sc.getSocketFactory().createSocket(ip, 8009);
+            socket.setSoTimeout(2500);
+            socket.startHandshake();
+
+            OutputStream out = socket.getOutputStream();
+            InputStream in = socket.getInputStream();
+
+            // 1. Connect and Launch YouTube App 233637DE
+            sendCastMsg(out, "sender-0", "receiver-0", "urn:x-cast:com.google.cast.tp.connection", "{\"type\":\"CONNECT\"}");
+            sendCastMsg(out, "sender-0", "receiver-0", "urn:x-cast:com.google.cast.receiver", "{\"type\":\"LAUNCH\",\"appId\":\"233637DE\",\"requestId\":1}");
+
+            String transportId = null;
+            long startWait = System.currentTimeMillis();
+            while (System.currentTimeMillis() - startWait < 8000) {
+                try {
+                    byte[] raw = readCastMsg(in);
+                    if (raw == null) break;
+                    String text = new String(raw, "UTF-8");
+                    int idx = text.indexOf("\"transportId\":\"");
+                    if (idx != -1) {
+                        int endIdx = text.indexOf("\"", idx + 15);
+                        if (endIdx != -1) {
+                            transportId = text.substring(idx + 15, endIdx);
+                            break;
+                        }
+                    }
+                } catch (java.net.SocketTimeoutException ignored) {}
+            }
+
+            if (transportId == null || transportId.isEmpty()) {
+                socket.close();
+                return false;
+            }
+
+            // 2. Connect to transport and request screenId
+            sendCastMsg(out, "sender-0", transportId, "urn:x-cast:com.google.cast.tp.connection", "{\"type\":\"CONNECT\"}");
+            sendCastMsg(out, "sender-0", transportId, "urn:x-cast:com.google.youtube.mdx", "{\"type\":\"getMdxSessionStatus\"}");
+
+            String screenId = null;
+            startWait = System.currentTimeMillis();
+            while (System.currentTimeMillis() - startWait < 6000) {
+                try {
+                    byte[] raw = readCastMsg(in);
+                    if (raw == null) break;
+                    String text = new String(raw, "UTF-8");
+                    int idx = text.indexOf("\"screenId\":\"");
+                    if (idx != -1) {
+                        int endIdx = text.indexOf("\"", idx + 12);
+                        if (endIdx != -1) {
+                            screenId = text.substring(idx + 12, endIdx);
+                            break;
+                        }
+                    }
+                } catch (java.net.SocketTimeoutException ignored) {}
+            }
+
+            socket.close();
+
+            if (screenId == null || screenId.isEmpty()) {
+                return false;
+            }
+
+            // 3. Lounge Token
+            URL tokenUrl = new URL("https://www.youtube.com/api/lounge/pairing/get_lounge_token_batch");
+            HttpURLConnection conn1 = (HttpURLConnection) tokenUrl.openConnection();
+            conn1.setRequestMethod("POST");
+            conn1.setDoOutput(true);
+            conn1.setConnectTimeout(5000);
+            conn1.setReadTimeout(5000);
+            conn1.setRequestProperty("Origin", "https://www.youtube.com");
+            conn1.setRequestProperty("Content-Type", "application/x-www-form-urlencoded");
+            byte[] postData1 = ("screen_ids=" + URLEncoder.encode(screenId, "UTF-8")).getBytes("UTF-8");
+            conn1.getOutputStream().write(postData1);
+
+            BufferedReader br1 = new BufferedReader(new InputStreamReader(conn1.getInputStream(), "UTF-8"));
+            StringBuilder sb1 = new StringBuilder();
+            String line;
+            while ((line = br1.readLine()) != null) sb1.append(line);
+            br1.close();
+
+            String tokenResp = sb1.toString();
+            int tIdx = tokenResp.indexOf("\"loungeToken\":\"");
+            if (tIdx == -1) return false;
+            int tEnd = tokenResp.indexOf("\"", tIdx + 15);
+            String loungeToken = tokenResp.substring(tIdx + 15, tEnd);
+
+            // 4. Bind Session
+            URL bindUrl = new URL("https://www.youtube.com/api/lounge/bc/bind?RID=0&VER=8&CVER=1");
+            HttpURLConnection conn2 = (HttpURLConnection) bindUrl.openConnection();
+            conn2.setRequestMethod("POST");
+            conn2.setDoOutput(true);
+            conn2.setConnectTimeout(5000);
+            conn2.setReadTimeout(5000);
+            conn2.setRequestProperty("Origin", "https://www.youtube.com");
+            conn2.setRequestProperty("Content-Type", "application/x-www-form-urlencoded");
+            conn2.setRequestProperty("X-YouTube-LoungeId-Token", loungeToken);
+            String bindBody = "device=REMOTE_CONTROL&id=tvhubandroid123456789&name=Android&mdx-version=3&pairing_type=cast&app=android-phone-13.14.55";
+            conn2.getOutputStream().write(bindBody.getBytes("UTF-8"));
+
+            BufferedReader br2 = new BufferedReader(new InputStreamReader(conn2.getInputStream(), "UTF-8"));
+            StringBuilder sb2 = new StringBuilder();
+            while ((line = br2.readLine()) != null) sb2.append(line);
+            br2.close();
+
+            String bindResp = sb2.toString();
+            int sidIdx = bindResp.indexOf("\"c\",\"");
+            if (sidIdx == -1) return false;
+            int sidEnd = bindResp.indexOf("\"", sidIdx + 5);
+            String sid = bindResp.substring(sidIdx + 5, sidEnd);
+
+            int gIdx = bindResp.indexOf("\"S\",\"");
+            if (gIdx == -1) return false;
+            int gEnd = bindResp.indexOf("\"", gIdx + 5);
+            String gsessionid = bindResp.substring(gIdx + 5, gEnd);
+
+            // 5. Play Video Command
+            URL playUrl = new URL("https://www.youtube.com/api/lounge/bc/bind?SID=" + URLEncoder.encode(sid, "UTF-8") + "&gsessionid=" + URLEncoder.encode(gsessionid, "UTF-8") + "&RID=1&VER=8&CVER=1");
+            HttpURLConnection conn3 = (HttpURLConnection) playUrl.openConnection();
+            conn3.setRequestMethod("POST");
+            conn3.setDoOutput(true);
+            conn3.setConnectTimeout(5000);
+            conn3.setReadTimeout(5000);
+            conn3.setRequestProperty("Origin", "https://www.youtube.com");
+            conn3.setRequestProperty("Content-Type", "application/x-www-form-urlencoded");
+            conn3.setRequestProperty("X-YouTube-LoungeId-Token", loungeToken);
+
+            String playBody = "req0_videoId=" + URLEncoder.encode(videoId, "UTF-8") +
+                              "&req0_currentTime=0&req0_currentIndex=-1&req0_audioOnly=false&req0_listId=&count=1&req0__sc=setPlaylist";
+            conn3.getOutputStream().write(playBody.getBytes("UTF-8"));
+
+            int playCode = conn3.getResponseCode();
+            return playCode == 200;
+        } catch (Exception e) {
+            return false;
+        }
     }
 
     // --- DIAL YouTube Engine (Port 56789 / 8008) ---
