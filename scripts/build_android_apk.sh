@@ -71,8 +71,8 @@ cat << 'MANIFEST' > $BUILD_DIR/AndroidManifest.xml
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     package="com.tvhub.app"
-    android:versionCode="784"
-    android:versionName="7.8.4">
+    android:versionCode="785"
+    android:versionName="7.8.5">
 
     <uses-sdk android:minSdkVersion="26" android:targetSdkVersion="34" />
 
@@ -279,7 +279,7 @@ public class MainActivity extends Activity {
         settings.setBuiltInZoomControls(true);
         settings.setDisplayZoomControls(false);
         settings.setCacheMode(WebSettings.LOAD_NO_CACHE);
-        settings.setUserAgentString("Mozilla/5.0 (Linux; Android 14; Pixel 8) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Mobile Safari/537.36 TVHubHostApp/7.8.4");
+        settings.setUserAgentString("Mozilla/5.0 (Linux; Android 14; Pixel 8) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Mobile Safari/537.36 TVHubHostApp/7.8.5");
 
         // Expose Native TV Hub Android Host Bridge
         webView.addJavascriptInterface(new TVHubBridge(), "TVHubAndroid");
@@ -296,7 +296,7 @@ public class MainActivity extends Activity {
                 view.postDelayed(new Runnable() {
                     @Override
                     public void run() {
-                        view.loadUrl("https://tvhub.92.5.71.162.sslip.io?v=7.8.4");
+                        view.loadUrl("https://tvhub.92.5.71.162.sslip.io?v=7.8.5");
                     }
                 }, 2000);
             }
@@ -336,7 +336,7 @@ public class MainActivity extends Activity {
             }
         });
 
-        webView.loadUrl("https://tvhub.92.5.71.162.sslip.io?v=7.8.4");
+        webView.loadUrl("https://tvhub.92.5.71.162.sslip.io?v=7.8.5");
     }
 
     // --- Native Android Host Bridge Exposed to JavaScript ---
@@ -422,39 +422,8 @@ public class MainActivity extends Activity {
             }
         }
 
-        // 1. YouTube MDX Lounge Control
-        if ("youtube".equals(lastCastType)) {
-            boolean loungeSuccess = false;
-            ensureLoungeSession();
-            if (lastLoungeToken != null && lastSid != null && lastGsessionId != null) {
-                if ("speed".equals(action) || "rate".equals(action)) {
-                    Map<String, String> p = new HashMap<>();
-                    p.put("req0_playbackRate", value);
-                    loungeSuccess = sendLoungeCommand("setPlaybackRate", p);
-                } else if ("play".equals(action)) {
-                    loungeSuccess = sendLoungeCommand("playVideo", null);
-                } else if ("pause".equals(action)) {
-                    loungeSuccess = sendLoungeCommand("pauseVideo", null);
-                } else if ("stop".equals(action)) {
-                    loungeSuccess = sendLoungeCommand("stopVideo", null);
-                } else if ("seek".equals(action)) {
-                    int sec = 0;
-                    try { sec = (int) Double.parseDouble(value); } catch (Exception ignored) {}
-                    Map<String, String> p = new HashMap<>();
-                    p.put("req0_newTime", String.valueOf(Math.max(0, sec)));
-                    loungeSuccess = sendLoungeCommand("seekTo", p);
-                }
-            }
-            if (loungeSuccess) {
-                if ("speed".equals(action) || "rate".equals(action)) {
-                    notifyUser("⚡ Playback Speed: " + value + "x on TV");
-                }
-                return;
-            }
-        }
-
-        // 2. Google Cast Media Control (CC1AD845 for IPTV Channels)
-        if ("cast".equals(lastCastType) || (activeCastOut != null && currentTransportId != null)) {
+        // 1. If we have an active streaming Cast socket, dispatch immediately
+        if (activeCastOut != null && currentTransportId != null) {
             try {
                 int reqId = ++castRequestId;
                 String msgJson = null;
@@ -464,29 +433,47 @@ public class MainActivity extends Activity {
                     notifyUser("⚡ Playback Speed: " + value + "x on TV");
                 } else if ("play".equals(action)) {
                     msgJson = "{\"type\":\"PLAY\",\"mediaSessionId\":" + activeMediaSessionId + ",\"requestId\":" + reqId + "}";
+                    notifyUser("▶️ Playing on TV");
                 } else if ("pause".equals(action)) {
                     msgJson = "{\"type\":\"PAUSE\",\"mediaSessionId\":" + activeMediaSessionId + ",\"requestId\":" + reqId + "}";
+                    notifyUser("⏸️ Paused on TV");
                 } else if ("stop".equals(action)) {
                     msgJson = "{\"type\":\"STOP\",\"mediaSessionId\":" + activeMediaSessionId + ",\"requestId\":" + reqId + "}";
+                    notifyUser("⏹️ Stopped TV Cast");
                 } else if ("seek".equals(action)) {
                     double sec = 0.0;
                     try { sec = Double.parseDouble(value); } catch (Exception ignored) {}
                     msgJson = "{\"type\":\"SEEK\",\"currentTime\":" + Math.max(0.0, sec) + ",\"mediaSessionId\":" + activeMediaSessionId + ",\"requestId\":" + reqId + "}";
                     notifyUser("⏩ Seeked to " + (int) sec + "s on TV");
                 }
-
-                if (msgJson != null && activeCastOut != null && currentTransportId != null) {
+                if (msgJson != null) {
                     synchronized (MainActivity.this) {
                         sendCastMsg(activeCastOut, "sender-0", currentTransportId, "urn:x-cast:com.google.cast.media", msgJson);
                     }
-                    return;
-                } else if (msgJson != null) {
-                    sendCastDirectControl(action, value);
                     return;
                 }
             } catch (Exception ignored) {}
         }
 
+        // 2. Direct Cast V2 Control (Works on Google TV for both YouTube 233637DE and Media Receiver CC1AD845!)
+        sendCastDirectControl(action, value);
+
+        // 3. Complementary YouTube MDX Lounge command
+        if ("youtube".equals(lastCastType)) {
+            ensureLoungeSession();
+            if (lastLoungeToken != null && lastSid != null && lastGsessionId != null) {
+                if ("play".equals(action)) sendLoungeCommand("playVideo", null);
+                else if ("pause".equals(action)) sendLoungeCommand("pauseVideo", null);
+                else if ("stop".equals(action)) sendLoungeCommand("stopVideo", null);
+                else if ("seek".equals(action)) {
+                    int sec = 0;
+                    try { sec = (int) Double.parseDouble(value); } catch (Exception ignored) {}
+                    Map<String, String> p = new HashMap<>();
+                    p.put("req0_newTime", String.valueOf(Math.max(0, sec)));
+                    sendLoungeCommand("seekTo", p);
+                }
+            }
+        }
         // 3. DLNA Control for Hisense TV
         if ("dlna".equals(lastCastType) || (lastCastIp != null && (lastCastIp.endsWith(".249") || lastCastIp.contains("hisense")))) {
             String controlUrl = "http://" + lastCastIp + ":38400/upnp/control/mingusavtr";
@@ -715,9 +702,9 @@ public class MainActivity extends Activity {
                     byte[] raw = readCastMsg(i);
                     if (raw == null) break;
                     String text = new String(raw, "UTF-8");
-                    String foundTid = extractTransportIdForApp(text, "CC1AD845");
-                    if (foundTid != null && !foundTid.isEmpty()) {
-                        tid = foundTid;
+                    String[] appInfo = extractActiveMediaApp(text);
+                    if (appInfo != null) {
+                        tid = appInfo[1];
                         break;
                     }
                 } catch (Exception ignored) {}
@@ -725,6 +712,25 @@ public class MainActivity extends Activity {
 
             if (tid != null) {
                 sendCastMsg(o, "sender-0", tid, "urn:x-cast:com.google.cast.tp.connection", "{\"type\":\"CONNECT\"}");
+                sendCastMsg(o, "sender-0", tid, "urn:x-cast:com.google.cast.media", "{\"type\":\"GET_STATUS\",\"requestId\":2}");
+                long waitSt = System.currentTimeMillis();
+                while (System.currentTimeMillis() - waitSt < 1200) {
+                    try {
+                        byte[] raw = readCastMsg(i);
+                        if (raw == null) break;
+                        String text = new String(raw, "UTF-8");
+                        int mIdx = text.indexOf("\"mediaSessionId\":");
+                        if (mIdx != -1) {
+                            int start = mIdx + 17;
+                            int end = start;
+                            while (end < text.length() && Character.isDigit(text.charAt(end))) end++;
+                            if (end > start) {
+                                activeMediaSessionId = Integer.parseInt(text.substring(start, end));
+                                break;
+                            }
+                        }
+                    } catch (Exception ignored) { break; }
+                }
                 String payload = null;
                 int reqId = ++castRequestId;
                 if ("speed".equals(action) || "rate".equals(action)) {
@@ -761,15 +767,7 @@ public class MainActivity extends Activity {
 
         // 2. Google Cast Protocol for TCL Smart TV Pro (192.168.50.205:8009) & Google TVs
         if (type.contains("google_tv") || targetIp.endsWith(".205") || targetIp.endsWith(".3")) {
-            boolean isPlayableStream = (streamUrl != null && !streamUrl.isEmpty()) && (streamUrl.contains(".m3u8") || streamUrl.contains("/proxy?url=") || streamUrl.contains(".mp4") || streamUrl.contains("googlevideo.com"));
-            if (isPlayableStream) {
-                notifyUser("Connecting to TCL Smart TV Pro (100% Ad-Free)...");
-                boolean castOk = castToGoogleTv(targetIp, streamUrl, title);
-                if (castOk) {
-                    notifyUser("🎉 Now Playing " + title + " (100% Ad-Free)!");
-                    return;
-                }
-            } else if (youtubeId != null && !youtubeId.isEmpty()) {
+            if (youtubeId != null && !youtubeId.isEmpty()) {
                 notifyUser("Launching YouTube on TCL Smart TV Pro...");
                 boolean ytOk = castYouTubeToGoogleTv(targetIp, youtubeId);
                 if (ytOk) {
@@ -834,6 +832,31 @@ public class MainActivity extends Activity {
                 Toast.makeText(MainActivity.this, msg, Toast.LENGTH_SHORT).show();
             }
         });
+    }
+
+    // --- Active Media App Extractor (Handles both YouTube 233637DE and Media Receiver CC1AD845) ---
+    private static String[] extractActiveMediaApp(String text) {
+        if (text == null) return null;
+        try {
+            int brace = text.indexOf('{');
+            if (brace == -1) return null;
+            JSONObject root = new JSONObject(text.substring(brace));
+            if (root.has("status")) {
+                JSONObject st = root.getJSONObject("status");
+                if (st.has("applications")) {
+                    JSONArray apps = st.getJSONArray("applications");
+                    for (int i = 0; i < apps.length(); i++) {
+                        JSONObject app = apps.getJSONObject(i);
+                        String appId = app.optString("appId");
+                        String tid = app.optString("transportId", null);
+                        if (tid != null && ("CC1AD845".equals(appId) || "233637DE".equals(appId) || "2C6A6E3D".equals(appId))) {
+                            return new String[]{appId, tid};
+                        }
+                    }
+                }
+            }
+        } catch (Exception ignored) {}
+        return null;
     }
 
     // --- Dedicated TransportId Extractor: Guarantees Matching Target AppId ---
