@@ -616,14 +616,32 @@ class MediaResolver:
         yt_id_match = re.search(r"(?:youtu\.be/|v/|u/\w/|embed/|watch\?v=|&v=)([^#&?]{11})", url)
         if yt_id_match:
             vid_id = yt_id_match.group(1)
+            yt_dur = 0
+            yt_title = preferred_title or "YouTube Video"
+            try:
+                async with httpx.AsyncClient(
+                    headers={"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36"},
+                    timeout=3.0,
+                    follow_redirects=True
+                ) as hc:
+                    hr = await hc.get(f"https://www.youtube.com/watch?v={vid_id}")
+                    if hr.status_code == 200:
+                        dm = re.search(r'"lengthSeconds":"(\d+)"', hr.text)
+                        if dm:
+                            yt_dur = int(dm.group(1))
+                        tm = re.search(r'<title>(.*?)(?: - YouTube)?</title>', hr.text)
+                        if tm and not preferred_title:
+                            yt_title = html.unescape(tm.group(1)).replace(" - YouTube", "").strip()
+            except Exception as e:
+                logger.debug(f"Fast YouTube duration extraction notice: {e}")
             return {
                 "resolved": True,
                 "stream_url": f"https://www.youtube.com/watch?v={vid_id}",
                 "youtube_id": vid_id,
-                "title": preferred_title or "YouTube Video",
+                "title": yt_title,
                 "thumbnail": f"https://i.ytimg.com/vi/{vid_id}/hqdefault.jpg",
-                "duration": 0,
-                "duration_str": "YouTube",
+                "duration": yt_dur,
+                "duration_str": self._format_duration(yt_dur),
                 "source_type": "youtube",
                 "is_ad_free": True,
                 "mime_type": "video/mp4"

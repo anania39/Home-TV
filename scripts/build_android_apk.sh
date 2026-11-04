@@ -71,8 +71,8 @@ cat << 'MANIFEST' > $BUILD_DIR/AndroidManifest.xml
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     package="com.tvhub.app"
-    android:versionCode="785"
-    android:versionName="7.8.5">
+    android:versionCode="788"
+    android:versionName="7.8.8">
 
     <uses-sdk android:minSdkVersion="26" android:targetSdkVersion="34" />
 
@@ -175,6 +175,7 @@ public class MainActivity extends Activity {
     private String currentTransportId = null;
     private int activeMediaSessionId = 1;
     private double liveTvCurrentTime = 0.0;
+    private double liveTvDuration = 0.0;
     private int castRequestId = 10;
     private String lastCastType = "";
     private String lastCastIp = "192.168.50.205";
@@ -297,7 +298,7 @@ public class MainActivity extends Activity {
                 view.postDelayed(new Runnable() {
                     @Override
                     public void run() {
-                        view.loadUrl("https://tvhub.92.5.71.162.sslip.io?v=7.8.5");
+                        view.loadUrl("https://tvhub.92.5.71.162.sslip.io?v=7.8.8");
                     }
                 }, 2000);
             }
@@ -337,7 +338,7 @@ public class MainActivity extends Activity {
             }
         });
 
-        webView.loadUrl("https://tvhub.92.5.71.162.sslip.io?v=7.8.5");
+        webView.loadUrl("https://tvhub.92.5.71.162.sslip.io?v=7.8.8");
     }
 
     // --- Native Android Host Bridge Exposed to JavaScript ---
@@ -427,6 +428,7 @@ public class MainActivity extends Activity {
     private static class MediaStatusInfo {
         int mediaSessionId = 0;
         double currentTime = 0.0;
+        double duration = 0.0;
         double playbackRate = 1.0;
         String playerState = "";
     }
@@ -446,6 +448,19 @@ public class MainActivity extends Activity {
                     info.currentTime = item.optDouble("currentTime", 0.0);
                     info.playbackRate = item.optDouble("playbackRate", 1.0);
                     info.playerState = item.optString("playerState", "");
+                    JSONObject media = item.optJSONObject("media");
+                    if (media != null && media.has("duration")) {
+                        info.duration = media.optDouble("duration", 0.0);
+                    }
+                    if (info.duration <= 0) {
+                        JSONArray items = item.optJSONArray("items");
+                        if (items != null && items.length() > 0) {
+                            JSONObject m0 = items.getJSONObject(0).optJSONObject("media");
+                            if (m0 != null && m0.has("duration")) {
+                                info.duration = m0.optDouble("duration", 0.0);
+                            }
+                        }
+                    }
                     return info;
                 }
             }
@@ -519,14 +534,18 @@ public class MainActivity extends Activity {
                 else if ("speed".equals(action) || "rate".equals(action)) {
                     Map<String, String> p = new HashMap<>();
                     p.put("req0_playbackRate", value);
+                    p.put("req0_rate", value);
                     sendLoungeCommand("setPlaybackRate", p);
+                    notifyUser("⚡ Playback Speed: " + value + "x on TV");
                 } else if ("seek".equals(action) || "seek_relative".equals(action)) {
                     int sec = 0;
                     if ("seek_relative".equals(action) || (value != null && (value.startsWith("+") || value.startsWith("-")))) {
                         double delta = Double.parseDouble(value);
                         sec = (int) Math.max(0.0, liveTvCurrentTime + delta);
+                        notifyUser((delta < 0 ? "⏪ Rewound " + (int)Math.abs(delta) : "⏩ Forward " + (int)delta) + "s on TV");
                     } else {
                         try { sec = (int) Double.parseDouble(value); } catch (Exception ignored) {}
+                        notifyUser("⏩ Seeked to " + sec + "s on TV");
                     }
                     liveTvCurrentTime = sec;
                     Map<String, String> p = new HashMap<>();
@@ -580,11 +599,9 @@ public class MainActivity extends Activity {
 
             int respCode = conn.getResponseCode();
             if (respCode == 200) return true;
-            if (respCode == 400 || respCode == 404) {
-                lastLoungeToken = null;
-                lastSid = null;
-                lastGsessionId = null;
-            }
+            lastLoungeToken = null;
+            lastSid = null;
+            lastGsessionId = null;
         } catch (Exception ignored) {}
         return false;
     }
@@ -1056,6 +1073,18 @@ public class MainActivity extends Activity {
                                     if (st != null && st.mediaSessionId > 0) {
                                         activeMediaSessionId = st.mediaSessionId;
                                         liveTvCurrentTime = st.currentTime;
+                                        if (st.duration > 0) liveTvDuration = st.duration;
+                                        final double cTime = st.currentTime;
+                                        final double dTime = st.duration > 0 ? st.duration : liveTvDuration;
+                                        final String pState = st.playerState;
+                                        mainHandler.post(new Runnable() {
+                                            @Override
+                                            public void run() {
+                                                if (webView != null) {
+                                                    webView.evaluateJavascript("if (window.syncNativePlaybackState) window.syncNativePlaybackState(" + cTime + ", " + dTime + ", '" + pState + "');", null);
+                                                }
+                                            }
+                                        });
                                     }
                                     if (text.contains("\"PING\"")) {
                                         synchronized (MainActivity.this) {
@@ -1417,7 +1446,21 @@ public class MainActivity extends Activity {
 
     private static String escapeJson(String s) {
         if (s == null) return "";
-        return s.replace("\\", "\\\\").replace("\"", "\\\"").replace("\n", "\\n").replace("\r", "\\r");
+        StringBuilder sb = new StringBuilder();
+        for (int i = 0; i < s.length(); i++) {
+            char c = s.charAt(i);
+            if (c == '\\') sb.append("\\\\");
+            else if (c == '"') sb.append("\\"");
+            else if (c == '\n') sb.append("\\n");
+            else if (c == '\r') sb.append("\\r");
+            else if (c == '\t') sb.append("\\t");
+            else if (c < 32 || c > 126) {
+                sb.append(String.format("\\u%04x", (int) c));
+            } else {
+                sb.append(c);
+            }
+        }
+        return sb.toString();
     }
 
     @Override

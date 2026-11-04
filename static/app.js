@@ -1,3 +1,31 @@
+
+// Global synchronization bridge from native Android host to Cast Deck
+window.syncNativePlaybackState = function(currentTime, duration, playerState) {
+  if (typeof currentTime === "number" && !isNaN(currentTime)) {
+    activeDeckCurrentTime = currentTime;
+    if (duration && typeof duration === "number" && duration > 0) {
+      activeDeckDuration = duration;
+      state.duration = duration;
+      const timeTot = document.getElementById("deck-time-total");
+      if (timeTot) timeTot.textContent = formatDeckTime(duration);
+    }
+    const timeCur = document.getElementById("deck-time-current");
+    if (timeCur) timeCur.textContent = formatDeckTime(currentTime);
+
+    const scrubber = document.getElementById("deck-scrubber");
+    if (scrubber && activeDeckDuration > 0 && !isScrubbing) {
+      scrubber.value = Math.min(100, Math.max(0, (currentTime / activeDeckDuration) * 100));
+    }
+    if (playerState === "PLAYING") {
+      state.playbackState = "PLAYING";
+      updatePlayPauseButton(true);
+    } else if (playerState === "PAUSED") {
+      state.playbackState = "PAUSED";
+      updatePlayPauseButton(false);
+    }
+  }
+};
+
 // TV Hub Dynamic Backend & Permanent GitHub Pages Resolution
 let HUB_BASE = localStorage.getItem("tvhub_backend_url") || "";
 let _activeHubType = "cloud"; // "local_wifi", "pc_tunnel", "cloud"
@@ -1555,6 +1583,10 @@ async function executeUniversalCast(url, title = "") {
     if (useProxy && !targetCastUrl.includes("/proxy?url=") && !targetCastUrl.includes("googlevideo.com") && (detectUrlType(url) === "movie" || resolvedInfo?.source_type === "movie_platform")) {
       targetCastUrl = `https://tvhub.92.5.71.162.sslip.io/proxy?url=${encodeURIComponent(targetCastUrl)}`;
     }
+    if (detectUrlType(url) === "movie" || resolvedInfo?.source_type === "movie_platform") {
+      ytId = "";
+    }
+    state.currentStreamUrl = targetCastUrl;
     window.TVHubAndroid.castToTv(target.ip, target.dev_type, targetCastUrl, playTitle, mimeType, ytId);
     state.currentTitle = playTitle;
     state.playbackState = "PLAYING";
@@ -3576,24 +3608,40 @@ function initActiveCastDeck() {
       const displayInfo = formatQualityDisplay(q);
       const qLabel = displayInfo.label.split(" ")[0];
 
-      // YouTube and Live IPTV streams are already adaptively served in optimal 1080p/4K on TV.
-      // Re-casting raw sub-stream URLs breaks active playback and detaches the decoder surface.
-      if (state.playbackType === "youtube" || (window.TVHubAndroid && typeof window.TVHubAndroid.isNativeApp === "function" && window.TVHubAndroid.isNativeApp()) || state.currentTvId !== "web_receiver") {
-        showToast(`📺 Video Quality: ${qLabel} (Optimal HD on TV)`);
+      if (state.playbackType === "youtube") {
+        showToast(`📺 YouTube Quality: ${qLabel} (Auto-optimized in 1080p/4K on TV)`);
         return;
       }
 
-      const targetUrl = activeDeckQualityUrls[q] ||
+      const target = resolveSelectedTarget(state.currentTvId);
+      let targetUrl = activeDeckQualityUrls[q] ||
                         activeDeckQualityUrls[displayInfo.tier] ||
                         activeDeckQualityUrls[displayInfo.value] ||
                         activeDeckQualityUrls["Auto"] || null;
-      if (!targetUrl) {
-        showToast(`📺 Stream is already at optimal HD quality`);
-        return;
+
+      if (!targetUrl && state.currentStreamUrl) {
+        let baseStream = state.currentStreamUrl;
+        if (baseStream.includes("/proxy?url=")) {
+          baseStream = baseStream.replace(/[?&]q=[^&]+/, "");
+          targetUrl = baseStream + (baseStream.includes("?") ? "&" : "?") + `q=${q}`;
+        }
       }
 
-      showToast(`Switching Quality to ${qLabel}...`);
-      sendPlaybackAction("quality", q, { url: targetUrl });
+      if (targetUrl) {
+        showToast(`Switching Quality to ${qLabel}...`);
+        if (window.TVHubAndroid && typeof window.TVHubAndroid.castToTv === "function" && window.TVHubAndroid.isNativeApp()) {
+          window.TVHubAndroid.castToTv(target.ip, target.dev_type, targetUrl, state.currentTitle, "application/x-mpegurl", "");
+          setTimeout(() => {
+            if (activeDeckCurrentTime > 0) {
+              window.TVHubAndroid.controlPlayback("seek", activeDeckCurrentTime.toString());
+            }
+          }, 1200);
+        } else {
+          sendPlaybackAction("quality", q, { url: targetUrl });
+        }
+      } else {
+        showToast(`📺 Stream running at ${qLabel} (Optimal HD on TV)`);
+      }
     };
   }
 
