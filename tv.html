@@ -580,10 +580,10 @@
 
         // Ensure failover URL routes through stream proxy if it is a raw remote URL
         if (nextUrl.startsWith("http://") || nextUrl.startsWith("https://")) {
-          if (!nextUrl.includes("/api/stream/proxy")) {
-            const hubBase = getHubBase();
+          if (!nextUrl.includes("/proxy") && !nextUrl.includes("/api/stream/proxy")) {
+            const hubBase = getHubBase() || cloudHost;
             const encoded = encodeURIComponent(nextUrl);
-            nextUrl = `${hubBase}/api/stream/proxy?url=${encoded}&sid=s_fo_${Date.now()}`;
+            nextUrl = `${hubBase}/proxy?url=${encoded}&sid=s_fo_${Date.now()}`;
           }
         }
 
@@ -643,7 +643,11 @@
             sUrl = sUrl.replace(/http:\/\/10\.0\.0\.84:8002/g, cloudHost).replace(/http:\/\/127\.0\.0\.1:8002/g, cloudHost);
           }
           if (sUrl && window.location.protocol === "https:" && sUrl.startsWith("http://")) {
-            sUrl = sUrl.replace(/^http:\/\//, "https://");
+            if (!sUrl.includes("/proxy") && !sUrl.includes("/api/stream/proxy")) {
+              sUrl = `${hubBase}/proxy?url=${encodeURIComponent(sUrl)}&sid=s_rec_${Date.now()}`;
+            } else {
+              sUrl = sUrl.replace(/^http:\/\//, "https://");
+            }
           }
           return { url: sUrl, type: (typeof s === "object" && s.type) ? s.type : "hls" };
         });
@@ -692,7 +696,17 @@
         hls.loadSource(url);
         hls.attachMedia(video);
 
+        let manifestParsed = false;
+        const manifestTimeout = setTimeout(() => {
+          if (session !== playSessionId || manifestParsed) return;
+          console.warn(`HLS manifest parse watchdog timed out (session ${session}) for ${url}`);
+          failoverToNextSource(session, "Manifest timeout");
+        }, 6500);
+
         hls.on(Hls.Events.MANIFEST_PARSED, (event, data) => {
+          if (session !== playSessionId) return;
+          manifestParsed = true;
+          clearTimeout(manifestTimeout);
           if (session !== playSessionId) return;
           showOSD(title, "Playing Live Stream", logoUrl, currentSourceIndex, currentSources.length);
 

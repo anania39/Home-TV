@@ -42,6 +42,17 @@ function makePlayableUrl(rawUrl) {
   return rawUrl;
 }
 
+function makeCastPlayableUrl(rawUrl) {
+  if (!rawUrl) return "";
+  const cloudHost = CLOUD_FALLBACK_URL;
+  const base = getHubBase() || cloudHost;
+  if (rawUrl.includes("/proxy?url=") || rawUrl.includes("/api/stream/proxy?url=")) {
+    if (rawUrl.startsWith("/")) return `${base}${rawUrl}`;
+    return rawUrl.replace(/^http:\/\//, "https://");
+  }
+  return `${base}/proxy?url=${encodeURIComponent(rawUrl)}&sid=s_cast_${Date.now()}`;
+}
+
 function isDirectMediaUrl(u) {
   if (!u) return false;
   const clean = u.split("?")[0].toLowerCase();
@@ -1047,10 +1058,12 @@ async function castChannel(channel) {
   const rawStreamUrl = (channel.sources && channel.sources[0]?.url) || channel.url;
   const streamUrl = makePlayableUrl(rawStreamUrl);
 
+  const castUrl = makeCastPlayableUrl(rawStreamUrl);
+
   // Path 1: Direct in-browser Google Cast is active -> Cast straight from Phone to TV over Wi-Fi
   if (isWebCastActive()) {
     showToast(`Casting ${channel.name} to TV via Direct Cast...`);
-    castViaWebCast(streamUrl, channel.name, channel.logo || "");
+    castViaWebCast(castUrl, channel.name, channel.logo || "");
     return;
   }
 
@@ -1103,11 +1116,14 @@ async function castChannel(channel) {
   }
 
   // Path 4: Laptop is offline / Cloud mode -> Phone casts DIRECTLY to TV over Wi-Fi!
+  if (isIosAirPlaySupported() && triggerAirPlay(castUrl)) {
+    return;
+  }
   // Synchronously invoked right in the click handler so Chrome allows the Cast picker!
   if (typeof cast !== "undefined" && cast.framework) {
     showToast(`Select your TV to play ${channel.name}...`);
     requestWebCastSession({
-      url: streamUrl,
+      url: castUrl,
       title: channel.name,
       poster: channel.logo || "",
       isChannel: true,
@@ -1446,11 +1462,17 @@ async function executeUniversalCast(url, title = "") {
     if (data.status === "fallback" || data.use_web_cast) {
       clearTimeout(stepTimer);
       hideCastProgress();
-      showToast("Connecting directly to TV via Web Cast...");
       if (isWebCastActive()) {
+        showToast("Casting directly to TV via Web Cast...");
         castViaWebCast(url, title || "Video Stream");
       } else {
-        requestWebCastSession();
+        requestWebCastSession({
+          url: makeCastPlayableUrl(url),
+          title: title || "Video Stream",
+          poster: "",
+          isChannel: false
+        });
+        showToast("Select your TV from the Cast prompt or open /tv in TV browser");
       }
       return;
     }
@@ -3693,7 +3715,7 @@ function castViaWebCast(url, title = "Video Stream", poster = "") {
   try {
     const session = cast.framework.CastContext.getInstance().getCurrentSession();
     if (!session) return false;
-    const playUrl = makePlayableUrl(url);
+    const playUrl = makeCastPlayableUrl(url);
     const isM3u8 = playUrl.includes(".m3u8");
     const mimeType = isM3u8 ? "application/x-mpegurl" : "video/mp4";
     const mediaInfo = new chrome.cast.media.MediaInfo(playUrl, mimeType);
@@ -3745,6 +3767,11 @@ function openInAppPlayer(channel) {
 
   if (title) title.textContent = channel.name || channel.title || "Live Stream";
   modal.style.display = "flex";
+  const btnAirPlay = document.getElementById("btn-inapp-airplay");
+  if (btnAirPlay) {
+    btnAirPlay.style.display = isIosAirPlaySupported() ? "inline-flex" : "none";
+    btnAirPlay.onclick = () => triggerAirPlay(streamUrl);
+  }
 
   if (inAppHls) {
     try { inAppHls.destroy(); } catch (e) {}
@@ -3788,4 +3815,80 @@ function closeInAppPlayer() {
     inAppHls = null;
   }
   if (modal) modal.style.display = "none";
+}
+
+
+// --- Progressive Web App (PWA) & Service Worker Registration ---
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    const swPath = window.location.pathname.includes('/Home-TV/') ? './sw.js' : '/sw.js';
+    navigator.serviceWorker.register(swPath).then((reg) => {
+      console.log('TV Hub Service Worker registered, scope:', reg.scope);
+    }).catch((err) => {
+      console.debug('Service Worker register notice:', err);
+    });
+  });
+}
+
+let deferredPwaPrompt = null;
+window.addEventListener('beforeinstallprompt', (e) => {
+  e.preventDefault();
+  deferredPwaPrompt = e;
+  const btnInstall = document.getElementById('btn-pwa-install');
+  if (btnInstall) {
+    btnInstall.style.display = 'inline-flex';
+    btnInstall.onclick = async () => {
+      btnInstall.style.display = 'none';
+      if (deferredPwaPrompt) {
+        deferredPwaPrompt.prompt();
+        const { outcome } = await deferredPwaPrompt.userChoice;
+        console.log('PWA install prompt outcome:', outcome);
+        deferredPwaPrompt = null;
+      }
+    };
+  }
+});
+
+window.addEventListener('appinstalled', () => {
+  console.log('TV Hub installed to home screen as standalone app!');
+  const btnInstall = document.getElementById('btn-pwa-install');
+  if (btnInstall) btnInstall.style.display = 'none';
+  showToast('🎉 TV Hub installed on your device!');
+});
+
+// --- Native iOS AirPlay 2 Support ---
+let airPlayAvailable = false;
+
+function isIosAirPlaySupported() {
+  const v = document.getElementById("airplay-cast-video") || document.getElementById("inapp-video");
+  return !!(v && window.WebKitPlaybackTargetAvailabilityEvent);
+}
+
+function initAirPlay() {
+  const v = document.getElementById("airplay-cast-video") || document.getElementById("inapp-video");
+  if (!v || !window.WebKitPlaybackTargetAvailabilityEvent) return;
+
+  v.addEventListener('webkitplaybacktargetavailabilitychanged', (event) => {
+    airPlayAvailable = (event.availability === "available");
+    const inAppBtn = document.getElementById("btn-inapp-airplay");
+    if (inAppBtn) inAppBtn.style.display = airPlayAvailable ? "inline-flex" : "none";
+  });
+}
+
+function triggerAirPlay(streamUrl) {
+  const v = document.getElementById("airplay-cast-video") || document.getElementById("inapp-video");
+  if (v && v.webkitShowPlaybackTargetPicker) {
+    if (streamUrl) {
+      v.src = streamUrl;
+      v.play().catch(() => {});
+    }
+    try {
+      v.webkitShowPlaybackTargetPicker();
+      showToast("Select your Smart TV in the AirPlay menu...");
+      return true;
+    } catch (e) {
+      console.warn("AirPlay picker exception:", e);
+    }
+  }
+  return false;
 }

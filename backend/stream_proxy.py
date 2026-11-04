@@ -47,7 +47,7 @@ import gzip
 import re
 import uuid
 import httpx
-from urllib.parse import urljoin, quote, urlsplit, urlparse
+from urllib.parse import urljoin, quote, urlsplit, urlparse, unquote, parse_qs
 from starlette.responses import StreamingResponse, Response
 from fastapi import Request
 import logging
@@ -475,6 +475,18 @@ _client_manifest_poll: Dict[str, float] = {}
 # ---------------------------------------------------------------------------
 
 async def proxy_stream(url: str, request: Request, server_host: str):
+    # Unwrap accidentally nested proxy URLs to protect relative segment resolution
+    while "/proxy?url=" in url or "/api/stream/proxy?url=" in url:
+        try:
+            parsed = urlparse(url)
+            params = parse_qs(parsed.query)
+            if "url" in params and params["url"]:
+                url = unquote(params["url"][0])
+            else:
+                break
+        except Exception:
+            break
+
     """
     Enterprise-grade stream proxy:
     - Bypasses CORS and SSL certificate errors

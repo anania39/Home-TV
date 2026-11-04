@@ -687,7 +687,16 @@ async def cast_media(req: CastRequest, request: Request, client_ip: str = Depend
     device_id = req.device_id or device_manager.selected_device_id
     if should_forward_to_home_hub(device_id):
         logger.info(f"Relaying cast request for {device_id} to Home PC Hub...")
-        return await forward_to_home_hub("/api/cast", method="POST", json_data=req.dict(), timeout=35.0)
+        forward_res = await forward_to_home_hub("/api/cast", method="POST", json_data=req.dict(), timeout=35.0)
+        if forward_res.get("status") == "ok":
+            return forward_res
+        # If home hub is offline but a TV Web Receiver is active on cloud, cast straight to it!
+        if len(ws_manager.receivers) > 0:
+            logger.info("Home hub is offline, routing cast directly to active TV Web Receiver...")
+            device_id = "web_receiver"
+            req.device_id = "web_receiver"
+        else:
+            return forward_res
     if device_id:
         device_manager.select_device(device_id)
     raw_stream_url = req.url.strip()
@@ -1521,7 +1530,15 @@ async def cast_channel(
     if should_forward_to_home_hub(target_dev):
         logger.info(f"Relaying IPTV cast for channel {channel_id} on {target_dev} to Home PC Hub...")
         p = {"device_id": target_dev} if target_dev else None
-        return await forward_to_home_hub(f"/api/iptv/cast/{channel_id}", method="POST", params=p, timeout=25.0)
+        forward_res = await forward_to_home_hub(f"/api/iptv/cast/{channel_id}", method="POST", params=p, timeout=25.0)
+        if forward_res.get("status") == "ok":
+            return forward_res
+        if len(ws_manager.receivers) > 0:
+            logger.info("Home hub is offline, routing IPTV cast directly to active TV Web Receiver...")
+            target_dev = "web_receiver"
+            device_id = "web_receiver"
+        else:
+            return forward_res
     channel = iptv_manager.get_channel_by_id(channel_id)
     if not channel:
         raise HTTPException(status_code=404, detail="Channel not found")

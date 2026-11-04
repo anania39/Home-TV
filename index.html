@@ -42,6 +42,7 @@
         </div>
         <div class="header-actions" style="display: flex; gap: 8px; align-items: center;">
           <google-cast-launcher class="cast-launcher-native" style="width: 32px; height: 32px; display: inline-flex; align-items: center; justify-content: center; --connected-color: var(--accent-cyan); --disconnected-color: var(--text-muted); cursor: pointer;" title="Direct Cast from Phone to TV over Wi-Fi"></google-cast-launcher>
+          <button id="btn-pwa-install" class="btn-icon" style="display: none; color: #10b981; border: 1px solid rgba(16, 185, 129, 0.4); font-size: 11px; padding: 0 8px; width: auto; font-weight: 600;" title="Install TV Hub App">📲 Install App</button>
           <button id="btn-web-cast" class="btn-icon" title="Cast directly from Phone to TV on this Wi-Fi">
             <svg viewBox="0 0 24 24"><path d="M2 16.1A5 5 0 0 1 5.9 20M2 12.05A9 9 0 0 1 9.95 20M2 8V6a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2h-6M2 20h.01"/></svg>
           </button>
@@ -57,6 +58,7 @@
         </div>
       </div>
 
+      <video id="airplay-cast-video" x-webkit-airplay="allow" airplay="allow" playsinline style="display:none;"></video>
       <!-- Real Hardware TV Status Banner -->
       <div class="tv-status-banner active" id="tv-status-banner">
         <div class="status-indicator">
@@ -1040,10 +1042,10 @@
         <h3 id="inapp-player-title" style="margin: 0; font-size: 15px; display: flex; align-items: center; gap: 8px;">
           <span style="color: var(--accent-cyan);">📺</span> <span id="inapp-channel-name">Channel Player</span>
         </h3>
-        <button id="btn-close-inapp-player" class="btn-icon">✕</button>
+        <div style="display: flex; gap: 6px; align-items: center;"><button id="btn-inapp-airplay" class="btn-icon" style="display: none; color: var(--accent-cyan); font-size: 11px; padding: 0 8px; width: auto;" title="AirPlay to Smart TV">📺 AirPlay</button><button id="btn-close-inapp-player" class="btn-icon">✕</button></div>
       </div>
       <div class="video-container" style="position: relative; width: 100%; background: #000; border-radius: 12px; overflow: hidden; margin: 12px 0;">
-        <video id="inapp-video" playsinline controls style="width: 100%; max-height: 280px; display: block;"></video>
+        <video id="inapp-video" x-webkit-airplay="allow" airplay="allow" playsinline controls style="width: 100%; max-height: 280px; display: block;"></video>
       </div>
       <div style="display: flex; gap: 8px; justify-content: space-between; align-items: center;">
         <span id="inapp-stream-status" style="font-size: 12px; color: var(--accent-cyan);">● Direct Stream (Ad-Free)</span>
@@ -1075,6 +1077,14 @@
         <button type="button" id="btn-use-sameorigin" class="btn-secondary" style="font-size: 12px; padding: 6px 12px; width: auto;">⚡ Same-Origin (Direct)</button>
       </div>
       <div id="hub-connection-feedback" style="font-size: 12px; margin-bottom: 12px; min-height: 20px;"></div>
+      <div style="background: rgba(15, 23, 42, 0.6); border: 1px solid rgba(255,255,255,0.08); border-radius: 8px; padding: 10px; margin-bottom: 12px; font-size: 11px; line-height: 1.5;">
+        <div style="font-weight: 600; color: var(--accent-cyan); margin-bottom: 4px;">🚀 24/7 Always-On (Laptop Off Options)</div>
+        <div style="color: var(--text-muted);">
+          <b>📱 Android (Termux):</b> <code>curl -sL https://anania39.github.io/Home-TV/scripts/install_android.sh | bash</code><br>
+          <b>📡 ASUS Router:</b> <code>curl -sL https://anania39.github.io/Home-TV/scripts/install_asus_router.sh | sh</code><br>
+          <b>📺 Any TV Browser:</b> Open <code>https://tvhub.92.5.71.162.sslip.io/tv</code>
+        </div>
+      </div>
       <div style="display: flex; gap: 10px;">
         <button type="button" id="btn-test-hub-url" class="btn-secondary" style="flex: 1;">Test Connection</button>
         <button type="button" id="btn-save-hub-url" class="btn-primary" style="flex: 1;">Save &amp; Connect</button>
@@ -1082,6 +1092,6 @@
     </div>
   </div>
 
-  <script src="static/app.js?v=5.9"></script>
+  <script src="static/app.js?v=6.0"></script>
 </body>
 </html>
