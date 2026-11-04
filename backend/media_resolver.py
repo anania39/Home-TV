@@ -619,21 +619,46 @@ class MediaResolver:
             yt_dur = 0
             yt_title = preferred_title or "YouTube Video"
             try:
-                async with httpx.AsyncClient(
-                    headers={"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36"},
-                    timeout=3.0,
-                    follow_redirects=True
-                ) as hc:
-                    hr = await hc.get(f"https://www.youtube.com/watch?v={vid_id}")
+                innertube_url = "https://www.youtube.com/youtubei/v1/player?prettyPrint=false"
+                body = {
+                    "videoId": vid_id,
+                    "context": {
+                        "client": {
+                            "clientName": "WEB",
+                            "clientVersion": "2.20240401.01.00",
+                            "hl": "en",
+                            "gl": "US"
+                        }
+                    }
+                }
+                async with httpx.AsyncClient(timeout=4.0) as hc:
+                    hr = await hc.post(innertube_url, json=body, headers={"User-Agent": "Mozilla/5.0", "Content-Type": "application/json"})
                     if hr.status_code == 200:
-                        dm = re.search(r'"lengthSeconds":"(\d+)"', hr.text)
-                        if dm:
-                            yt_dur = int(dm.group(1))
-                        tm = re.search(r'<title>(.*?)(?: - YouTube)?</title>', hr.text)
-                        if tm and not preferred_title:
-                            yt_title = html.unescape(tm.group(1)).replace(" - YouTube", "").strip()
+                        det = hr.json().get("videoDetails", {})
+                        if det.get("title") and not preferred_title:
+                            yt_title = det["title"]
+                        if det.get("lengthSeconds"):
+                            yt_dur = int(det["lengthSeconds"])
             except Exception as e:
-                logger.debug(f"Fast YouTube duration extraction notice: {e}")
+                logger.debug(f"Innertube fast extraction notice: {e}")
+
+            if yt_dur == 0 or not yt_title or yt_title == "YouTube Video":
+                try:
+                    async with httpx.AsyncClient(
+                        headers={"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36"},
+                        timeout=3.0,
+                        follow_redirects=True
+                    ) as hc:
+                        hr = await hc.get(f"https://www.youtube.com/watch?v={vid_id}")
+                        if hr.status_code == 200:
+                            dm = re.search(r'"lengthSeconds":"(\d+)"', hr.text)
+                            if dm:
+                                yt_dur = int(dm.group(1))
+                            tm = re.search(r'<title>(.*?)(?: - YouTube)?</title>', hr.text)
+                            if tm and not preferred_title:
+                                yt_title = html.unescape(tm.group(1)).replace(" - YouTube", "").strip()
+                except Exception as e:
+                    logger.debug(f"Fast YouTube duration extraction notice: {e}")
             return {
                 "resolved": True,
                 "stream_url": f"https://www.youtube.com/watch?v={vid_id}",

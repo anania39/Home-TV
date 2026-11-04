@@ -298,7 +298,7 @@ public class MainActivity extends Activity {
                 view.postDelayed(new Runnable() {
                     @Override
                     public void run() {
-                        view.loadUrl("https://tvhub.92.5.71.162.sslip.io?v=7.8.8");
+                        view.loadUrl("https://tvhub.92.5.71.162.sslip.io?v=7.8.9");
                     }
                 }, 2000);
             }
@@ -338,7 +338,7 @@ public class MainActivity extends Activity {
             }
         });
 
-        webView.loadUrl("https://tvhub.92.5.71.162.sslip.io?v=7.8.8");
+        webView.loadUrl("https://tvhub.92.5.71.162.sslip.io?v=7.8.9");
     }
 
     // --- Native Android Host Bridge Exposed to JavaScript ---
@@ -486,18 +486,19 @@ public class MainActivity extends Activity {
             try {
                 int reqId = ++castRequestId;
                 String msgJson = null;
+                int sessId = activeMediaSessionId > 0 ? activeMediaSessionId : 1;
                 if ("speed".equals(action) || "rate".equals(action)) {
                     double r = Double.parseDouble(value);
-                    msgJson = "{\"type\":\"SET_PLAYBACK_RATE\",\"playbackRate\":" + r + ",\"mediaSessionId\":" + activeMediaSessionId + ",\"requestId\":" + reqId + "}";
+                    msgJson = "{\"type\":\"SET_PLAYBACK_RATE\",\"playbackRate\":" + r + ",\"mediaSessionId\":" + sessId + ",\"requestId\":" + reqId + "}";
                     notifyUser("⚡ Playback Speed: " + value + "x on TV");
                 } else if ("play".equals(action)) {
-                    msgJson = "{\"type\":\"PLAY\",\"mediaSessionId\":" + activeMediaSessionId + ",\"requestId\":" + reqId + "}";
+                    msgJson = "{\"type\":\"PLAY\",\"mediaSessionId\":" + sessId + ",\"requestId\":" + reqId + "}";
                     notifyUser("▶️ Playing on TV");
                 } else if ("pause".equals(action)) {
-                    msgJson = "{\"type\":\"PAUSE\",\"mediaSessionId\":" + activeMediaSessionId + ",\"requestId\":" + reqId + "}";
+                    msgJson = "{\"type\":\"PAUSE\",\"mediaSessionId\":" + sessId + ",\"requestId\":" + reqId + "}";
                     notifyUser("⏸️ Paused on TV");
                 } else if ("stop".equals(action)) {
-                    msgJson = "{\"type\":\"STOP\",\"mediaSessionId\":" + activeMediaSessionId + ",\"requestId\":" + reqId + "}";
+                    msgJson = "{\"type\":\"STOP\",\"mediaSessionId\":" + sessId + ",\"requestId\":" + reqId + "}";
                     notifyUser("⏹️ Stopped TV Cast");
                 } else if ("seek".equals(action) || "seek_relative".equals(action)) {
                     double targetSec = 0.0;
@@ -510,7 +511,7 @@ public class MainActivity extends Activity {
                         notifyUser("⏩ Seeked to " + (int) targetSec + "s on TV");
                     }
                     liveTvCurrentTime = targetSec;
-                    msgJson = "{\"type\":\"SEEK\",\"currentTime\":" + targetSec + ",\"mediaSessionId\":" + activeMediaSessionId + ",\"requestId\":" + reqId + "}";
+                    msgJson = "{\"type\":\"SEEK\",\"currentTime\":" + targetSec + ",\"resumeState\":\"PLAYBACK_START\",\"mediaSessionId\":" + sessId + ",\"requestId\":" + reqId + "}";
                 }
                 if (msgJson != null) {
                     synchronized (MainActivity.this) {
@@ -536,7 +537,7 @@ public class MainActivity extends Activity {
                     p.put("req0_playbackRate", value);
                     p.put("req0_rate", value);
                     sendLoungeCommand("setPlaybackRate", p);
-                    notifyUser("⚡ Playback Speed: " + value + "x on TV");
+                    notifyUser("📺 YouTube Speed: Press ⚙️ on TV Remote to change speed");
                 } else if ("seek".equals(action) || "seek_relative".equals(action)) {
                     int sec = 0;
                     if ("seek_relative".equals(action) || (value != null && (value.startsWith("+") || value.startsWith("-")))) {
@@ -807,18 +808,19 @@ public class MainActivity extends Activity {
                 }
                 String payload = null;
                 int reqId = ++castRequestId;
+                int sessId = activeMediaSessionId > 0 ? activeMediaSessionId : 1;
                 if ("speed".equals(action) || "rate".equals(action)) {
                     double r = Double.parseDouble(value);
-                    payload = "{\"type\":\"SET_PLAYBACK_RATE\",\"playbackRate\":" + r + ",\"mediaSessionId\":" + activeMediaSessionId + ",\"requestId\":" + reqId + "}";
+                    payload = "{\"type\":\"SET_PLAYBACK_RATE\",\"playbackRate\":" + r + ",\"mediaSessionId\":" + sessId + ",\"requestId\":" + reqId + "}";
                     notifyUser("⚡ Playback Speed: " + value + "x on TV");
                 } else if ("play".equals(action)) {
-                    payload = "{\"type\":\"PLAY\",\"mediaSessionId\":" + activeMediaSessionId + ",\"requestId\":" + reqId + "}";
+                    payload = "{\"type\":\"PLAY\",\"mediaSessionId\":" + sessId + ",\"requestId\":" + reqId + "}";
                     notifyUser("▶️ Playing on TV");
                 } else if ("pause".equals(action)) {
-                    payload = "{\"type\":\"PAUSE\",\"mediaSessionId\":" + activeMediaSessionId + ",\"requestId\":" + reqId + "}";
+                    payload = "{\"type\":\"PAUSE\",\"mediaSessionId\":" + sessId + ",\"requestId\":" + reqId + "}";
                     notifyUser("⏸️ Paused on TV");
                 } else if ("stop".equals(action)) {
-                    payload = "{\"type\":\"STOP\",\"mediaSessionId\":" + activeMediaSessionId + ",\"requestId\":" + reqId + "}";
+                    payload = "{\"type\":\"STOP\",\"mediaSessionId\":" + sessId + ",\"requestId\":" + reqId + "}";
                     notifyUser("⏹️ Stopped TV Cast");
                 } else if ("seek".equals(action) || "seek_relative".equals(action)) {
                     double targetSec = 0.0;
@@ -831,7 +833,7 @@ public class MainActivity extends Activity {
                         notifyUser("⏩ Seeked to " + (int) targetSec + "s on TV");
                     }
                     liveTvCurrentTime = targetSec;
-                    payload = "{\"type\":\"SEEK\",\"currentTime\":" + targetSec + ",\"mediaSessionId\":" + activeMediaSessionId + ",\"requestId\":" + reqId + "}";
+                    payload = "{\"type\":\"SEEK\",\"currentTime\":" + targetSec + ",\"resumeState\":\"PLAYBACK_START\",\"mediaSessionId\":" + sessId + ",\"requestId\":" + reqId + "}";
                 }
                 if (payload != null) {
                     sendCastMsg(o, "sender-0", tid, "urn:x-cast:com.google.cast.media", payload);
@@ -1036,6 +1038,7 @@ public class MainActivity extends Activity {
             String streamType = isVod ? "BUFFERED" : "LIVE";
             String loadJson = "{\"type\":\"LOAD\",\"requestId\":3,\"autoplay\":true,\"media\":{\"contentId\":\"" + escapeJson(streamUrl) + "\",\"streamType\":\"" + streamType + "\",\"contentType\":\"" + mime + "\",\"metadata\":{\"metadataType\":0,\"title\":\"" + escapeJson(title) + "\"} } }";
             sendCastMsg(out, "sender-0", transportId, "urn:x-cast:com.google.cast.media", loadJson);
+            activeMediaSessionId = 1;
 
             // 5. Keep connection alive with FULL BI-DIRECTIONAL PING/PONG READER THREAD
             activeCastSocket = socket;

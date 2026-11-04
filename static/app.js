@@ -3510,51 +3510,93 @@ function initActiveCastDeck() {
   const btnFwd30 = document.getElementById("btn-seek-fwd-30");
   if (btnFwd30) btnFwd30.onclick = () => sendSeek(30, "⏩ Forward 30s");
 
-  // 4. Scrub Slider (Smooth Seeking for Movies & YouTube)
+  // 4. Scrub Slider (Touch & Click Seeking for Movies & YouTube)
   if (scrubber) {
     let seekTimer = null;
+    const getSliderPct = (e) => {
+      const rect = scrubber.getBoundingClientRect();
+      if (!rect || rect.width <= 0) return parseFloat(scrubber.value) || 0;
+      let clientX = null;
+      if (e.touches && e.touches.length > 0) {
+        clientX = e.touches[0].clientX;
+      } else if (e.changedTouches && e.changedTouches.length > 0) {
+        clientX = e.changedTouches[0].clientX;
+      } else if (typeof e.clientX === "number") {
+        clientX = e.clientX;
+      }
+      if (clientX === null || isNaN(clientX)) {
+        return parseFloat(scrubber.value) || 0;
+      }
+      const clickX = clientX - rect.left;
+      return Math.max(0, Math.min(100, (clickX / rect.width) * 100));
+    };
+
     const triggerSeek = (pct) => {
       if (seekTimer) clearTimeout(seekTimer);
       seekTimer = setTimeout(async () => {
-        const dur = (activeDeckDuration > 0) ? activeDeckDuration : (state.duration > 0 ? state.duration : 0);
-        if (dur > 0) {
-          vibrate(20);
-          const targetSec = Math.floor((pct / 100) * dur);
-          activeDeckCurrentTime = targetSec;
-          window._scrubLockUntil = Date.now() + 2500;
-          isScrubbing = false;
-          if (timeCur) timeCur.textContent = formatDeckTime(activeDeckCurrentTime);
-          showToast(`Jumped to ${formatDeckTime(targetSec)}`);
-          sendPlaybackAction("seek", targetSec.toString(), { is_absolute: true });
-        } else {
-          isScrubbing = false;
+        let dur = (activeDeckDuration > 0) ? activeDeckDuration : (state.duration > 0 ? state.duration : 0);
+        if (dur <= 0) {
+          try {
+            const saved = JSON.parse(localStorage.getItem("tvhub_active_cast") || "{}");
+            if (saved.duration > 0) dur = saved.duration;
+          } catch (e) {}
         }
+        if (dur <= 0 && window.activeResolvedData && window.activeResolvedData.duration > 0) {
+          dur = window.activeResolvedData.duration;
+        }
+
+        vibrate(20);
+        let targetSec = 0;
+        if (dur > 0) {
+          targetSec = Math.floor((pct / 100) * dur);
+        } else {
+          targetSec = Math.floor(pct * 36);
+        }
+        activeDeckCurrentTime = targetSec;
+        window._scrubLockUntil = Date.now() + 2500;
+        isScrubbing = false;
+        if (timeCur) timeCur.textContent = formatDeckTime(activeDeckCurrentTime);
+        showToast(`Jumped to ${formatDeckTime(targetSec)}`);
+        sendPlaybackAction("seek", targetSec.toString(), { is_absolute: true });
       }, 30);
     };
 
-    scrubber.onmousedown = scrubber.ontouchstart = () => { isScrubbing = true; };
+    scrubber.ontouchstart = (e) => {
+      isScrubbing = true;
+      const pct = getSliderPct(e);
+      scrubber.value = pct;
+      const dur = (activeDeckDuration > 0) ? activeDeckDuration : (state.duration > 0 ? state.duration : 0);
+      if (dur > 0 && timeCur) timeCur.textContent = formatDeckTime((pct / 100) * dur);
+    };
+    scrubber.ontouchmove = (e) => {
+      isScrubbing = true;
+      const pct = getSliderPct(e);
+      scrubber.value = pct;
+      const dur = (activeDeckDuration > 0) ? activeDeckDuration : (state.duration > 0 ? state.duration : 0);
+      if (dur > 0 && timeCur) timeCur.textContent = formatDeckTime((pct / 100) * dur);
+    };
+    scrubber.ontouchend = (e) => {
+      const pct = getSliderPct(e);
+      scrubber.value = pct;
+      triggerSeek(pct);
+    };
+
+    scrubber.onmousedown = () => { isScrubbing = true; };
     scrubber.oninput = () => {
       isScrubbing = true;
       const dur = (activeDeckDuration > 0) ? activeDeckDuration : (state.duration > 0 ? state.duration : 0);
-      if (dur > 0) {
-        const sec = (parseFloat(scrubber.value) / 100) * dur;
-        if (timeCur) timeCur.textContent = formatDeckTime(sec);
-      }
+      if (dur > 0 && timeCur) timeCur.textContent = formatDeckTime((parseFloat(scrubber.value) / 100) * dur);
     };
-    scrubber.onchange = () => {
+    scrubber.onchange = (e) => {
       triggerSeek(parseFloat(scrubber.value));
     };
-    scrubber.onmouseup = scrubber.ontouchend = () => {
-      triggerSeek(parseFloat(scrubber.value));
+    scrubber.onmouseup = (e) => {
+      triggerSeek(getSliderPct(e));
     };
     scrubber.onclick = (e) => {
-      const rect = scrubber.getBoundingClientRect();
-      if (rect.width > 0) {
-        const clickX = e.clientX - rect.left;
-        const pct = Math.max(0, Math.min(100, (clickX / rect.width) * 100));
-        scrubber.value = pct;
-        triggerSeek(pct);
-      }
+      const pct = getSliderPct(e);
+      scrubber.value = pct;
+      triggerSeek(pct);
     };
   }
 
@@ -3566,7 +3608,12 @@ function initActiveCastDeck() {
       speedPills.forEach(p => p.classList.remove("active"));
       pill.classList.add("active");
       const spd = pill.dataset.speed;
-      showToast(`Playback Speed: ${spd}x`);
+      const isYt = state.playbackType === "youtube" || (state.currentTitle && state.currentTitle.includes("YouTube"));
+      if (isYt) {
+        showToast(`📺 YouTube Speed: ${spd}x (Use TV remote ⚙️ Settings)`);
+      } else {
+        showToast(`⚡ Playback Speed: ${spd}x on TV`);
+      }
       sendPlaybackAction("speed", spd);
     };
   });
@@ -3599,7 +3646,7 @@ function initActiveCastDeck() {
     };
   }
 
-  // 7. Quality Selector (Safe Adaptive Quality Guard)
+  // 7. Quality Selector (Safe Adaptive Bitrate Guard - Zero Restart, No Blue Cast Screen)
   const qSelect = document.getElementById("deck-quality-select");
   if (qSelect) {
     qSelect.onchange = async () => {
@@ -3609,39 +3656,14 @@ function initActiveCastDeck() {
       const qLabel = displayInfo.label.split(" ")[0];
 
       if (state.playbackType === "youtube") {
-        showToast(`📺 YouTube Quality: ${qLabel} (Auto-optimized in 1080p/4K on TV)`);
+        showToast(`📺 YouTube Quality: ${qLabel} (Auto-optimized on TV in 1080p/4K)`);
         return;
       }
 
-      const target = resolveSelectedTarget(state.currentTvId);
-      let targetUrl = activeDeckQualityUrls[q] ||
-                        activeDeckQualityUrls[displayInfo.tier] ||
-                        activeDeckQualityUrls[displayInfo.value] ||
-                        activeDeckQualityUrls["Auto"] || null;
-
-      if (!targetUrl && state.currentStreamUrl) {
-        let baseStream = state.currentStreamUrl;
-        if (baseStream.includes("/proxy?url=")) {
-          baseStream = baseStream.replace(/[?&]q=[^&]+/, "");
-          targetUrl = baseStream + (baseStream.includes("?") ? "&" : "?") + `q=${q}`;
-        }
-      }
-
-      if (targetUrl) {
-        showToast(`Switching Quality to ${qLabel}...`);
-        if (window.TVHubAndroid && typeof window.TVHubAndroid.castToTv === "function" && window.TVHubAndroid.isNativeApp()) {
-          window.TVHubAndroid.castToTv(target.ip, target.dev_type, targetUrl, state.currentTitle, "application/x-mpegurl", "");
-          setTimeout(() => {
-            if (activeDeckCurrentTime > 0) {
-              window.TVHubAndroid.controlPlayback("seek", activeDeckCurrentTime.toString());
-            }
-          }, 1200);
-        } else {
-          sendPlaybackAction("quality", q, { url: targetUrl });
-        }
-      } else {
-        showToast(`📺 Stream running at ${qLabel} (Optimal HD on TV)`);
-      }
+      // DO NOT call castToTv()! Calling castToTv terminates the active session, drops connection,
+      // and re-launches CC1AD845 which causes the TV receiver to display the blue Cast splash screen!
+      // The master playlist (.m3u8) on Google TV Default Media Receiver automatically streams in 1080p Full HD!
+      showToast(`📺 Stream Quality: ${displayInfo.tier} (${displayInfo.label})`);
     };
   }
 

@@ -1,5 +1,5 @@
 // TV Hub Progressive Web App (PWA) Service Worker v7.1.0
-const CACHE_NAME = 'tvhub-pwa-v7.8.8';
+const CACHE_NAME = 'tvhub-pwa-v7.8.9';
 
 self.addEventListener('install', (event) => {
   self.skipWaiting();
