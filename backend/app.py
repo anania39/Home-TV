@@ -1868,6 +1868,14 @@ async def serve_manifest():
         m_file = STATIC_DIR / "manifest.json"
     return Response(content=m_file.read_bytes(), media_type="application/manifest+json")
 
+@app.get("/TVHub.apk")
+@app.get("/app.apk")
+async def serve_apk():
+    apk_file = BASE_DIR / "TVHub.apk"
+    if not apk_file.exists():
+        apk_file = STATIC_DIR / "TVHub.apk"
+    return FileResponse(apk_file, media_type="application/vnd.android.package-archive", filename="TVHub.apk")
+
 # Mount static assets and playlists
 app.mount("/static", StaticFiles(directory=str(STATIC_DIR)), name="static")
 playlists_dir = BASE_DIR / "playlists"
