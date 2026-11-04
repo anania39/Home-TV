@@ -1098,15 +1098,19 @@ async function castChannel(channel) {
         return;
       }
       if (data && (data.status === "fallback" || data.use_web_cast)) {
+        const playUrl = data.stream_url ? makeCastPlayableUrl(data.stream_url) : castUrl;
         if (typeof cast !== "undefined" && cast.framework) {
           showToast(`Select your TV to cast ${channel.name}...`);
           requestWebCastSession({
-            url: streamUrl,
+            url: playUrl,
             title: channel.name,
             poster: channel.logo || "",
             isChannel: true,
             channel: channel
           });
+          return;
+        } else {
+          openInAppPlayer(channel);
           return;
         }
       }
@@ -1462,14 +1466,17 @@ async function executeUniversalCast(url, title = "") {
     if (data.status === "fallback" || data.use_web_cast) {
       clearTimeout(stepTimer);
       hideCastProgress();
+      const castPlayUrl = data.stream_url ? makeCastPlayableUrl(data.stream_url) : makeCastPlayableUrl(url);
+      const castTitle = data.title || title || "Video Stream";
+      const castPoster = data.thumbnail || "";
       if (isWebCastActive()) {
         showToast("Casting directly to TV via Web Cast...");
-        castViaWebCast(url, title || "Video Stream");
+        castViaWebCast(castPlayUrl, castTitle, castPoster);
       } else {
         requestWebCastSession({
-          url: makeCastPlayableUrl(url),
-          title: title || "Video Stream",
-          poster: "",
+          url: castPlayUrl,
+          title: castTitle,
+          poster: castPoster,
           isChannel: false
         });
         showToast("Select your TV from the Cast prompt or open /tv in TV browser");

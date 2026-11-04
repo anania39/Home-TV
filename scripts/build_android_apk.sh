@@ -1,6 +1,6 @@
 #!/bin/bash
 set -e
-echo '=== Building TV Hub Android APK ==='
+echo '=== Building TV Hub Android APK (v6.0.0) ==='
 
 BUILD_DIR=/home/ubuntu/tvhub_apk_build
 rm -rf $BUILD_DIR
@@ -9,9 +9,10 @@ mkdir -p $BUILD_DIR/res/values
 mkdir -p $BUILD_DIR/res/mipmap-hdpi
 mkdir -p $BUILD_DIR/res/mipmap-xhdpi
 mkdir -p $BUILD_DIR/res/mipmap-xxhdpi
+mkdir -p $BUILD_DIR/res/mipmap-xxxhdpi
 mkdir -p $BUILD_DIR/bin
 
-# 1. Generate App Icon (Cyan / Dark Blue TV Hub Launcher)
+# 1. Generate App Icons (Vibrant Cyan TV Hub Icon)
 python3 - << 'PYEOF'
 import struct, zlib
 
@@ -25,10 +26,15 @@ def make_png(w, h, r, g, b):
         for x in range(w):
             dx = min(x, w - 1 - x)
             dy = min(y, h - 1 - y)
-            if dx * dx + dy * dy < (w // 8) * (w // 8) and (x < w // 8 or x > w - w // 8) and (y < h // 8 or y > h - h // 8):
+            # Rounded corners
+            if dx * dx + dy * dy < (w // 6) * (w // 6) and (x < w // 6 or x > w - w // 6) and (y < h // 6 or y > h - h // 6):
                 raw += bytes([11, 15, 25])
-            elif x > w // 4 and x < w - w // 4 and y > h // 4 and y < h - h // 4:
+            # Center screen (dark slate)
+            elif x > w // 5 and x < w - w // 5 and y > h // 5 and y < h - h // 3:
                 raw += bytes([255, 255, 255])
+            # TV stand
+            elif x > w // 3 and x < w - w // 3 and y > h - h // 4 and y < h - h // 6:
+                raw += bytes([56, 189, 248])
             else:
                 raw += bytes([r, g, b])
     idat = zlib.compress(raw)
@@ -40,6 +46,8 @@ with open('/home/ubuntu/tvhub_apk_build/res/mipmap-xhdpi/ic_launcher.png', 'wb')
     f.write(make_png(96, 96, 14, 165, 233))
 with open('/home/ubuntu/tvhub_apk_build/res/mipmap-xxhdpi/ic_launcher.png', 'wb') as f:
     f.write(make_png(144, 144, 14, 165, 233))
+with open('/home/ubuntu/tvhub_apk_build/res/mipmap-xxxhdpi/ic_launcher.png', 'wb') as f:
+    f.write(make_png(192, 192, 14, 165, 233))
 PYEOF
 
 # 2. Strings
@@ -50,15 +58,15 @@ cat << 'STRINGS' > $BUILD_DIR/res/values/strings.xml
 </resources>
 STRINGS
 
-# 3. AndroidManifest.xml
+# 3. AndroidManifest.xml (Target SDK 34, Min SDK 26 for Android 14 compatibility)
 cat << 'MANIFEST' > $BUILD_DIR/AndroidManifest.xml
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     package="com.tvhub.app"
-    android:versionCode="6"
-    android:versionName="6.0">
+    android:versionCode="600"
+    android:versionName="6.0.0">
 
-    <uses-sdk android:minSdkVersion="21" android:targetSdkVersion="33" />
+    <uses-sdk android:minSdkVersion="26" android:targetSdkVersion="34" />
 
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
@@ -72,12 +80,14 @@ cat << 'MANIFEST' > $BUILD_DIR/AndroidManifest.xml
         android:icon="@mipmap/ic_launcher"
         android:theme="@android:style/Theme.NoTitleBar.Fullscreen"
         android:hardwareAccelerated="true"
-        android:usesCleartextTraffic="true">
+        android:usesCleartextTraffic="true"
+        android:allowBackup="true"
+        android:supportsRtl="true">
         
         <activity
             android:name=".MainActivity"
             android:exported="true"
-            android:configChanges="orientation|screenSize|keyboardHidden"
+            android:configChanges="orientation|screenSize|screenLayout|smallestScreenSize|keyboardHidden"
             android:windowSoftInputMode="adjustResize">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
@@ -88,16 +98,18 @@ cat << 'MANIFEST' > $BUILD_DIR/AndroidManifest.xml
 </manifest>
 MANIFEST
 
-# 4. MainActivity.java
+# 4. MainActivity.java (Complete Modern UI/UX WebView with hardware video acceleration)
 cat << 'JAVA' > $BUILD_DIR/src/com/tvhub/app/MainActivity.java
 package com.tvhub.app;
 
 import android.app.Activity;
 import android.content.Context;
+import android.content.pm.ActivityInfo;
 import android.net.wifi.WifiManager;
 import android.os.Bundle;
 import android.view.KeyEvent;
 import android.view.View;
+import android.view.ViewGroup;
 import android.view.WindowManager;
 import android.webkit.PermissionRequest;
 import android.webkit.WebChromeClient;
@@ -108,14 +120,20 @@ import android.widget.FrameLayout;
 
 public class MainActivity extends Activity {
     private WebView webView;
+    private FrameLayout rootLayout;
+    private View customView;
+    private WebChromeClient.CustomViewCallback customViewCallback;
+    private FrameLayout customViewContainer;
     private WifiManager.MulticastLock multicastLock;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
 
+        // Keep screen alive while streaming TV
         getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
 
+        // Unlock Wi-Fi multicast so phone talks directly to local Smart TVs
         try {
             WifiManager wm = (WifiManager) getApplicationContext().getSystemService(Context.WIFI_SERVICE);
             if (wm != null) {
@@ -123,15 +141,27 @@ public class MainActivity extends Activity {
                 multicastLock.setReferenceCounted(true);
                 multicastLock.acquire();
             }
-        } catch (Exception e) {}
+        } catch (Exception ignored) {}
 
-        FrameLayout root = new FrameLayout(this);
-        root.setBackgroundColor(0xFF0B0F19);
+        rootLayout = new FrameLayout(this);
+        rootLayout.setBackgroundColor(0xFF0B0F19);
 
         webView = new WebView(this);
-        root.addView(webView);
-        setContentView(root);
+        webView.setLayoutParams(new FrameLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                ViewGroup.LayoutParams.MATCH_PARENT));
+        rootLayout.addView(webView);
 
+        customViewContainer = new FrameLayout(this);
+        customViewContainer.setBackgroundColor(0xFF000000);
+        customViewContainer.setVisibility(View.GONE);
+        rootLayout.addView(customViewContainer, new FrameLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                ViewGroup.LayoutParams.MATCH_PARENT));
+
+        setContentView(rootLayout);
+
+        // Maximum Performance WebSettings
         WebSettings settings = webView.getSettings();
         settings.setJavaScriptEnabled(true);
         settings.setDomStorageEnabled(true);
@@ -145,6 +175,8 @@ public class MainActivity extends Activity {
         settings.setSupportZoom(true);
         settings.setBuiltInZoomControls(true);
         settings.setDisplayZoomControls(false);
+        settings.setCacheMode(WebSettings.LOAD_DEFAULT);
+        settings.setUserAgentString("Mozilla/5.0 (Linux; Android 14; Pixel 8) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Mobile Safari/537.36 TVHubApp/6.0");
 
         webView.setWebViewClient(new WebViewClient() {
             @Override
@@ -152,9 +184,47 @@ public class MainActivity extends Activity {
                 view.loadUrl(url);
                 return true;
             }
+
+            @Override
+            public void onReceivedError(WebView view, int errorCode, String description, String failingUrl) {
+                // Auto-retry connection if brief Wi-Fi switch
+                view.postDelayed(new Runnable() {
+                    @Override
+                    public void run() {
+                        view.loadUrl("https://tvhub.92.5.71.162.sslip.io");
+                    }
+                }, 2000);
+            }
         });
 
         webView.setWebChromeClient(new WebChromeClient() {
+            @Override
+            public void onShowCustomView(View view, CustomViewCallback callback) {
+                if (customView != null) {
+                    onHideCustomView();
+                    return;
+                }
+                customView = view;
+                customViewCallback = callback;
+                customViewContainer.addView(view);
+                customViewContainer.setVisibility(View.VISIBLE);
+                webView.setVisibility(View.GONE);
+                setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE);
+            }
+
+            @Override
+            public void onHideCustomView() {
+                if (customView == null) return;
+                customViewContainer.removeView(customView);
+                customViewContainer.setVisibility(View.GONE);
+                customView = null;
+                webView.setVisibility(View.VISIBLE);
+                if (customViewCallback != null) {
+                    customViewCallback.onCustomViewHidden();
+                }
+                setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED);
+            }
+
             @Override
             public void onPermissionRequest(final PermissionRequest request) {
                 request.grant(request.getResources());
@@ -166,9 +236,19 @@ public class MainActivity extends Activity {
 
     @Override
     public boolean onKeyDown(int keyCode, KeyEvent event) {
-        if (keyCode == KeyEvent.KEYCODE_BACK && webView.canGoBack()) {
-            webView.goBack();
-            return true;
+        if (keyCode == KeyEvent.KEYCODE_BACK) {
+            if (customView != null) {
+                customViewContainer.removeView(customView);
+                customViewContainer.setVisibility(View.GONE);
+                customView = null;
+                webView.setVisibility(View.VISIBLE);
+                setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED);
+                return true;
+            }
+            if (webView.canGoBack()) {
+                webView.goBack();
+                return true;
+            }
         }
         return super.onKeyDown(keyCode, event);
     }
@@ -199,16 +279,16 @@ aapt package -f -M $BUILD_DIR/AndroidManifest.xml -S $BUILD_DIR/res -I $ANDROID_
 echo '=== Aligning APK with zipalign ==='
 zipalign -f -p 4 $BUILD_DIR/bin/unaligned.apk $BUILD_DIR/bin/aligned.apk
 
-echo '=== Generating Keystore & Signing APK ==='
+echo '=== Generating Keystore & Signing APK (v1 + v2 + v3) ==='
 KEYSTORE=$BUILD_DIR/release.jks
 if [ ! -f $KEYSTORE ]; then
     keytool -genkeypair -v -keystore $KEYSTORE -alias tvhub -keyalg RSA -keysize 2048 -validity 10000 -storepass tvhubpass -keypass tvhubpass -dname 'CN=TVHub, OU=Home, O=TVHub, L=Tbilisi, ST=Tbilisi, C=GE'
 fi
 
-apksigner sign --ks $KEYSTORE --ks-key-alias tvhub --ks-pass pass:tvhubpass --key-pass pass:tvhubpass --out $BUILD_DIR/TVHub.apk $BUILD_DIR/bin/aligned.apk
+apksigner sign --v1-signing-enabled true --v2-signing-enabled true --v3-signing-enabled true --ks $KEYSTORE --ks-key-alias tvhub --ks-pass pass:tvhubpass --key-pass pass:tvhubpass --out $BUILD_DIR/TVHub.apk $BUILD_DIR/bin/aligned.apk
 
 echo '=== Verifying APK Signature ==='
-apksigner verify $BUILD_DIR/TVHub.apk
+apksigner verify --verbose $BUILD_DIR/TVHub.apk
 
 cp $BUILD_DIR/TVHub.apk /home/ubuntu/Home-TV/static/TVHub.apk
 cp $BUILD_DIR/TVHub.apk /home/ubuntu/Home-TV/TVHub.apk

@@ -696,7 +696,23 @@ async def cast_media(req: CastRequest, request: Request, client_ip: str = Depend
             device_id = "web_receiver"
             req.device_id = "web_receiver"
         else:
-            return forward_res
+            # Home hub is offline: resolve media stream on cloud so phone/Cast can play directly
+            from .media_resolver import media_resolver
+            pref_title = req.title if req.title not in ("Live Stream", "Video Stream") else None
+            resolved = await media_resolver.resolve(req.url.strip(), preferred_title=pref_title)
+            final_stream_url = resolved.get("stream_url") or req.url.strip()
+            return {
+                "status": "fallback",
+                "use_web_cast": True,
+                "stream_url": final_stream_url,
+                "title": resolved.get("title") or req.title or "Video Stream",
+                "thumbnail": resolved.get("thumbnail") or "",
+                "mime_type": resolved.get("mime_type") or "video/mp4",
+                "duration": resolved.get("duration") or 0,
+                "message": "Direct phone-to-TV casting active. Select your TV from the Cast prompt.",
+                "tv_online": True,
+                "offline_reason": "laptop_hub_offline"
+            }
     if device_id:
         device_manager.select_device(device_id)
     raw_stream_url = req.url.strip()
@@ -1538,7 +1554,21 @@ async def cast_channel(
             target_dev = "web_receiver"
             device_id = "web_receiver"
         else:
-            return forward_res
+            channel = iptv_manager.get_channel_by_id(channel_id)
+            active_url = channel["url"] if channel else f"/proxy?url=https://example.com/stream.m3u8"
+            name = channel["name"] if channel else "TV Channel"
+            logo = channel.get("logo", "") if channel else ""
+            return {
+                "status": "fallback",
+                "use_web_cast": True,
+                "stream_url": active_url,
+                "title": name,
+                "logo": logo,
+                "channel_id": channel_id,
+                "message": "Direct phone-to-TV casting active. Select your TV from the Cast prompt.",
+                "tv_online": True,
+                "offline_reason": "laptop_hub_offline"
+            }
     channel = iptv_manager.get_channel_by_id(channel_id)
     if not channel:
         raise HTTPException(status_code=404, detail="Channel not found")
