@@ -1060,6 +1060,19 @@ async function castChannel(channel) {
 
   const castUrl = makeCastPlayableUrl(rawStreamUrl);
 
+  // Path 0: Native Android TV Hub App -> Cast directly to TV via phone local Wi-Fi!
+  if (window.TVHubAndroid && typeof window.TVHubAndroid.isNativeApp === "function" && window.TVHubAndroid.isNativeApp()) {
+    const selectedDev = state.devices.find(d => d.id === state.currentTvId) || {};
+    const targetIp = selectedDev.ip || (state.currentTvId === "hisense" ? "192.168.50.249" : "192.168.50.205");
+    const devType = selectedDev.dev_type || (state.currentTvId === "hisense" ? "hisense" : "google_tv");
+    showToast(`Casting ${channel.name} to ${state.currentTvName}...`);
+    window.TVHubAndroid.castToTv(targetIp, devType, castUrl, channel.name, "application/vnd.apple.mpegurl", "");
+    state.currentTitle = channel.name;
+    const barTitle = document.getElementById("bar-title");
+    if (barTitle) barTitle.textContent = channel.name;
+    return;
+  }
+
   // Path 1: Direct in-browser Google Cast is active -> Cast straight from Phone to TV over Wi-Fi
   if (isWebCastActive()) {
     showToast(`Casting ${channel.name} to TV via Direct Cast...`);
@@ -1136,9 +1149,8 @@ async function castChannel(channel) {
     return;
   }
 
-  // Path 5: High-performance in-app player fallback (plays on phone directly with zero fail)
-  showToast(`Playing ${channel.name} on device`);
-  openInAppPlayer(channel);
+  // Path 5: Safe fallback when TV is in standby or laptop hub offline
+  showToast(`⚠️ Please turn on ${state.currentTvName} or open /tv in TV browser to play.`);
 }
 
 // --- Remote Control ---
@@ -1391,6 +1403,22 @@ async function executeUniversalCast(url, title = "") {
     showToast("⚠️ Please enter a video or webpage link");
     const castInput = document.getElementById("cast-url-input");
     if (castInput) castInput.focus();
+    return;
+  }
+
+  // Path 0: Native Android TV Hub App -> Cast directly to TV via phone local Wi-Fi!
+  if (window.TVHubAndroid && typeof window.TVHubAndroid.isNativeApp === "function" && window.TVHubAndroid.isNativeApp()) {
+    const selectedDev = state.devices.find(d => d.id === state.currentTvId) || {};
+    const targetIp = selectedDev.ip || (state.currentTvId === "hisense" ? "192.168.50.249" : "192.168.50.205");
+    const devType = selectedDev.dev_type || (state.currentTvId === "hisense" ? "hisense" : "google_tv");
+    let ytId = "";
+    const ytMatch = url.match(/(?:youtu\.be\/|v\/|u\/\w\/|embed\/|watch\?v=|&v=)([^#&?]{11})/);
+    if (ytMatch) ytId = ytMatch[1];
+    showToast(`Casting video to ${state.currentTvName}...`);
+    window.TVHubAndroid.castToTv(targetIp, devType, makeCastPlayableUrl(url), title || "Video Stream", "video/mp4", ytId);
+    state.currentTitle = title || "Video Stream";
+    const barTitle = document.getElementById("bar-title");
+    if (barTitle) barTitle.textContent = state.currentTitle;
     return;
   }
 

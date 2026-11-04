@@ -705,6 +705,7 @@ async def cast_media(req: CastRequest, request: Request, client_ip: str = Depend
                 "status": "fallback",
                 "use_web_cast": True,
                 "stream_url": final_stream_url,
+                "youtube_id": resolved.get("youtube_id") or "",
                 "title": resolved.get("title") or req.title or "Video Stream",
                 "thumbnail": resolved.get("thumbnail") or "",
                 "mime_type": resolved.get("mime_type") or "video/mp4",

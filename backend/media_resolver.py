@@ -521,7 +521,7 @@ class MediaResolver:
                 'socket_timeout': 8,
                 'remote_components': ['ejs:github'],
                 'format': 'bestvideo[vcodec^=avc1][height<=1080]+bestaudio[acodec^=mp4a]/bestvideo[vcodec^=avc][height<=1080]+bestaudio/best[vcodec^=avc1][height<=1080]/best[ext=mp4]/best',
-                'extractor_args': {'youtube': {'player_client': ['web', 'web_embedded', 'mweb', 'android', 'ios']}},
+                'extractor_args': {'youtube': {'player_client': ['android', 'ios', 'tv', 'web_embedded']}},
             }
             node_exe = r"C:\Users\Anania Light Laptop\Downloads\Blue Ocean\.tools\node\node.exe"
             if os.path.exists(node_exe):
@@ -597,7 +597,7 @@ class MediaResolver:
                     from .cloud_relay import get_active_home_hub_url
                     hub_tunnel = await get_active_home_hub_url()
                 if hub_tunnel:
-                    async with httpx.AsyncClient(timeout=35.0, verify=False) as c:
+                    async with httpx.AsyncClient(timeout=2.5, verify=False) as c:
                         r = await c.get(
                             f"{hub_tunnel}/api/media/resolve",
                             params={"url": url},
@@ -619,6 +619,7 @@ class MediaResolver:
             return {
                 "resolved": True,
                 "stream_url": f"https://www.youtube.com/watch?v={vid_id}",
+                "youtube_id": vid_id,
                 "title": preferred_title or "YouTube Video",
                 "thumbnail": f"https://i.ytimg.com/vi/{vid_id}/hqdefault.jpg",
                 "duration": 0,
