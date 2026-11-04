@@ -1899,7 +1899,9 @@ async def serve_manifest():
     return Response(content=m_file.read_bytes(), media_type="application/manifest+json")
 
 @app.get("/TVHub.apk")
+@app.head("/TVHub.apk")
 @app.get("/app.apk")
+@app.head("/app.apk")
 async def serve_apk():
     apk_file = BASE_DIR / "TVHub.apk"
     if not apk_file.exists():

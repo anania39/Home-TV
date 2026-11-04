@@ -170,3 +170,14 @@ with open("static/app.js", "w", encoding="utf-8") as f:
     f.write(js_code)
 
 print("Patch complete.")
+with open("backend/app.py", "r", encoding="utf-8") as f:
+    text = f.read()
+
+target = '@app.get("/TVHub.apk")\n@app.get("/app.apk")'
+replacement = '@app.get("/TVHub.apk")\n@app.head("/TVHub.apk")\n@app.get("/app.apk")\n@app.head("/app.apk")'
+
+if target in text:
+    text = text.replace(target, replacement)
+    with open("backend/app.py", "w", encoding="utf-8") as f:
+        f.write(text)
+    print("Added HEAD route support for APK download")
