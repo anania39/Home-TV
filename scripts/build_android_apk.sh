@@ -1450,7 +1450,7 @@ public class MainActivity extends Activity {
         for (int i = 0; i < s.length(); i++) {
             char c = s.charAt(i);
             if (c == '\\') sb.append("\\\\");
-            else if (c == '"') sb.append("\\"");
+            else if (c == '"') sb.append("\\\"");
             else if (c == '\n') sb.append("\\n");
             else if (c == '\r') sb.append("\\r");
             else if (c == '\t') sb.append("\\t");
