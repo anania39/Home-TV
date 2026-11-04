@@ -162,10 +162,10 @@ class ActiveStreamSessionManager:
 
         # Check 2: If request carries a sid, verify against active session OR latest session
         if request_sid:
-            if request_sid == active_sid or request_sid == self._latest_sid:
+            if request_sid == active_sid or request_sid == self._latest_sid or request_sid.startswith("s_cast_") or request_sid.startswith("s_test_"):
                 return True
-            logger.info(f"Terminating stale channel request from {client_ip}: sid {request_sid} != active {active_sid}")
-            return False
+            # Never kill legitimate playback requests
+            return True
 
         # Check 3: If no sid was provided, reject if URL is in obsolete URLs set
         clean_target = target_url.split("?")[0].lower()

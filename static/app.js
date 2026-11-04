@@ -54,7 +54,7 @@ function makeCastPlayableUrl(rawUrl) {
   if (full.includes("/proxy?url=") || full.includes("/api/stream/proxy?url=")) {
     return full.replace(/^http:\/\/[^\/]+/, cloudHost).replace(/^https:\/\/[^\/]+/, cloudHost);
   }
-  return `${cloudHost}/proxy?url=${encodeURIComponent(full)}&sid=s_cast_${Date.now()}`;
+  return `${cloudHost}/proxy?url=${encodeURIComponent(full)}`;
 }
 
 function isDirectMediaUrl(u) {
