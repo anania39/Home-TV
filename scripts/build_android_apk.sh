@@ -1,6 +1,6 @@
 #!/bin/bash
 set -e
-echo '=== Building Fully Autonomous TV Hub Android Host App (v7.3.0) ==='
+echo '=== Building Fully Autonomous TV Hub Android Host App (v7.4.0) ==='
 
 BUILD_DIR=/home/ubuntu/tvhub_apk_build
 rm -rf $BUILD_DIR
@@ -70,8 +70,8 @@ cat << 'MANIFEST' > $BUILD_DIR/AndroidManifest.xml
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     package="com.tvhub.app"
-    android:versionCode="730"
-    android:versionName="7.3.0">
+    android:versionCode="740"
+    android:versionName="7.4.0">
 
     <uses-sdk android:minSdkVersion="26" android:targetSdkVersion="34" />
 
@@ -228,7 +228,7 @@ public class MainActivity extends Activity {
         settings.setBuiltInZoomControls(true);
         settings.setDisplayZoomControls(false);
         settings.setCacheMode(WebSettings.LOAD_NO_CACHE);
-        settings.setUserAgentString("Mozilla/5.0 (Linux; Android 14; Pixel 8) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Mobile Safari/537.36 TVHubHostApp/7.3");
+        settings.setUserAgentString("Mozilla/5.0 (Linux; Android 14; Pixel 8) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Mobile Safari/537.36 TVHubHostApp/7.4");
 
         // Expose Native TV Hub Android Host Bridge
         webView.addJavascriptInterface(new TVHubBridge(), "TVHubAndroid");
@@ -245,7 +245,7 @@ public class MainActivity extends Activity {
                 view.postDelayed(new Runnable() {
                     @Override
                     public void run() {
-                        view.loadUrl("https://tvhub.92.5.71.162.sslip.io?v=7.3.0");
+                        view.loadUrl("https://tvhub.92.5.71.162.sslip.io?v=7.4.0");
                     }
                 }, 2000);
             }
@@ -285,7 +285,7 @@ public class MainActivity extends Activity {
             }
         });
 
-        webView.loadUrl("https://tvhub.92.5.71.162.sslip.io?v=7.3.0");
+        webView.loadUrl("https://tvhub.92.5.71.162.sslip.io?v=7.4.0");
     }
 
     // --- Native Android Host Bridge Exposed to JavaScript ---
@@ -391,7 +391,7 @@ public class MainActivity extends Activity {
         });
     }
 
-    // --- Google Cast V2 TLS Engine (Port 8009) with Persistent Heartbeat ---
+    // --- Google Cast V2 TLS Engine (Port 8009) with Bi-directional Heartbeat ---
     private synchronized boolean castToGoogleTv(String ip, String streamUrl, String title) {
         try {
             closeActiveCast();
@@ -406,7 +406,7 @@ public class MainActivity extends Activity {
             SSLContext sc = SSLContext.getInstance("TLS");
             sc.init(null, trustAll, new SecureRandom());
             SSLSocket socket = (SSLSocket) sc.getSocketFactory().createSocket(ip, 8009);
-            socket.setSoTimeout(3500);
+            socket.setSoTimeout(1500);
             socket.setKeepAlive(true);
             socket.setTcpNoDelay(true);
             socket.startHandshake();
@@ -417,13 +417,14 @@ public class MainActivity extends Activity {
             // 1. Send CONNECT to receiver-0
             sendCastMsg(out, "sender-0", "receiver-0", "urn:x-cast:com.google.cast.tp.connection", "{\"type\":\"CONNECT\"}");
 
-            // 2. Launch Default Media Receiver (CC1AD845)
-            sendCastMsg(out, "sender-0", "receiver-0", "urn:x-cast:com.google.cast.receiver", "{\"type\":\"LAUNCH\",\"appId\":\"CC1AD845\",\"requestId\":1}");
+            // 2. Query status FIRST to check if Default Media Receiver (CC1AD845) is already running
+            sendCastMsg(out, "sender-0", "receiver-0", "urn:x-cast:com.google.cast.receiver", "{\"type\":\"GET_STATUS\",\"requestId\":1}");
 
-            // 3. Read responses until real transportId is found (up to 8 seconds)
             String transportId = null;
             long startWait = System.currentTimeMillis();
-            while (System.currentTimeMillis() - startWait < 8000) {
+            boolean launchSent = false;
+
+            while (System.currentTimeMillis() - startWait < 8500) {
                 try {
                     byte[] raw = readCastMsg(in);
                     if (raw == null) break;
@@ -436,31 +437,22 @@ public class MainActivity extends Activity {
                             break;
                         }
                     }
+                    if (!launchSent && text.contains("RECEIVER_STATUS") && !text.contains("CC1AD845")) {
+                        // CC1AD845 not running on TV -> Launch it now
+                        sendCastMsg(out, "sender-0", "receiver-0", "urn:x-cast:com.google.cast.receiver", "{\"type\":\"LAUNCH\",\"appId\":\"CC1AD845\",\"requestId\":2}");
+                        launchSent = true;
+                    }
                 } catch (java.net.SocketTimeoutException ste) {
-                    try {
-                        sendCastMsg(out, "sender-0", "receiver-0", "urn:x-cast:com.google.cast.receiver", "{\"type\":\"GET_STATUS\",\"requestId\":3}");
-                    } catch (Exception ignored) {}
+                    if (!launchSent) {
+                        sendCastMsg(out, "sender-0", "receiver-0", "urn:x-cast:com.google.cast.receiver", "{\"type\":\"LAUNCH\",\"appId\":\"CC1AD845\",\"requestId\":2}");
+                        launchSent = true;
+                    } else {
+                        try {
+                            sendCastMsg(out, "sender-0", "receiver-0", "urn:x-cast:com.google.cast.receiver", "{\"type\":\"GET_STATUS\",\"requestId\":3}");
+                        } catch (Exception ignored) {}
+                    }
                 } catch (Exception ignored) {
                     break;
-                }
-            }
-
-            if (transportId == null || transportId.isEmpty() || transportId.equals("web-1")) {
-                sendCastMsg(out, "sender-0", "receiver-0", "urn:x-cast:com.google.cast.receiver", "{\"type\":\"GET_STATUS\",\"requestId\":4}");
-                for (int j = 0; j < 6; j++) {
-                    try {
-                        byte[] raw = readCastMsg(in);
-                        if (raw == null) break;
-                        String text = new String(raw, "UTF-8");
-                        int idx = text.indexOf("\"transportId\":\"");
-                        if (idx != -1) {
-                            int endIdx = text.indexOf("\"", idx + 15);
-                            if (endIdx != -1) {
-                                transportId = text.substring(idx + 15, endIdx);
-                                break;
-                            }
-                        }
-                    } catch (Exception ignored) {}
                 }
             }
 
@@ -470,31 +462,55 @@ public class MainActivity extends Activity {
                 return false;
             }
 
-            // 4. Connect to media transport
+            // 3. Connect to media transport endpoint
             sendCastMsg(out, "sender-0", transportId, "urn:x-cast:com.google.cast.tp.connection", "{\"type\":\"CONNECT\"}");
 
-            // 5. Send LOAD
+            // 4. Send LOAD command with stream URL
             boolean isHls = streamUrl.contains(".m3u8") || streamUrl.contains("/proxy?url=");
             String mime = isHls ? "application/x-mpegurl" : "video/mp4";
-            String loadJson = "{\"type\":\"LOAD\",\"requestId\":2,\"autoplay\":true,\"media\":{\"contentId\":\"" + escapeJson(streamUrl) + "\",\"streamType\":\"LIVE\",\"contentType\":\"" + mime + "\",\"metadata\":{\"metadataType\":0,\"title\":\"" + escapeJson(title) + "\"}}}";
+            String loadJson = "{\"type\":\"LOAD\",\"requestId\":3,\"autoplay\":true,\"media\":{\"contentId\":\"" + escapeJson(streamUrl) + "\",\"streamType\":\"LIVE\",\"contentType\":\"" + mime + "\",\"metadata\":{\"metadataType\":0,\"title\":\"" + escapeJson(title) + "\"} } }";
             sendCastMsg(out, "sender-0", transportId, "urn:x-cast:com.google.cast.media", loadJson);
 
-            // Keep connection alive in background with Cast heartbeat PING every 4.5 seconds
+            // 5. Keep connection alive with FULL BI-DIRECTIONAL PING/PONG READER THREAD
             activeCastSocket = socket;
             activeCastOut = out;
             activeCastIp = ip;
             currentTransportId = transportId;
 
             final SSLSocket liveSocket = socket;
+            final String activeTid = transportId;
+            final InputStream activeIn = in;
+            final OutputStream activeOut = out;
+
             activeCastHeartbeat = new Thread(new Runnable() {
                 @Override
                 public void run() {
+                    long lastPingSent = System.currentTimeMillis();
                     try {
                         while (!Thread.currentThread().isInterrupted() && liveSocket != null && !liveSocket.isClosed()) {
-                            Thread.sleep(4500);
-                            synchronized (MainActivity.this) {
-                                if (liveSocket.isClosed()) break;
-                                sendCastMsg(out, "sender-0", "receiver-0", "urn:x-cast:com.google.cast.tp.heartbeat", "{\"type\":\"PING\"}");
+                            long now = System.currentTimeMillis();
+                            if (now - lastPingSent >= 4000) {
+                                synchronized (MainActivity.this) {
+                                    if (liveSocket.isClosed()) break;
+                                    sendCastMsg(activeOut, "sender-0", "receiver-0", "urn:x-cast:com.google.cast.tp.heartbeat", "{\"type\":\"PING\"}");
+                                    sendCastMsg(activeOut, "sender-0", activeTid, "urn:x-cast:com.google.cast.tp.heartbeat", "{\"type\":\"PING\"}");
+                                }
+                                lastPingSent = now;
+                            }
+                            try {
+                                byte[] raw = readCastMsg(activeIn);
+                                if (raw != null) {
+                                    String text = new String(raw, "UTF-8");
+                                    if (text.contains("\"PING\"")) {
+                                        synchronized (MainActivity.this) {
+                                            if (liveSocket.isClosed()) break;
+                                            sendCastMsg(activeOut, "sender-0", "receiver-0", "urn:x-cast:com.google.cast.tp.heartbeat", "{\"type\":\"PONG\"}");
+                                            sendCastMsg(activeOut, "sender-0", activeTid, "urn:x-cast:com.google.cast.tp.heartbeat", "{\"type\":\"PONG\"}");
+                                        }
+                                    }
+                                }
+                            } catch (java.net.SocketTimeoutException ste) {
+                                // Normal read timeout, continue loop to keep sending heartbeats
                             }
                         }
                     } catch (Exception ignored) {}
