@@ -516,9 +516,19 @@ public class MainActivity extends Activity {
                 if ("play".equals(action)) sendLoungeCommand("playVideo", null);
                 else if ("pause".equals(action)) sendLoungeCommand("pauseVideo", null);
                 else if ("stop".equals(action)) sendLoungeCommand("stopVideo", null);
-                else if ("seek".equals(action)) {
+                else if ("speed".equals(action) || "rate".equals(action)) {
+                    Map<String, String> p = new HashMap<>();
+                    p.put("req0_playbackRate", value);
+                    sendLoungeCommand("setPlaybackRate", p);
+                } else if ("seek".equals(action) || "seek_relative".equals(action)) {
                     int sec = 0;
-                    try { sec = (int) Double.parseDouble(value); } catch (Exception ignored) {}
+                    if ("seek_relative".equals(action) || (value != null && (value.startsWith("+") || value.startsWith("-")))) {
+                        double delta = Double.parseDouble(value);
+                        sec = (int) Math.max(0.0, liveTvCurrentTime + delta);
+                    } else {
+                        try { sec = (int) Double.parseDouble(value); } catch (Exception ignored) {}
+                    }
+                    liveTvCurrentTime = sec;
                     Map<String, String> p = new HashMap<>();
                     p.put("req0_newTime", String.valueOf(Math.max(0, sec)));
                     sendLoungeCommand("seekTo", p);
@@ -827,15 +837,6 @@ public class MainActivity extends Activity {
 
         // 2. Google Cast Protocol for TCL Smart TV Pro (192.168.50.205:8009) & Google TVs
         if (type.contains("google_tv") || targetIp.endsWith(".205") || targetIp.endsWith(".3")) {
-            // For 100% ad-free playback, ALWAYS prefer streaming clean Ad-Shield proxied media via CC1AD845!
-            if (streamUrl != null && !streamUrl.isEmpty()) {
-                notifyUser("⚡ Streaming 100% Ad-Free to TCL Smart TV Pro...");
-                boolean castOk = castToGoogleTv(targetIp, streamUrl, title);
-                if (castOk) {
-                    notifyUser("🎉 Now Playing " + title + " on TCL Smart TV Pro!");
-                    return;
-                }
-            }
             if (youtubeId != null && !youtubeId.isEmpty()) {
                 notifyUser("Launching YouTube on TCL Smart TV Pro...");
                 boolean ytOk = castYouTubeToGoogleTv(targetIp, youtubeId);
@@ -843,6 +844,12 @@ public class MainActivity extends Activity {
                     notifyUser("🎉 Playing YouTube on TCL Smart TV Pro!");
                     return;
                 }
+            }
+            notifyUser("Connecting to TCL Smart TV Pro via Cast V2...");
+            boolean castOk = castToGoogleTv(targetIp, streamUrl, title);
+            if (castOk) {
+                notifyUser("🎉 Now Playing " + title + " on TCL Smart TV Pro!");
+                return;
             }
         }
 
@@ -1008,8 +1015,8 @@ public class MainActivity extends Activity {
             // 4. Send LOAD command with stream URL
             boolean isHls = streamUrl.contains(".m3u8") || streamUrl.contains("/proxy?url=");
             String mime = isHls ? "application/x-mpegurl" : "video/mp4";
-            boolean isLiveStream = (streamUrl.contains("/live/") || streamUrl.contains("channel") || title.contains("TV") || title.contains("Channel")) && !streamUrl.contains("movie") && !streamUrl.contains("videodb") && !streamUrl.contains("googlevideo") && !streamUrl.contains("/proxy?url=");
-            String streamType = isLiveStream ? "LIVE" : "BUFFERED";
+            boolean isVod = streamUrl.contains("movie") || streamUrl.contains("videodb") || streamUrl.contains(".mp4") || (streamUrl.contains("googlevideo") && !streamUrl.contains("live"));
+            String streamType = isVod ? "BUFFERED" : "LIVE";
             String loadJson = "{\"type\":\"LOAD\",\"requestId\":3,\"autoplay\":true,\"media\":{\"contentId\":\"" + escapeJson(streamUrl) + "\",\"streamType\":\"" + streamType + "\",\"contentType\":\"" + mime + "\",\"metadata\":{\"metadataType\":0,\"title\":\"" + escapeJson(title) + "\"} } }";
             sendCastMsg(out, "sender-0", transportId, "urn:x-cast:com.google.cast.media", loadJson);
 
