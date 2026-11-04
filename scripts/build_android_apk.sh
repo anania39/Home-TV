@@ -1,6 +1,6 @@
 #!/bin/bash
 set -e
-echo '=== Building Fully Autonomous TV Hub Android Host App (v7.8.0) ==='
+echo '=== Building Fully Autonomous TV Hub Android Host App (v7.8.1) ==='
 
 BUILD_DIR=/home/ubuntu/tvhub_apk_build
 rm -rf $BUILD_DIR
@@ -71,8 +71,8 @@ cat << 'MANIFEST' > $BUILD_DIR/AndroidManifest.xml
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     package="com.tvhub.app"
-    android:versionCode="780"
-    android:versionName="7.8.0">
+    android:versionCode="781"
+    android:versionName="7.8.1">
 
     <uses-sdk android:minSdkVersion="26" android:targetSdkVersion="34" />
 
@@ -135,6 +135,8 @@ import android.webkit.WebViewClient;
 import android.widget.FrameLayout;
 import android.widget.Toast;
 
+import org.json.JSONObject;
+import org.json.JSONArray;
 import android.content.ClipboardManager;
 import android.content.ClipData;
 import android.content.Intent;
@@ -284,7 +286,7 @@ public class MainActivity extends Activity {
                 view.postDelayed(new Runnable() {
                     @Override
                     public void run() {
-                        view.loadUrl("https://tvhub.92.5.71.162.sslip.io?v=7.8.0");
+                        view.loadUrl("https://tvhub.92.5.71.162.sslip.io?v=7.8.1");
                     }
                 }, 2000);
             }
@@ -324,7 +326,7 @@ public class MainActivity extends Activity {
             }
         });
 
-        webView.loadUrl("https://tvhub.92.5.71.162.sslip.io?v=7.8.0");
+        webView.loadUrl("https://tvhub.92.5.71.162.sslip.io?v=7.8.1");
     }
 
     // --- Native Android Host Bridge Exposed to JavaScript ---
@@ -475,6 +477,29 @@ public class MainActivity extends Activity {
         });
     }
 
+    // --- Dedicated TransportId Extractor: Guarantees Matching Target AppId ---
+    private static String extractTransportIdForApp(String text, String targetAppId) {
+        if (text == null || targetAppId == null) return null;
+        try {
+            int brace = text.indexOf('{');
+            if (brace == -1) return null;
+            JSONObject root = new JSONObject(text.substring(brace));
+            if (root.has("status")) {
+                JSONObject st = root.getJSONObject("status");
+                if (st.has("applications")) {
+                    JSONArray apps = st.getJSONArray("applications");
+                    for (int i = 0; i < apps.length(); i++) {
+                        JSONObject app = apps.getJSONObject(i);
+                        if (targetAppId.equals(app.optString("appId"))) {
+                            return app.optString("transportId", null);
+                        }
+                    }
+                }
+            }
+        } catch (Exception ignored) {}
+        return null;
+    }
+
     // --- Google Cast V2 TLS Engine (Port 8009) with Bi-directional Heartbeat ---
     private synchronized boolean castToGoogleTv(String ip, String streamUrl, String title) {
         try {
@@ -501,40 +526,26 @@ public class MainActivity extends Activity {
             // 1. Send CONNECT to receiver-0
             sendCastMsg(out, "sender-0", "receiver-0", "urn:x-cast:com.google.cast.tp.connection", "{\"type\":\"CONNECT\"}");
 
-            // 2. Query status FIRST to check if Default Media Receiver (CC1AD845) is already running
-            sendCastMsg(out, "sender-0", "receiver-0", "urn:x-cast:com.google.cast.receiver", "{\"type\":\"GET_STATUS\",\"requestId\":1}");
+            // 2. Launch Default Media Receiver (CC1AD845) explicitly
+            sendCastMsg(out, "sender-0", "receiver-0", "urn:x-cast:com.google.cast.receiver", "{\"type\":\"LAUNCH\",\"appId\":\"CC1AD845\",\"requestId\":1}");
 
             String transportId = null;
             long startWait = System.currentTimeMillis();
-            boolean launchSent = false;
 
             while (System.currentTimeMillis() - startWait < 8500) {
                 try {
                     byte[] raw = readCastMsg(in);
                     if (raw == null) break;
                     String text = new String(raw, "UTF-8");
-                    int idx = text.indexOf("\"transportId\":\"");
-                    if (idx != -1) {
-                        int endIdx = text.indexOf("\"", idx + 15);
-                        if (endIdx != -1) {
-                            transportId = text.substring(idx + 15, endIdx);
-                            break;
-                        }
-                    }
-                    if (!launchSent && text.contains("RECEIVER_STATUS") && !text.contains("CC1AD845")) {
-                        // CC1AD845 not running on TV -> Launch it now
-                        sendCastMsg(out, "sender-0", "receiver-0", "urn:x-cast:com.google.cast.receiver", "{\"type\":\"LAUNCH\",\"appId\":\"CC1AD845\",\"requestId\":2}");
-                        launchSent = true;
+                    String tid = extractTransportIdForApp(text, "CC1AD845");
+                    if (tid != null && !tid.isEmpty()) {
+                        transportId = tid;
+                        break;
                     }
                 } catch (java.net.SocketTimeoutException ste) {
-                    if (!launchSent) {
-                        sendCastMsg(out, "sender-0", "receiver-0", "urn:x-cast:com.google.cast.receiver", "{\"type\":\"LAUNCH\",\"appId\":\"CC1AD845\",\"requestId\":2}");
-                        launchSent = true;
-                    } else {
-                        try {
-                            sendCastMsg(out, "sender-0", "receiver-0", "urn:x-cast:com.google.cast.receiver", "{\"type\":\"GET_STATUS\",\"requestId\":3}");
-                        } catch (Exception ignored) {}
-                    }
+                    try {
+                        sendCastMsg(out, "sender-0", "receiver-0", "urn:x-cast:com.google.cast.receiver", "{\"type\":\"GET_STATUS\",\"requestId\":2}");
+                    } catch (Exception ignored) {}
                 } catch (Exception ignored) {
                     break;
                 }
@@ -664,8 +675,11 @@ public class MainActivity extends Activity {
     }
 
     // --- Native Google TV YouTube App Engine (App 233637DE + MDX Lounge Pairing) ---
-    private boolean castYouTubeToGoogleTv(String ip, String videoId) {
+    private synchronized boolean castYouTubeToGoogleTv(String ip, String videoId) {
         try {
+            // ALWAYS close any active socket/heartbeat thread first so port 8009 is clean!
+            closeActiveCast();
+
             TrustManager[] trustAll = new TrustManager[]{
                 new X509TrustManager() {
                     public X509Certificate[] getAcceptedIssuers() { return new X509Certificate[0]; }
@@ -682,7 +696,7 @@ public class MainActivity extends Activity {
             OutputStream out = socket.getOutputStream();
             InputStream in = socket.getInputStream();
 
-            // 1. Connect and Launch YouTube App 233637DE
+            // 1. Connect and Launch YouTube App 233637DE explicitly
             sendCastMsg(out, "sender-0", "receiver-0", "urn:x-cast:com.google.cast.tp.connection", "{\"type\":\"CONNECT\"}");
             sendCastMsg(out, "sender-0", "receiver-0", "urn:x-cast:com.google.cast.receiver", "{\"type\":\"LAUNCH\",\"appId\":\"233637DE\",\"requestId\":1}");
 
@@ -693,15 +707,16 @@ public class MainActivity extends Activity {
                     byte[] raw = readCastMsg(in);
                     if (raw == null) break;
                     String text = new String(raw, "UTF-8");
-                    int idx = text.indexOf("\"transportId\":\"");
-                    if (idx != -1) {
-                        int endIdx = text.indexOf("\"", idx + 15);
-                        if (endIdx != -1) {
-                            transportId = text.substring(idx + 15, endIdx);
-                            break;
-                        }
+                    String tid = extractTransportIdForApp(text, "233637DE");
+                    if (tid != null && !tid.isEmpty()) {
+                        transportId = tid;
+                        break;
                     }
-                } catch (java.net.SocketTimeoutException ignored) {}
+                } catch (java.net.SocketTimeoutException ste) {
+                    try {
+                        sendCastMsg(out, "sender-0", "receiver-0", "urn:x-cast:com.google.cast.receiver", "{\"type\":\"GET_STATUS\",\"requestId\":2}");
+                    } catch (Exception ignored) {}
+                }
             }
 
             if (transportId == null || transportId.isEmpty()) {
