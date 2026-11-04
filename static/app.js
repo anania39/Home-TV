@@ -1250,12 +1250,22 @@ function initRemoteKeys() {
   });
 }
 
-async function sendPlaybackAction(action, value = null) {
+async function sendPlaybackAction(action, value = null, extra = {}) {
+  // 1. Direct native Android TV Hub host dispatch over local Wi-Fi
+  if (window.TVHubAndroid && typeof window.TVHubAndroid.controlPlayback === "function") {
+    try {
+      window.TVHubAndroid.controlPlayback(action, String(value || ""));
+    } catch (e) {
+      console.warn("Native controlPlayback notice:", e);
+    }
+  }
+
+  // 2. Also forward to backend for web / browser receiver synchronization
   try {
     const res = await safeFetchWithRetry("/api/playback/action", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ action, value, device_id: state.currentTvId })
+      body: JSON.stringify({ action, value, device_id: state.currentTvId, ...extra })
     });
     if (res.ok) {
       if (action === "play") updatePlayPauseButton(true);
@@ -3370,11 +3380,7 @@ function initActiveCastDeck() {
         clearInterval(deckTicker);
         deckTicker = null;
       }
-      await safeFetchWithRetry("/api/playback/action", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action: nextPlaying ? "play" : "pause", device_id: state.currentTvId })
-      });
+      sendPlaybackAction(nextPlaying ? "play" : "pause");
     };
   }
 
@@ -3391,11 +3397,7 @@ function initActiveCastDeck() {
       deck.style.display = "none";
       updatePlayPauseButton(false);
       showToast("Casting stopped");
-      await safeFetchWithRetry("/api/playback/action", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action: "stop", device_id: state.currentTvId })
-      });
+      sendPlaybackAction("stop");
     };
   }
 
@@ -3410,16 +3412,9 @@ function initActiveCastDeck() {
       scrubber.value = (activeDeckCurrentTime / activeDeckDuration) * 100;
     }
     showToast(label);
-    await safeFetchWithRetry("/api/playback/action", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        action: "seek",
-        value: target.toString(),
-        delta: deltaSec.toString(),
-        is_absolute: false,
-        device_id: state.currentTvId
-      })
+    sendPlaybackAction("seek", target.toString(), {
+      delta: deltaSec.toString(),
+      is_absolute: false
     });
   };
 
@@ -3496,15 +3491,7 @@ function initActiveCastDeck() {
       pill.classList.add("active");
       const spd = pill.dataset.speed;
       showToast(`Playback Speed: ${spd}x`);
-      try {
-        await safeFetchWithRetry("/api/playback/action", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ action: "speed", value: spd, device_id: state.currentTvId })
-        });
-      } catch (err) {
-        console.debug("Playback speed notice:", err);
-      }
+      sendPlaybackAction("speed", spd);
     };
   });
 
@@ -3536,23 +3523,33 @@ function initActiveCastDeck() {
     };
   }
 
-  // 7. Quality Selector
+  // 7. Quality Selector (Safe Adaptive Quality Guard)
   const qSelect = document.getElementById("deck-quality-select");
   if (qSelect) {
     qSelect.onchange = async () => {
       vibrate(20);
       const q = qSelect.value;
       const displayInfo = formatQualityDisplay(q);
+      const qLabel = displayInfo.label.split(" ")[0];
+
+      // YouTube and Live IPTV streams are already adaptively served in optimal 1080p/4K on TV.
+      // Re-casting raw sub-stream URLs breaks active playback and detaches the decoder surface.
+      if (state.playbackType === "youtube" || (window.TVHubAndroid && typeof window.TVHubAndroid.isNativeApp === "function" && window.TVHubAndroid.isNativeApp()) || state.currentTvId !== "web_receiver") {
+        showToast(`📺 Video Quality: ${qLabel} (Optimal HD on TV)`);
+        return;
+      }
+
       const targetUrl = activeDeckQualityUrls[q] ||
                         activeDeckQualityUrls[displayInfo.tier] ||
                         activeDeckQualityUrls[displayInfo.value] ||
                         activeDeckQualityUrls["Auto"] || null;
-      showToast(`Switching Quality to ${displayInfo.label.split(" ")[0]}...`);
-      await safeFetchWithRetry("/api/playback/action", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action: "quality", value: q, url: targetUrl, device_id: state.currentTvId })
-      });
+      if (!targetUrl) {
+        showToast(`📺 Stream is already at optimal HD quality`);
+        return;
+      }
+
+      showToast(`Switching Quality to ${qLabel}...`);
+      sendPlaybackAction("quality", q, { url: targetUrl });
     };
   }
 

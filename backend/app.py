@@ -1249,6 +1249,11 @@ async def playback_action(req: PlaybackActionRequest):
             except Exception as e:
                 logger.debug(f"Subtitle action error: {e}")
         elif action == "quality":
+            source_type = ws_manager.current_state.get("source_type", "")
+            cur_stream = ws_manager.current_state.get("stream_url", "")
+            is_yt = source_type == "youtube" or "youtube.com" in cur_stream or "youtu.be" in cur_stream or "googlevideo.com" in cur_stream
+            if is_yt or ws_manager.current_state.get("is_live"):
+                return {"status": "ok", "message": "Optimal adaptive quality managed by TV"}
             target_q_url = req.url or (req.value if req.value and req.value.startswith("http") else None)
             if not target_q_url and req.value:
                 cur_stream = ws_manager.current_state.get("stream_url", "")
