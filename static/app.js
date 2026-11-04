@@ -1255,7 +1255,8 @@ function initRemoteKeys() {
           scrubber.value = (activeDeckCurrentTime / activeDeckDuration) * 100;
         }
         showToast(delta < 0 ? `⏪ Rewound ${Math.abs(delta)}s` : `⏩ Fast Forward ${delta}s`);
-        await sendPlaybackAction("seek", target.toString(), { delta: delta.toString() });
+        const deltaStr = delta > 0 ? `+${delta}` : `${delta}`;
+        await sendPlaybackAction("seek_relative", deltaStr, { delta: delta.toString() });
       } else {
         await sendPlaybackAction(action, val);
       }
@@ -1321,8 +1322,12 @@ async function handleCastUrlInput(val) {
   if (!type) {
     castDetectedBadge.style.display = "none";
     if (castPreviewBox) castPreviewBox.style.display = "none";
+    window.activeResolvedData = null;
     return;
   }
+
+  // Clear stale resolve cache immediately on new URL
+  window.activeResolvedData = null;
 
   castDetectedBadge.style.display = "flex";
   if (type === "youtube") {
@@ -1394,6 +1399,8 @@ if (btnPasteCast && castUrlInput) {
     }
     if (clipText) {
       castUrlInput.value = clipText.trim();
+      if (castTitleInput) castTitleInput.value = "";
+      window.activeResolvedData = null;
       handleCastUrlInput(castUrlInput.value);
       showToast("Pasted link from clipboard");
     } else {

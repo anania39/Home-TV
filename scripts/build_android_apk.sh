@@ -174,6 +174,7 @@ public class MainActivity extends Activity {
     private String activeCastIp = null;
     private String currentTransportId = null;
     private int activeMediaSessionId = 1;
+    private double liveTvCurrentTime = 0.0;
     private int castRequestId = 10;
     private String lastCastType = "";
     private String lastCastIp = "192.168.50.205";
@@ -348,17 +349,30 @@ public class MainActivity extends Activity {
 
         @JavascriptInterface
         public String getClipboardText() {
-            try {
-                final ClipboardManager cm = (ClipboardManager) getSystemService(Context.CLIPBOARD_SERVICE);
-                if (cm != null && cm.hasPrimaryClip()) {
-                    ClipData clip = cm.getPrimaryClip();
-                    if (clip != null && clip.getItemCount() > 0) {
-                        CharSequence text = clip.getItemAt(0).getText();
-                        if (text != null) return text.toString();
+            final String[] result = new String[]{""};
+            final java.util.concurrent.CountDownLatch latch = new java.util.concurrent.CountDownLatch(1);
+            mainHandler.post(new Runnable() {
+                @Override
+                public void run() {
+                    try {
+                        ClipboardManager cm = (ClipboardManager) getSystemService(Context.CLIPBOARD_SERVICE);
+                        if (cm != null && cm.hasPrimaryClip()) {
+                            ClipData clip = cm.getPrimaryClip();
+                            if (clip != null && clip.getItemCount() > 0) {
+                                CharSequence text = clip.getItemAt(0).getText();
+                                if (text != null) result[0] = text.toString();
+                            }
+                        }
+                    } catch (Exception ignored) {}
+                    finally {
+                        latch.countDown();
                     }
                 }
+            });
+            try {
+                latch.await(600, java.util.concurrent.TimeUnit.MILLISECONDS);
             } catch (Exception ignored) {}
-            return "";
+            return result[0];
         }
 
         @JavascriptInterface
@@ -409,6 +423,36 @@ public class MainActivity extends Activity {
         }
     }
 
+    // --- Structured Cast V2 Media Status Data Model & JSON Parser ---
+    private static class MediaStatusInfo {
+        int mediaSessionId = 0;
+        double currentTime = 0.0;
+        double playbackRate = 1.0;
+        String playerState = "";
+    }
+
+    private static MediaStatusInfo parseMediaStatus(String text) {
+        if (text == null) return null;
+        try {
+            int brace = text.indexOf('{');
+            if (brace == -1) return null;
+            JSONObject root = new JSONObject(text.substring(brace));
+            if ("MEDIA_STATUS".equals(root.optString("type")) || root.has("status")) {
+                JSONArray arr = root.optJSONArray("status");
+                if (arr != null && arr.length() > 0) {
+                    JSONObject item = arr.getJSONObject(0);
+                    MediaStatusInfo info = new MediaStatusInfo();
+                    info.mediaSessionId = item.optInt("mediaSessionId", 0);
+                    info.currentTime = item.optDouble("currentTime", 0.0);
+                    info.playbackRate = item.optDouble("playbackRate", 1.0);
+                    info.playerState = item.optString("playerState", "");
+                    return info;
+                }
+            }
+        } catch (Exception ignored) {}
+        return null;
+    }
+
     // --- Native Direct Playback & Speed Control Engine ---
     private void performPlaybackControl(String action, String value) {
         if (action == null) return;
@@ -440,11 +484,18 @@ public class MainActivity extends Activity {
                 } else if ("stop".equals(action)) {
                     msgJson = "{\"type\":\"STOP\",\"mediaSessionId\":" + activeMediaSessionId + ",\"requestId\":" + reqId + "}";
                     notifyUser("⏹️ Stopped TV Cast");
-                } else if ("seek".equals(action)) {
-                    double sec = 0.0;
-                    try { sec = Double.parseDouble(value); } catch (Exception ignored) {}
-                    msgJson = "{\"type\":\"SEEK\",\"currentTime\":" + Math.max(0.0, sec) + ",\"mediaSessionId\":" + activeMediaSessionId + ",\"requestId\":" + reqId + "}";
-                    notifyUser("⏩ Seeked to " + (int) sec + "s on TV");
+                } else if ("seek".equals(action) || "seek_relative".equals(action)) {
+                    double targetSec = 0.0;
+                    if ("seek_relative".equals(action) || (value != null && (value.startsWith("+") || value.startsWith("-")))) {
+                        double delta = Double.parseDouble(value);
+                        targetSec = Math.max(0.0, liveTvCurrentTime + delta);
+                        notifyUser((delta < 0 ? "⏪ Rewound " + (int)Math.abs(delta) : "⏩ Forward " + (int)delta) + "s on TV");
+                    } else {
+                        targetSec = Math.max(0.0, Double.parseDouble(value));
+                        notifyUser("⏩ Seeked to " + (int) targetSec + "s on TV");
+                    }
+                    liveTvCurrentTime = targetSec;
+                    msgJson = "{\"type\":\"SEEK\",\"currentTime\":" + targetSec + ",\"mediaSessionId\":" + activeMediaSessionId + ",\"requestId\":" + reqId + "}";
                 }
                 if (msgJson != null) {
                     synchronized (MainActivity.this) {
@@ -714,20 +765,16 @@ public class MainActivity extends Activity {
                 sendCastMsg(o, "sender-0", tid, "urn:x-cast:com.google.cast.tp.connection", "{\"type\":\"CONNECT\"}");
                 sendCastMsg(o, "sender-0", tid, "urn:x-cast:com.google.cast.media", "{\"type\":\"GET_STATUS\",\"requestId\":2}");
                 long waitSt = System.currentTimeMillis();
-                while (System.currentTimeMillis() - waitSt < 1200) {
+                while (System.currentTimeMillis() - waitSt < 2000) {
                     try {
                         byte[] raw = readCastMsg(i);
                         if (raw == null) break;
                         String text = new String(raw, "UTF-8");
-                        int mIdx = text.indexOf("\"mediaSessionId\":");
-                        if (mIdx != -1) {
-                            int start = mIdx + 17;
-                            int end = start;
-                            while (end < text.length() && Character.isDigit(text.charAt(end))) end++;
-                            if (end > start) {
-                                activeMediaSessionId = Integer.parseInt(text.substring(start, end));
-                                break;
-                            }
+                        MediaStatusInfo st = parseMediaStatus(text);
+                        if (st != null && st.mediaSessionId > 0) {
+                            activeMediaSessionId = st.mediaSessionId;
+                            liveTvCurrentTime = st.currentTime;
+                            break;
                         }
                     } catch (Exception ignored) { break; }
                 }
@@ -736,15 +783,28 @@ public class MainActivity extends Activity {
                 if ("speed".equals(action) || "rate".equals(action)) {
                     double r = Double.parseDouble(value);
                     payload = "{\"type\":\"SET_PLAYBACK_RATE\",\"playbackRate\":" + r + ",\"mediaSessionId\":" + activeMediaSessionId + ",\"requestId\":" + reqId + "}";
+                    notifyUser("⚡ Playback Speed: " + value + "x on TV");
                 } else if ("play".equals(action)) {
                     payload = "{\"type\":\"PLAY\",\"mediaSessionId\":" + activeMediaSessionId + ",\"requestId\":" + reqId + "}";
+                    notifyUser("▶️ Playing on TV");
                 } else if ("pause".equals(action)) {
                     payload = "{\"type\":\"PAUSE\",\"mediaSessionId\":" + activeMediaSessionId + ",\"requestId\":" + reqId + "}";
+                    notifyUser("⏸️ Paused on TV");
                 } else if ("stop".equals(action)) {
                     payload = "{\"type\":\"STOP\",\"mediaSessionId\":" + activeMediaSessionId + ",\"requestId\":" + reqId + "}";
-                } else if ("seek".equals(action)) {
-                    double sec = Double.parseDouble(value);
-                    payload = "{\"type\":\"SEEK\",\"currentTime\":" + sec + ",\"mediaSessionId\":" + activeMediaSessionId + ",\"requestId\":" + reqId + "}";
+                    notifyUser("⏹️ Stopped TV Cast");
+                } else if ("seek".equals(action) || "seek_relative".equals(action)) {
+                    double targetSec = 0.0;
+                    if ("seek_relative".equals(action) || (value != null && (value.startsWith("+") || value.startsWith("-")))) {
+                        double delta = Double.parseDouble(value);
+                        targetSec = Math.max(0.0, liveTvCurrentTime + delta);
+                        notifyUser((delta < 0 ? "⏪ Rewound " + (int)Math.abs(delta) : "⏩ Forward " + (int)delta) + "s on TV");
+                    } else {
+                        targetSec = Math.max(0.0, Double.parseDouble(value));
+                        notifyUser("⏩ Seeked to " + (int) targetSec + "s on TV");
+                    }
+                    liveTvCurrentTime = targetSec;
+                    payload = "{\"type\":\"SEEK\",\"currentTime\":" + targetSec + ",\"mediaSessionId\":" + activeMediaSessionId + ",\"requestId\":" + reqId + "}";
                 }
                 if (payload != null) {
                     sendCastMsg(o, "sender-0", tid, "urn:x-cast:com.google.cast.media", payload);
@@ -767,6 +827,15 @@ public class MainActivity extends Activity {
 
         // 2. Google Cast Protocol for TCL Smart TV Pro (192.168.50.205:8009) & Google TVs
         if (type.contains("google_tv") || targetIp.endsWith(".205") || targetIp.endsWith(".3")) {
+            // For 100% ad-free playback, ALWAYS prefer streaming clean Ad-Shield proxied media via CC1AD845!
+            if (streamUrl != null && !streamUrl.isEmpty()) {
+                notifyUser("⚡ Streaming 100% Ad-Free to TCL Smart TV Pro...");
+                boolean castOk = castToGoogleTv(targetIp, streamUrl, title);
+                if (castOk) {
+                    notifyUser("🎉 Now Playing " + title + " on TCL Smart TV Pro!");
+                    return;
+                }
+            }
             if (youtubeId != null && !youtubeId.isEmpty()) {
                 notifyUser("Launching YouTube on TCL Smart TV Pro...");
                 boolean ytOk = castYouTubeToGoogleTv(targetIp, youtubeId);
@@ -774,12 +843,6 @@ public class MainActivity extends Activity {
                     notifyUser("🎉 Playing YouTube on TCL Smart TV Pro!");
                     return;
                 }
-            }
-            notifyUser("Connecting to TCL Smart TV Pro via Cast V2...");
-            boolean castOk = castToGoogleTv(targetIp, streamUrl, title);
-            if (castOk) {
-                notifyUser("🎉 Now Playing " + title + " on TCL Smart TV Pro!");
-                return;
             }
         }
 
@@ -982,16 +1045,10 @@ public class MainActivity extends Activity {
                                 byte[] raw = readCastMsg(activeIn);
                                 if (raw != null) {
                                     String text = new String(raw, "UTF-8");
-                                    int mIdx = text.indexOf("\"mediaSessionId\":");
-                                    if (mIdx != -1) {
-                                        int start = mIdx + 17;
-                                        int end = start;
-                                        while (end < text.length() && Character.isDigit(text.charAt(end))) end++;
-                                        if (end > start) {
-                                            try {
-                                                activeMediaSessionId = Integer.parseInt(text.substring(start, end));
-                                            } catch (Exception ignored) {}
-                                        }
+                                    MediaStatusInfo st = parseMediaStatus(text);
+                                    if (st != null && st.mediaSessionId > 0) {
+                                        activeMediaSessionId = st.mediaSessionId;
+                                        liveTvCurrentTime = st.currentTime;
                                     }
                                     if (text.contains("\"PING\"")) {
                                         synchronized (MainActivity.this) {
