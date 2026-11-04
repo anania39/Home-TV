@@ -1,6 +1,6 @@
 #!/bin/bash
 set -e
-echo '=== Building Fully Capable Standalone TV Hub Android APK (v6.5.0) ==='
+echo '=== Building Fully Autonomous TV Hub Android Host App (v7.0.0) ==='
 
 BUILD_DIR=/home/ubuntu/tvhub_apk_build
 rm -rf $BUILD_DIR
@@ -70,8 +70,8 @@ cat << 'MANIFEST' > $BUILD_DIR/AndroidManifest.xml
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     package="com.tvhub.app"
-    android:versionCode="650"
-    android:versionName="6.5.0">
+    android:versionCode="700"
+    android:versionName="7.0.0">
 
     <uses-sdk android:minSdkVersion="26" android:targetSdkVersion="34" />
 
@@ -105,15 +105,13 @@ cat << 'MANIFEST' > $BUILD_DIR/AndroidManifest.xml
 </manifest>
 MANIFEST
 
-# 5. MainActivity.java with Native DLNA, DIAL & Cast Controller
+# 5. MainActivity.java with Complete Native Google Cast V2 + DLNA + DIAL Controller
 cat << 'JAVA' > $BUILD_DIR/src/com/tvhub/app/MainActivity.java
 package com.tvhub.app;
 
 import android.app.Activity;
 import android.content.Context;
-import android.content.Intent;
 import android.content.pm.ActivityInfo;
-import android.net.Uri;
 import android.net.wifi.WifiManager;
 import android.os.Bundle;
 import android.os.Handler;
@@ -131,12 +129,20 @@ import android.webkit.WebViewClient;
 import android.widget.FrameLayout;
 import android.widget.Toast;
 
+import java.io.ByteArrayOutputStream;
+import java.io.InputStream;
 import java.io.OutputStream;
 import java.net.DatagramPacket;
 import java.net.DatagramSocket;
 import java.net.HttpURLConnection;
 import java.net.InetAddress;
 import java.net.URL;
+import java.security.SecureRandom;
+import java.security.cert.X509Certificate;
+import javax.net.ssl.SSLContext;
+import javax.net.ssl.SSLSocket;
+import javax.net.ssl.TrustManager;
+import javax.net.ssl.X509TrustManager;
 
 public class MainActivity extends Activity {
     private WebView webView;
@@ -198,9 +204,9 @@ public class MainActivity extends Activity {
         settings.setBuiltInZoomControls(true);
         settings.setDisplayZoomControls(false);
         settings.setCacheMode(WebSettings.LOAD_DEFAULT);
-        settings.setUserAgentString("Mozilla/5.0 (Linux; Android 14; Pixel 8) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Mobile Safari/537.36 TVHubNativeApp/6.5");
+        settings.setUserAgentString("Mozilla/5.0 (Linux; Android 14; Pixel 8) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Mobile Safari/537.36 TVHubHostApp/7.0");
 
-        // Expose Native TV Hub Android Bridge
+        // Expose Native TV Hub Android Host Bridge
         webView.addJavascriptInterface(new TVHubBridge(), "TVHubAndroid");
 
         webView.setWebViewClient(new WebViewClient() {
@@ -258,7 +264,7 @@ public class MainActivity extends Activity {
         webView.loadUrl("https://tvhub.92.5.71.162.sslip.io");
     }
 
-    // --- Native Android Bridge Exposed to JavaScript ---
+    // --- Native Android Host Bridge Exposed to JavaScript ---
     public class TVHubBridge {
         @JavascriptInterface
         public boolean isNativeApp() {
@@ -276,6 +282,16 @@ public class MainActivity extends Activity {
         }
 
         @JavascriptInterface
+        public void sendWakeOnLan() {
+            new Thread(new Runnable() {
+                @Override
+                public void run() {
+                    sendWakeOnLanPacket();
+                }
+            }).start();
+        }
+
+        @JavascriptInterface
         public void castToTv(final String ip, final String devType, final String streamUrl, final String title, final String mimeType, final String youtubeId) {
             new Thread(new Runnable() {
                 @Override
@@ -284,84 +300,59 @@ public class MainActivity extends Activity {
                 }
             }).start();
         }
-
-        @JavascriptInterface
-        public void showSystemCastPicker(final String streamUrl, final String title, final String mimeType) {
-            mainHandler.post(new Runnable() {
-                @Override
-                public void run() {
-                    try {
-                        Intent intent = new Intent(Intent.ACTION_VIEW);
-                        intent.setDataAndType(Uri.parse(streamUrl), (mimeType != null && !mimeType.isEmpty()) ? mimeType : "video/mp4");
-                        intent.putExtra("title", title);
-                        intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
-                        startActivity(Intent.createChooser(intent, "Cast " + title + " to TV"));
-                    } catch (Exception e) {
-                        toast("Cast Notice: " + e.getMessage());
-                    }
-                }
-            });
-        }
     }
 
     private void performDirectCast(String ip, String devType, String streamUrl, String title, String mimeType, String youtubeId) {
-        String targetIp = (ip != null && !ip.isEmpty()) ? ip : "192.168.50.249";
+        String targetIp = (ip != null && !ip.isEmpty()) ? ip : "192.168.50.205";
         String type = (devType != null) ? devType.toLowerCase() : "";
 
         // 1. Wake TV from standby
-        sendWakeOnLan();
+        sendWakeOnLanPacket();
 
-        // 2. DIAL YouTube launch (Opens YouTube app on TV directly in 4K with 0 ads)
+        // 2. DIAL YouTube launch (Directly opens YouTube app on TV in 4K with 0 ads)
         if (youtubeId != null && !youtubeId.isEmpty()) {
             boolean dialOk = launchDialYouTube(targetIp, youtubeId);
             if (dialOk) {
-                notifyUser("Playing YouTube on " + (type.contains("hisense") ? "Hisense VIDAA TV" : "TCL Smart TV Pro") + "!");
+                notifyUser("Playing YouTube on " + (targetIp.endsWith(".249") ? "Hisense VIDAA TV" : "TCL Smart TV Pro") + "!");
                 return;
             }
         }
 
-        // 3. DLNA AVTransport for Hisense VIDAA TV
-        if (type.contains("hisense") || targetIp.endsWith(".249")) {
-            String controlUrl = "http://" + targetIp + ":38400/upnp/control/mingusavtr";
-            boolean ok = sendDlnaCast(controlUrl, streamUrl, title);
-            if (ok) {
-                notifyUser("Playing " + title + " on Hisense TV!");
-                return;
-            }
-        }
-
-        // 4. TCL Google TV / Universal Smart TV DLNA
+        // 3. Google Cast V2 Protocol (TCL Smart TV Pro 192.168.50.205:8009 & Google TVs)
         if (type.contains("google_tv") || targetIp.endsWith(".205") || targetIp.endsWith(".3")) {
-            boolean ok = sendDlnaCast("http://" + targetIp + ":8008/upnp/control/AVTransport", streamUrl, title);
-            if (!ok) {
-                // Launch Android native stream / Cast intent sheet
-                mainHandler.post(new Runnable() {
-                    @Override
-                    public void run() {
-                        try {
-                            Intent intent = new Intent(Intent.ACTION_VIEW);
-                            intent.setDataAndType(Uri.parse(streamUrl), streamUrl.contains(".m3u8") ? "application/vnd.apple.mpegurl" : "video/mp4");
-                            intent.putExtra("title", title);
-                            intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
-                            startActivity(Intent.createChooser(intent, "Cast " + title + " to TV"));
-                        } catch (Exception e) {
-                            e.printStackTrace();
-                        }
-                    }
-                });
+            notifyUser("Connecting to TCL Smart TV Pro via Cast V2...");
+            boolean castOk = castToGoogleTv(targetIp, streamUrl, title);
+            if (castOk) {
+                notifyUser("🎉 Now Playing " + title + " on TCL Smart TV Pro!");
                 return;
             }
-            notifyUser("Playing " + title + " on TCL TV!");
+        }
+
+        // 4. DLNA AVTransport for Hisense VIDAA TV (192.168.50.249:38400)
+        if (type.contains("hisense") || targetIp.endsWith(".249")) {
+            notifyUser("Connecting to Hisense VIDAA TV via DLNA...");
+            String controlUrl = "http://" + targetIp + ":38400/upnp/control/mingusavtr";
+            boolean dlnaOk = sendDlnaCast(controlUrl, streamUrl, title);
+            if (dlnaOk) {
+                notifyUser("🎉 Now Playing " + title + " on Hisense TV!");
+                return;
+            }
+        }
+
+        // 5. Universal Fallback (Try Google Cast V2 port 8009 then DLNA port 38400)
+        boolean castFallback = castToGoogleTv(targetIp, streamUrl, title);
+        if (castFallback) {
+            notifyUser("🎉 Playing " + title + " on Smart TV!");
             return;
         }
 
-        // Universal Fallback DLNA
-        boolean ok = sendDlnaCast("http://" + targetIp + ":38400/upnp/control/mingusavtr", streamUrl, title);
-        if (ok) {
-            notifyUser("Playing " + title + " on TV!");
-        } else {
-            notifyUser("Sent signal to TV. If TV is off, power on your TV.");
+        boolean dlnaFallback = sendDlnaCast("http://" + targetIp + ":38400/upnp/control/mingusavtr", streamUrl, title);
+        if (dlnaFallback) {
+            notifyUser("🎉 Playing " + title + " on TV!");
+            return;
         }
+
+        notifyUser("⚡ Power signal sent. If TV was off, please turn it on.");
     }
 
     private void notifyUser(final String msg) {
@@ -373,6 +364,118 @@ public class MainActivity extends Activity {
         });
     }
 
+    // --- Google Cast V2 TLS Engine (Port 8009) ---
+    private boolean castToGoogleTv(String ip, String streamUrl, String title) {
+        try {
+            TrustManager[] trustAll = new TrustManager[]{
+                new X509TrustManager() {
+                    public X509Certificate[] getAcceptedIssuers() { return new X509Certificate[0]; }
+                    public void checkClientTrusted(X509Certificate[] c, String a) {}
+                    public void checkServerTrusted(X509Certificate[] c, String a) {}
+                }
+            };
+            SSLContext sc = SSLContext.getInstance("TLS");
+            sc.init(null, trustAll, new SecureRandom());
+            SSLSocket socket = (SSLSocket) sc.getSocketFactory().createSocket(ip, 8009);
+            socket.setSoTimeout(4500);
+            socket.startHandshake();
+
+            OutputStream out = socket.getOutputStream();
+            InputStream in = socket.getInputStream();
+
+            // 1. Send CONNECT to receiver-0
+            sendCastMsg(out, "sender-0", "receiver-0", "urn:x-cast:com.google.cast.tp.connection", "{\"type\":\"CONNECT\"}");
+
+            // 2. Launch Default Media Receiver (CC1AD845)
+            sendCastMsg(out, "sender-0", "receiver-0", "urn:x-cast:com.google.cast.receiver", "{\"type\":\"LAUNCH\",\"appId\":\"CC1AD845\",\"requestId\":1}");
+
+            // 3. Read response for transportId
+            String transportId = "web-1";
+            for (int i = 0; i < 15; i++) {
+                byte[] raw = readCastMsg(in);
+                if (raw == null) break;
+                String text = new String(raw, "UTF-8");
+                int idx = text.indexOf("\"transportId\":\"");
+                if (idx != -1) {
+                    int endIdx = text.indexOf("\"", idx + 15);
+                    if (endIdx != -1) {
+                        transportId = text.substring(idx + 15, endIdx);
+                        break;
+                    }
+                }
+                try { Thread.sleep(60); } catch (Exception ignored) {}
+            }
+
+            // 4. Connect to media transport
+            sendCastMsg(out, "sender-0", transportId, "urn:x-cast:com.google.cast.tp.connection", "{\"type\":\"CONNECT\"}");
+
+            // 5. Send LOAD
+            boolean isHls = streamUrl.contains(".m3u8");
+            String mime = isHls ? "application/x-mpegurl" : "video/mp4";
+            String loadJson = "{\"type\":\"LOAD\",\"requestId\":2,\"autoplay\":true,\"media\":{\"contentId\":\"" + escapeJson(streamUrl) + "\",\"streamType\":\"LIVE\",\"contentType\":\"" + mime + "\",\"metadata\":{\"metadataType\":0,\"title\":\"" + escapeJson(title) + "\"}}}";
+            sendCastMsg(out, "sender-0", transportId, "urn:x-cast:com.google.cast.media", loadJson);
+
+            try { Thread.sleep(500); } catch (Exception ignored) {}
+            socket.close();
+            return true;
+        } catch (Exception e) {
+            e.printStackTrace();
+            return false;
+        }
+    }
+
+    private static void sendCastMsg(OutputStream out, String src, String dst, String ns, String payload) throws Exception {
+        ByteArrayOutputStream baos = new ByteArrayOutputStream();
+        baos.write(new byte[]{0x08, 0x00});
+        writeField(baos, 2, src);
+        writeField(baos, 3, dst);
+        writeField(baos, 4, ns);
+        baos.write(new byte[]{0x28, 0x00});
+        writeField(baos, 6, payload);
+
+        byte[] body = baos.toByteArray();
+        int len = body.length;
+        out.write((len >> 24) & 0xff);
+        out.write((len >> 16) & 0xff);
+        out.write((len >> 8) & 0xff);
+        out.write(len & 0xff);
+        out.write(body);
+        out.flush();
+    }
+
+    private static void writeField(ByteArrayOutputStream out, int fieldNum, String val) throws Exception {
+        byte[] b = val.getBytes("UTF-8");
+        out.write((fieldNum << 3) | 2);
+        int n = b.length;
+        while ((n & ~0x7F) != 0) {
+            out.write((n & 0x7F) | 0x80);
+            n >>>= 7;
+        }
+        out.write(n);
+        out.write(b);
+    }
+
+    private static byte[] readCastMsg(InputStream in) throws Exception {
+        byte[] hdr = new byte[4];
+        int read = 0;
+        while (read < 4) {
+            int r = in.read(hdr, read, 4 - read);
+            if (r < 0) return null;
+            read += r;
+        }
+        int len = ((hdr[0] & 0xff) << 24) | ((hdr[1] & 0xff) << 16) | ((hdr[2] & 0xff) << 8) | (hdr[3] & 0xff);
+        if (len <= 0 || len > 65536) return null;
+        byte[] body = new byte[len];
+        int bodyRead = 0;
+        while (bodyRead < len) {
+            int r = in.read(body, bodyRead, len - bodyRead);
+            if (r < 0) return null;
+            bodyRead += r;
+        }
+        return body;
+    }
+
+    // --- DIAL YouTube Engine (Port 8008 / 56789 / 7676) ---
     private boolean launchDialYouTube(String ip, String vidId) {
         int[] ports = new int[]{8008, 56789, 7676};
         for (int p : ports) {
@@ -398,6 +501,7 @@ public class MainActivity extends Activity {
         return false;
     }
 
+    // --- DLNA AVTransport Engine (Port 38400) ---
     private boolean sendDlnaCast(String controlUrl, String mediaUrl, String title) {
         try {
             boolean isHls = mediaUrl.contains(".m3u8");
@@ -462,37 +566,38 @@ public class MainActivity extends Activity {
         }
     }
 
-    private void sendWakeOnLan() {
-        new Thread(new Runnable() {
-            @Override
-            public void run() {
-                String[] macs = new String[]{"18:30:0c:9e:7e:fc", "3c:c5:dd:00:00:00", "ffffffffffff"};
-                for (String mac : macs) {
-                    try {
-                        String clean = mac.replace(":", "").replace("-", "");
-                        if (clean.length() != 12) continue;
-                        byte[] macBytes = new byte[6];
-                        for (int i = 0; i < 6; i++) {
-                            macBytes[i] = (byte) Integer.parseInt(clean.substring(i * 2, i * 2 + 2), 16);
-                        }
-                        byte[] bytes = new byte[102];
-                        for (int i = 0; i < 6; i++) bytes[i] = (byte) 0xff;
-                        for (int i = 6; i < 102; i++) bytes[i] = macBytes[i % 6];
-
-                        DatagramSocket socket = new DatagramSocket();
-                        socket.setBroadcast(true);
-                        DatagramPacket packet = new DatagramPacket(bytes, bytes.length, InetAddress.getByName("255.255.255.255"), 9);
-                        socket.send(packet);
-                        socket.close();
-                    } catch (Exception ignored) {}
+    // --- Wake-on-LAN UDP Broadcast ---
+    private void sendWakeOnLanPacket() {
+        String[] macs = new String[]{"18:30:0c:9e:7e:fc", "3c:c5:dd:00:00:00", "ffffffffffff"};
+        for (String mac : macs) {
+            try {
+                String clean = mac.replace(":", "").replace("-", "");
+                if (clean.length() != 12) continue;
+                byte[] macBytes = new byte[6];
+                for (int i = 0; i < 6; i++) {
+                    macBytes[i] = (byte) Integer.parseInt(clean.substring(i * 2, i * 2 + 2), 16);
                 }
-            }
-        }).start();
+                byte[] bytes = new byte[102];
+                for (int i = 0; i < 6; i++) bytes[i] = (byte) 0xff;
+                for (int i = 6; i < 102; i++) bytes[i] = macBytes[i % 6];
+
+                DatagramSocket socket = new DatagramSocket();
+                socket.setBroadcast(true);
+                DatagramPacket packet = new DatagramPacket(bytes, bytes.length, InetAddress.getByName("255.255.255.255"), 9);
+                socket.send(packet);
+                socket.close();
+            } catch (Exception ignored) {}
+        }
     }
 
-    private String escapeXml(String s) {
+    private static String escapeXml(String s) {
         if (s == null) return "";
         return s.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;").replace("\"", "&quot;").replace("'", "&apos;");
+    }
+
+    private static String escapeJson(String s) {
+        if (s == null) return "";
+        return s.replace("\\", "\\\\").replace("\"", "\\\"").replace("\n", "\\n").replace("\r", "\\r");
     }
 
     @Override
@@ -554,5 +659,5 @@ apksigner verify --verbose $BUILD_DIR/TVHub.apk
 cp $BUILD_DIR/TVHub.apk /home/ubuntu/Home-TV/static/TVHub.apk
 cp $BUILD_DIR/TVHub.apk /home/ubuntu/Home-TV/TVHub.apk
 
-echo '=== Done! Standalone APK successfully created at /home/ubuntu/Home-TV/TVHub.apk ==='
+echo '=== Done! Autonomous Host APK successfully created at /home/ubuntu/Home-TV/TVHub.apk ==='
 ls -lh /home/ubuntu/Home-TV/TVHub.apk
