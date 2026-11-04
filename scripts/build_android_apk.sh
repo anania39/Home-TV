@@ -1,6 +1,6 @@
 #!/bin/bash
 set -e
-echo '=== Building Fully Autonomous TV Hub Android Host App (v7.5.0) ==='
+echo '=== Building Fully Autonomous TV Hub Android Host App (v7.6.0) ==='
 
 BUILD_DIR=/home/ubuntu/tvhub_apk_build
 rm -rf $BUILD_DIR
@@ -71,8 +71,8 @@ cat << 'MANIFEST' > $BUILD_DIR/AndroidManifest.xml
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     package="com.tvhub.app"
-    android:versionCode="750"
-    android:versionName="7.5.0">
+    android:versionCode="760"
+    android:versionName="7.6.0">
 
     <uses-sdk android:minSdkVersion="26" android:targetSdkVersion="34" />
 
@@ -229,7 +229,7 @@ public class MainActivity extends Activity {
         settings.setBuiltInZoomControls(true);
         settings.setDisplayZoomControls(false);
         settings.setCacheMode(WebSettings.LOAD_NO_CACHE);
-        settings.setUserAgentString("Mozilla/5.0 (Linux; Android 14; Pixel 8) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Mobile Safari/537.36 TVHubHostApp/7.5");
+        settings.setUserAgentString("Mozilla/5.0 (Linux; Android 14; Pixel 8) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Mobile Safari/537.36 TVHubHostApp/7.6");
 
         // Expose Native TV Hub Android Host Bridge
         webView.addJavascriptInterface(new TVHubBridge(), "TVHubAndroid");
@@ -246,7 +246,7 @@ public class MainActivity extends Activity {
                 view.postDelayed(new Runnable() {
                     @Override
                     public void run() {
-                        view.loadUrl("https://tvhub.92.5.71.162.sslip.io?v=7.5.0");
+                        view.loadUrl("https://tvhub.92.5.71.162.sslip.io?v=7.6.0");
                     }
                 }, 2000);
             }
@@ -286,7 +286,7 @@ public class MainActivity extends Activity {
             }
         });
 
-        webView.loadUrl("https://tvhub.92.5.71.162.sslip.io?v=7.5.0");
+        webView.loadUrl("https://tvhub.92.5.71.162.sslip.io?v=7.6.0");
     }
 
     // --- Native Android Host Bridge Exposed to JavaScript ---
@@ -331,6 +331,15 @@ public class MainActivity extends Activity {
         String targetIp = (ip != null && !ip.isEmpty()) ? ip : "192.168.50.205";
         if (streamUrl != null && streamUrl.startsWith("/")) {
             streamUrl = "https://tvhub.92.5.71.162.sslip.io" + streamUrl;
+        }
+        if (streamUrl != null && streamUrl.contains("googlevideo.com") && streamUrl.contains("/proxy?url=")) {
+            int qIdx = streamUrl.indexOf("url=");
+            if (qIdx != -1) {
+                String sub = streamUrl.substring(qIdx + 4);
+                try {
+                    streamUrl = java.net.URLDecoder.decode(sub, "UTF-8");
+                } catch (Exception ignored) {}
+            }
         }
         String type = (devType != null) ? devType.toLowerCase() : "";
 

@@ -46,6 +46,14 @@ function makeCastPlayableUrl(rawUrl) {
   if (!rawUrl) return "";
   const cloudHost = "https://tvhub.92.5.71.162.sslip.io";
   let full = rawUrl.trim();
+  // YouTube and GoogleVideo streams are signed with client IP; TV fetches them directly from Google without VPS proxy
+  if (full.includes("googlevideo.com")) {
+    if (full.includes("/proxy?url=")) {
+      const match = full.match(/[?&]url=([^&]+)/);
+      if (match) return decodeURIComponent(match[1]);
+    }
+    return full;
+  }
   if (full.startsWith("/")) {
     full = `${cloudHost}${full}`;
   } else if (!full.startsWith("http://") && !full.startsWith("https://")) {
@@ -1067,7 +1075,7 @@ function renderChannels() {
       <div class="channel-logo-container">
         ${logoHtml}
         <span class="channel-card-glow"></span>
-        <button class="channel-phone-play-btn" title="Watch on Phone" data-play-phone="${ch.id}">📱</button>
+        
       </div>
       <div class="channel-name" title="${ch.name}">${ch.name}</div>
       <div class="channel-badge-row">
@@ -1472,7 +1480,8 @@ async function executeUniversalCast(url, title = "") {
       if (res.ok) {
         const data = await res.json();
         if (data.resolved && data.stream_url) {
-          playUrl = data.stream_url.includes("/proxy?url=") ? data.stream_url : `https://tvhub.92.5.71.162.sslip.io/proxy?url=${encodeURIComponent(data.stream_url)}`;
+          // Pass direct stream_url for googlevideo so TV fetches directly from Google CDN with matching IP token
+          playUrl = data.stream_url;
           playTitle = data.title || playTitle;
           mimeType = data.mime_type || "application/x-mpegurl";
         }
@@ -3859,6 +3868,11 @@ let inAppHls = null;
 let activeInAppChannel = null;
 
 function openInAppPlayer(channel) {
+  if (window.TVHubAndroid && typeof window.TVHubAndroid.isNativeApp === "function" && window.TVHubAndroid.isNativeApp()) {
+    // In native app, NEVER play on phone - ALWAYS cast to TV!
+    castChannel(channel);
+    return;
+  }
   const modal = document.getElementById("modal-inapp-player");
   const video = document.getElementById("inapp-video");
   const title = document.getElementById("inapp-channel-name");
