@@ -1268,6 +1268,7 @@ async function sendPlaybackAction(action, value = null, extra = {}) {
   if (window.TVHubAndroid && typeof window.TVHubAndroid.controlPlayback === "function") {
     try {
       window.TVHubAndroid.controlPlayback(action, String(value || ""));
+      return; // Return immediately to prevent duplicate/conflicting pychromecast commands on backend
     } catch (e) {
       console.warn("Native controlPlayback notice:", e);
     }
@@ -1344,7 +1345,7 @@ async function handleCastUrlInput(val) {
         const data = await res.json();
         if (data.resolved) {
           window.activeResolvedData = data;
-          if (castTitleInput && (!castTitleInput.value || castTitleInput.value === "Video Stream" || castTitleInput.value === "YouTube Video" || castTitleInput.value === "Live Stream")) {
+          if (castTitleInput && data.title) {
             castTitleInput.value = data.title;
           }
           if (castPreviewBox) {
@@ -1529,10 +1530,12 @@ async function executeUniversalCast(url, title = "") {
     }
     if (resolvedInfo && resolvedInfo.stream_url) {
       playUrl = resolvedInfo.stream_url;
-      playTitle = resolvedInfo.title || playTitle;
+      if (resolvedInfo.title) {
+        playTitle = resolvedInfo.title;
+      }
       mimeType = resolvedInfo.mime_type || (playUrl.includes(".m3u8") ? "application/x-mpegurl" : "video/mp4");
       if (resolvedInfo.youtube_id) ytId = resolvedInfo.youtube_id;
-      if (castTitleInput) castTitleInput.value = playTitle;
+      if (castTitleInput && resolvedInfo.title) castTitleInput.value = resolvedInfo.title;
     }
   }
 
@@ -1540,7 +1543,12 @@ async function executeUniversalCast(url, title = "") {
   if (window.TVHubAndroid && typeof window.TVHubAndroid.isNativeApp === "function" && window.TVHubAndroid.isNativeApp()) {
     const target = resolveSelectedTarget(state.currentTvId);
     showToast(`Casting to ${target.name}...`);
-    window.TVHubAndroid.castToTv(target.ip, target.dev_type, makeCastPlayableUrl(playUrl), playTitle, mimeType, ytId);
+    const useProxy = castUseProxy ? castUseProxy.checked : true;
+    let targetCastUrl = makeCastPlayableUrl(playUrl);
+    if (useProxy && !targetCastUrl.includes("/proxy?url=") && !targetCastUrl.includes("googlevideo.com") && (detectUrlType(url) === "movie" || resolvedInfo?.source_type === "movie_platform")) {
+      targetCastUrl = `https://tvhub.92.5.71.162.sslip.io/proxy?url=${encodeURIComponent(targetCastUrl)}`;
+    }
+    window.TVHubAndroid.castToTv(target.ip, target.dev_type, targetCastUrl, playTitle, mimeType, ytId);
     state.currentTitle = playTitle;
     state.playbackState = "PLAYING";
     const barTitle = document.getElementById("bar-title");
@@ -3303,16 +3311,14 @@ function updateActiveCastDeck(info) {
   const qSelect = document.getElementById("deck-quality-select");
   if (qSelect) {
     if (info.quality_urls) activeDeckQualityUrls = info.quality_urls;
-    if (qSelect.options.length <= 1) {
-      const curVal = qSelect.value;
-      qSelect.innerHTML = '<option value="Auto">Auto (Adaptive HD)</option>' +
-                          '<option value="1080p">1080p (Full HD)</option>' +
-                          '<option value="720p">720p (HD)</option>' +
-                          '<option value="480p">480p (SD)</option>' +
-                          '<option value="360p">360p (Data Saver)</option>';
-      if (curVal && Array.from(qSelect.options).some(o => o.value === curVal)) {
-        qSelect.value = curVal;
-      }
+    const curVal = qSelect.value;
+    qSelect.innerHTML = '<option value="Auto">Auto (Adaptive HD)</option>' +
+                        '<option value="1080p">1080p (Full HD)</option>' +
+                        '<option value="720p">720p (HD)</option>' +
+                        '<option value="480p">480p (SD)</option>' +
+                        '<option value="360p">360p (Data Saver)</option>';
+    if (curVal && Array.from(qSelect.options).some(o => o.value === curVal)) {
+      qSelect.value = curVal;
     }
   }
 

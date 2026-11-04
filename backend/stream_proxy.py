@@ -508,6 +508,9 @@ async def proxy_stream(url: str, request: Request, server_host: str):
         headers["Origin"] = "https://www.televizia.org"
     elif "cinerama" in url:
         headers["Referer"] = "https://cinerama.uz/"
+    elif "googlevideo.com" in url or "youtube.com" in url or "ytimg.com" in url:
+        headers["Referer"] = "https://www.youtube.com/"
+        headers["Origin"] = "https://www.youtube.com"
 
     # Scheme detection: enforce HTTPS for SSL domains and cloud proxies to prevent Chromecast Mixed Content errors
     is_https = (

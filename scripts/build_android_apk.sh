@@ -71,8 +71,8 @@ cat << 'MANIFEST' > $BUILD_DIR/AndroidManifest.xml
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     package="com.tvhub.app"
-    android:versionCode="783"
-    android:versionName="7.8.3">
+    android:versionCode="784"
+    android:versionName="7.8.4">
 
     <uses-sdk android:minSdkVersion="26" android:targetSdkVersion="34" />
 
@@ -279,7 +279,7 @@ public class MainActivity extends Activity {
         settings.setBuiltInZoomControls(true);
         settings.setDisplayZoomControls(false);
         settings.setCacheMode(WebSettings.LOAD_NO_CACHE);
-        settings.setUserAgentString("Mozilla/5.0 (Linux; Android 14; Pixel 8) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Mobile Safari/537.36 TVHubHostApp/7.8.3");
+        settings.setUserAgentString("Mozilla/5.0 (Linux; Android 14; Pixel 8) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Mobile Safari/537.36 TVHubHostApp/7.8.4");
 
         // Expose Native TV Hub Android Host Bridge
         webView.addJavascriptInterface(new TVHubBridge(), "TVHubAndroid");
@@ -296,7 +296,7 @@ public class MainActivity extends Activity {
                 view.postDelayed(new Runnable() {
                     @Override
                     public void run() {
-                        view.loadUrl("https://tvhub.92.5.71.162.sslip.io?v=7.8.3");
+                        view.loadUrl("https://tvhub.92.5.71.162.sslip.io?v=7.8.4");
                     }
                 }, 2000);
             }
@@ -336,7 +336,7 @@ public class MainActivity extends Activity {
             }
         });
 
-        webView.loadUrl("https://tvhub.92.5.71.162.sslip.io?v=7.8.3");
+        webView.loadUrl("https://tvhub.92.5.71.162.sslip.io?v=7.8.4");
     }
 
     // --- Native Android Host Bridge Exposed to JavaScript ---
@@ -753,15 +753,7 @@ public class MainActivity extends Activity {
         if (streamUrl != null && streamUrl.startsWith("/")) {
             streamUrl = "https://tvhub.92.5.71.162.sslip.io" + streamUrl;
         }
-        if (streamUrl != null && streamUrl.contains("googlevideo.com") && streamUrl.contains("/proxy?url=")) {
-            int qIdx = streamUrl.indexOf("url=");
-            if (qIdx != -1) {
-                String sub = streamUrl.substring(qIdx + 4);
-                try {
-                    streamUrl = java.net.URLDecoder.decode(sub, "UTF-8");
-                } catch (Exception ignored) {}
-            }
-        }
+        // Retain Ad-Shield Proxy for all media (including YouTube and movie platforms) so headers/anti-bot are handled cleanly
         String type = (devType != null) ? devType.toLowerCase() : "";
 
         // 1. Wake TV from standby via direct local UDP magic packet
@@ -769,7 +761,15 @@ public class MainActivity extends Activity {
 
         // 2. Google Cast Protocol for TCL Smart TV Pro (192.168.50.205:8009) & Google TVs
         if (type.contains("google_tv") || targetIp.endsWith(".205") || targetIp.endsWith(".3")) {
-            if (youtubeId != null && !youtubeId.isEmpty()) {
+            boolean isPlayableStream = (streamUrl != null && !streamUrl.isEmpty()) && (streamUrl.contains(".m3u8") || streamUrl.contains("/proxy?url=") || streamUrl.contains(".mp4") || streamUrl.contains("googlevideo.com"));
+            if (isPlayableStream) {
+                notifyUser("Connecting to TCL Smart TV Pro (100% Ad-Free)...");
+                boolean castOk = castToGoogleTv(targetIp, streamUrl, title);
+                if (castOk) {
+                    notifyUser("🎉 Now Playing " + title + " (100% Ad-Free)!");
+                    return;
+                }
+            } else if (youtubeId != null && !youtubeId.isEmpty()) {
                 notifyUser("Launching YouTube on TCL Smart TV Pro...");
                 boolean ytOk = castYouTubeToGoogleTv(targetIp, youtubeId);
                 if (ytOk) {
@@ -922,8 +922,8 @@ public class MainActivity extends Activity {
             // 4. Send LOAD command with stream URL
             boolean isHls = streamUrl.contains(".m3u8") || streamUrl.contains("/proxy?url=");
             String mime = isHls ? "application/x-mpegurl" : "video/mp4";
-            boolean isVod = streamUrl.contains("googlevideo.com") || streamUrl.contains("youtube") || (!streamUrl.contains(".m3u8") && !streamUrl.contains("live") && !streamUrl.contains("iptv"));
-            String streamType = isVod ? "BUFFERED" : "LIVE";
+            boolean isLiveStream = (streamUrl.contains("/live/") || streamUrl.contains("channel") || title.contains("TV") || title.contains("Channel")) && !streamUrl.contains("movie") && !streamUrl.contains("videodb") && !streamUrl.contains("googlevideo") && !streamUrl.contains("/proxy?url=");
+            String streamType = isLiveStream ? "LIVE" : "BUFFERED";
             String loadJson = "{\"type\":\"LOAD\",\"requestId\":3,\"autoplay\":true,\"media\":{\"contentId\":\"" + escapeJson(streamUrl) + "\",\"streamType\":\"" + streamType + "\",\"contentType\":\"" + mime + "\",\"metadata\":{\"metadataType\":0,\"title\":\"" + escapeJson(title) + "\"} } }";
             sendCastMsg(out, "sender-0", transportId, "urn:x-cast:com.google.cast.media", loadJson);
 
