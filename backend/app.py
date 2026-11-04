@@ -1854,6 +1854,20 @@ async def serve_tv_receiver(request: Request):
         tv_file = STATIC_DIR / "tv.html"
     return HTMLResponse(content=tv_file.read_text(encoding="utf-8"))
 
+@app.get("/sw.js")
+async def serve_service_worker():
+    sw_file = BASE_DIR / "sw.js"
+    if not sw_file.exists():
+        sw_file = STATIC_DIR / "sw.js"
+    return Response(content=sw_file.read_bytes(), media_type="application/javascript")
+
+@app.get("/manifest.json")
+async def serve_manifest():
+    m_file = BASE_DIR / "manifest.json"
+    if not m_file.exists():
+        m_file = STATIC_DIR / "manifest.json"
+    return Response(content=m_file.read_bytes(), media_type="application/manifest+json")
+
 # Mount static assets and playlists
 app.mount("/static", StaticFiles(directory=str(STATIC_DIR)), name="static")
 playlists_dir = BASE_DIR / "playlists"
