@@ -1243,6 +1243,19 @@ function initRemoteKeys() {
       if (action === "play") {
         const nextAction = state.playbackState === "PLAYING" ? "pause" : "play";
         await sendPlaybackAction(nextAction);
+      } else if (action === "seek") {
+        const delta = parseFloat(val) || 0;
+        const maxTime = activeDeckDuration > 0 ? activeDeckDuration : 999999;
+        const target = Math.max(0, Math.min(maxTime, activeDeckCurrentTime + delta));
+        activeDeckCurrentTime = target;
+        const timeCur = document.getElementById("deck-time-current");
+        const scrubber = document.getElementById("deck-scrubber");
+        if (timeCur) timeCur.textContent = formatDeckTime(activeDeckCurrentTime);
+        if (scrubber && activeDeckDuration > 0) {
+          scrubber.value = (activeDeckCurrentTime / activeDeckDuration) * 100;
+        }
+        showToast(delta < 0 ? `⏪ Rewound ${Math.abs(delta)}s` : `⏩ Fast Forward ${delta}s`);
+        await sendPlaybackAction("seek", target.toString(), { delta: delta.toString() });
       } else {
         await sendPlaybackAction(action, val);
       }
@@ -1330,7 +1343,8 @@ async function handleCastUrlInput(val) {
       if (res.ok) {
         const data = await res.json();
         if (data.resolved) {
-          if (castTitleInput && (!castTitleInput.value || castTitleInput.value === "Video Stream")) {
+          window.activeResolvedData = data;
+          if (castTitleInput && (!castTitleInput.value || castTitleInput.value === "Video Stream" || castTitleInput.value === "YouTube Video" || castTitleInput.value === "Live Stream")) {
             castTitleInput.value = data.title;
           }
           if (castPreviewBox) {
@@ -1496,14 +1510,53 @@ async function executeUniversalCast(url, title = "") {
     ytId = ytMatch[1];
   }
 
+  // Resolve clean media stream from web platform if not already a direct .m3u8/.mp4
+  let resolvedInfo = window.activeResolvedData || null;
+  if (!isDirectMediaUrl(url)) {
+    if (!resolvedInfo || !resolvedInfo.stream_url) {
+      showToast("⚡ Resolving clean ad-free stream...");
+      try {
+        const res = await safeFetchWithRetry(`/api/media/resolve?url=${encodeURIComponent(url)}`);
+        if (res.ok) {
+          const data = await res.json();
+          if (data.resolved && data.stream_url) {
+            resolvedInfo = data;
+          }
+        }
+      } catch (e) {
+        console.warn("Media resolve notice:", e);
+      }
+    }
+    if (resolvedInfo && resolvedInfo.stream_url) {
+      playUrl = resolvedInfo.stream_url;
+      playTitle = resolvedInfo.title || playTitle;
+      mimeType = resolvedInfo.mime_type || (playUrl.includes(".m3u8") ? "application/x-mpegurl" : "video/mp4");
+      if (resolvedInfo.youtube_id) ytId = resolvedInfo.youtube_id;
+      if (castTitleInput) castTitleInput.value = playTitle;
+    }
+  }
+
   // Path 0: Native Android TV Hub App -> Cast directly to TV via phone local Wi-Fi!
   if (window.TVHubAndroid && typeof window.TVHubAndroid.isNativeApp === "function" && window.TVHubAndroid.isNativeApp()) {
     const target = resolveSelectedTarget(state.currentTvId);
     showToast(`Casting to ${target.name}...`);
     window.TVHubAndroid.castToTv(target.ip, target.dev_type, makeCastPlayableUrl(playUrl), playTitle, mimeType, ytId);
     state.currentTitle = playTitle;
+    state.playbackState = "PLAYING";
     const barTitle = document.getElementById("bar-title");
     if (barTitle) barTitle.textContent = state.currentTitle;
+    updatePlayPauseButton(true);
+    updateActiveCastDeck({
+      title: playTitle,
+      state: "PLAYING",
+      duration: resolvedInfo?.duration || 0,
+      duration_str: resolvedInfo?.duration_str || "",
+      thumbnail: resolvedInfo?.thumbnail || "",
+      subtitles: resolvedInfo?.subtitles || [],
+      qualities: resolvedInfo?.qualities || ["Auto", "1080p", "720p", "480p", "360p"],
+      quality_urls: resolvedInfo?.quality_urls || {}
+    });
+    startDeckProgressTicker();
     return;
   }
 
@@ -3246,37 +3299,19 @@ function updateActiveCastDeck(info) {
     }
   }
 
-  // Populate Qualities (with fallback to activeDeckQualities)
-  const availableQualities = (Array.isArray(info.qualities) && info.qualities.length > 0) ? info.qualities : (activeDeckQualities.length > 0 ? activeDeckQualities : ["Auto", "1080p", "720p", "480p"]);
-  if (availableQualities.length > 0) {
-    const qSelect = document.getElementById("deck-quality-select");
-    if (qSelect && (qSelect.options.length <= 1 || JSON.stringify(activeDeckQualities) !== JSON.stringify(availableQualities))) {
-      activeDeckQualities = availableQualities;
-      if (info.quality_urls) activeDeckQualityUrls = info.quality_urls;
+  // Populate Qualities (Always ensure full standard tiers: Auto, 1080p, 720p, 480p, 360p)
+  const qSelect = document.getElementById("deck-quality-select");
+  if (qSelect) {
+    if (info.quality_urls) activeDeckQualityUrls = info.quality_urls;
+    if (qSelect.options.length <= 1) {
       const curVal = qSelect.value;
-      const seenTiers = new Set();
-      qSelect.innerHTML = '<option value="Auto">Auto (Smooth Playback)</option>';
-      activeDeckQualities.forEach(q => {
-        if (q !== "Auto") {
-          const { value, tier, label } = formatQualityDisplay(q);
-          if (!seenTiers.has(tier)) {
-            seenTiers.add(tier);
-            const opt = document.createElement("option");
-            opt.value = value;
-            opt.textContent = label;
-            qSelect.appendChild(opt);
-          }
-        }
-      });
-      if (curVal) {
-        const curTier = formatQualityDisplay(curVal).tier;
-        for (let i = 0; i < qSelect.options.length; i++) {
-          const optVal = qSelect.options[i].value;
-          if (optVal === curVal || (optVal !== "Auto" && formatQualityDisplay(optVal).tier === curTier)) {
-            qSelect.selectedIndex = i;
-            break;
-          }
-        }
+      qSelect.innerHTML = '<option value="Auto">Auto (Adaptive HD)</option>' +
+                          '<option value="1080p">1080p (Full HD)</option>' +
+                          '<option value="720p">720p (HD)</option>' +
+                          '<option value="480p">480p (SD)</option>' +
+                          '<option value="360p">360p (Data Saver)</option>';
+      if (curVal && Array.from(qSelect.options).some(o => o.value === curVal)) {
+        qSelect.value = curVal;
       }
     }
   }
@@ -3445,11 +3480,7 @@ function initActiveCastDeck() {
           isScrubbing = false;
           if (timeCur) timeCur.textContent = formatDeckTime(activeDeckCurrentTime);
           showToast(`Jumped to ${formatDeckTime(targetSec)}`);
-          await safeFetchWithRetry("/api/playback/action", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ action: "seek", value: targetSec.toString(), is_absolute: true, device_id: state.currentTvId })
-          });
+          sendPlaybackAction("seek", targetSec.toString(), { is_absolute: true });
         } else {
           isScrubbing = false;
         }
