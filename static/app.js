@@ -389,7 +389,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     }
   } catch (e) {}
 
-  const initialTvId = getSavedTvId() || "tv_192_168_50_249";
+  const initialTvId = getSavedTvId() || "tv_192_168_50_205";
   populateDevicesList(DEFAULT_HOUSEHOLD_DEVICES, initialTvId);
   await autoDetectHub();
   checkAuth();
@@ -483,18 +483,23 @@ async function checkAuth() {
     const res = await fetch(getApiUrl("/api/auth/status"));
     if (res.ok) {
       const data = await res.json();
-      if (badge) {
-        if (window.TVHubAndroid && typeof window.TVHubAndroid.isNativeApp === "function" && window.TVHubAndroid.isNativeApp()) {
-        badge.innerHTML = `<span style="color: var(--accent-green); cursor: pointer;" title="Mobile Phone is the Local Network Host">🟢 Host Active (Mobile Wi-Fi)</span>`;
-        state.hubOnline = true;
-        state.tvOnline = true;
-        const barDot = document.getElementById("bar-status-dot");
-        const barStatus = document.getElementById("bar-tv-status");
-        if (barDot) barDot.style.background = "var(--accent-green)";
-        if (barStatus) barStatus.textContent = `${state.currentTvName || "Smart TV"} Ready`;
-      } else {
-        badge.innerHTML = `<span style="color: var(--accent-green); cursor: pointer;" title="Hub Connected. Click to configure">🟢 Connected (${data.client_ip})</span>`;
+      const isNativeHostApp = (window.TVHubAndroid && typeof window.TVHubAndroid.isNativeApp === "function" && window.TVHubAndroid.isNativeApp());
+      if (isNativeHostApp) {
+        const apkBtn = document.getElementById("btn-apk-download");
+        if (apkBtn) apkBtn.style.display = "none";
       }
+      if (badge) {
+        if (isNativeHostApp) {
+          badge.innerHTML = `<span style="color: var(--accent-green); cursor: pointer;" title="Mobile Phone is the Local Network Host">🟢 Host Active (Mobile Wi-Fi)</span>`;
+          state.hubOnline = true;
+          state.tvOnline = true;
+          const barDot = document.getElementById("bar-status-dot");
+          const barStatus = document.getElementById("bar-tv-status");
+          if (barDot) barDot.style.background = "var(--accent-green)";
+          if (barStatus) barStatus.textContent = `${state.currentTvName || "TCL Smart TV Pro"} Ready`;
+        } else {
+          badge.innerHTML = `<span style="color: var(--accent-green); cursor: pointer;" title="Hub Connected. Click to configure">🟢 Connected (${data.client_ip})</span>`;
+        }
       }
       const srvIp = document.getElementById("info-server-ip");
       if (srvIp) srvIp.textContent = `${data.server_ip}:${data.port}`;
@@ -575,6 +580,26 @@ document.getElementById("btn-copy-local-link")?.addEventListener("click", () => 
 });
 
 // Household Smart TVs for immediate zero-latency access
+
+function resolveSelectedTarget(devId) {
+  const allDevs = (state.devices && state.devices.length > 0) ? state.devices : DEFAULT_HOUSEHOLD_DEVICES;
+  const match = allDevs.find(d => d.id === devId);
+  if (match && match.ip) {
+    return {
+      ip: match.ip,
+      dev_type: match.dev_type || (match.is_hisense ? "hisense" : "google_tv"),
+      name: match.name || "Smart TV"
+    };
+  }
+  if (devId && (devId.includes("249") || devId.toLowerCase().includes("hisense"))) {
+    return { ip: "192.168.50.249", dev_type: "hisense", name: "Hisense VIDAA TV (Living Room)" };
+  }
+  if (devId && devId.includes("3")) {
+    return { ip: "192.168.50.3", dev_type: "google_tv", name: "Xiaomi Mi TV (Google TV)" };
+  }
+  return { ip: "192.168.50.205", dev_type: "google_tv", name: "TCL Smart TV Pro (Google TV)" };
+}
+
 const DEFAULT_HOUSEHOLD_DEVICES = [
   { id: "tv_192_168_50_205", name: "TCL Smart TV Pro (Google TV)", ip: "192.168.50.205", port: 8009, dev_type: "google_tv", is_google_tv: true },
   { id: "tv_192_168_50_249", name: "Hisense VIDAA TV (Living Room)", ip: "192.168.50.249", port: 38400, dev_type: "hisense", is_hisense: true },
@@ -755,6 +780,18 @@ document.getElementById("btn-quick-wake")?.addEventListener("click", sendWakeOnL
 
 // Update Real Hardware Status UI
 function updateHardwareStatus(data) {
+  if (!data) return;
+
+  const isNativeHost = (window.TVHubAndroid && typeof window.TVHubAndroid.isNativeApp === "function" && window.TVHubAndroid.isNativeApp());
+
+  // Never let cloud "web_receiver" or "No Browser Receiver Connected" override physical TVs!
+  if (data.selected_device_id === "web_receiver" && (isNativeHost || (state.currentTvId && state.currentTvId !== "web_receiver"))) {
+    return;
+  }
+  if (data.status_text && data.status_text.includes("No Browser Receiver Connected") && (isNativeHost || (state.currentTvId && state.currentTvId !== "web_receiver"))) {
+    return;
+  }
+
   const banner = document.getElementById("tv-status-banner");
   const dot = document.getElementById("tv-status-dot");
   const text = document.getElementById("tv-status-text");
@@ -1075,11 +1112,9 @@ async function castChannel(channel) {
 
   // Path 0: Native Android TV Hub App -> Cast directly to TV via phone local Wi-Fi!
   if (window.TVHubAndroid && typeof window.TVHubAndroid.isNativeApp === "function" && window.TVHubAndroid.isNativeApp()) {
-    const selectedDev = state.devices.find(d => d.id === state.currentTvId) || {};
-    const targetIp = selectedDev.ip || (state.currentTvId === "hisense" ? "192.168.50.249" : "192.168.50.205");
-    const devType = selectedDev.dev_type || (state.currentTvId === "hisense" ? "hisense" : "google_tv");
-    showToast(`Casting ${channel.name} to ${state.currentTvName}...`);
-    window.TVHubAndroid.castToTv(targetIp, devType, castUrl, channel.name, "application/vnd.apple.mpegurl", "");
+    const target = resolveSelectedTarget(state.currentTvId);
+    showToast(`Casting ${channel.name} to ${target.name}...`);
+    window.TVHubAndroid.castToTv(target.ip, target.dev_type, castUrl, channel.name, "application/vnd.apple.mpegurl", "");
     state.currentTitle = channel.name;
     const barTitle = document.getElementById("bar-title");
     if (barTitle) barTitle.textContent = channel.name;
@@ -1419,17 +1454,36 @@ async function executeUniversalCast(url, title = "") {
     return;
   }
 
+  let playUrl = url;
+  let playTitle = title || "Video Stream";
+  let mimeType = "video/mp4";
+  let ytId = "";
+
+  const ytMatch = url.match(/(?:youtu\.be\/|v\/|u\/\w\/|embed\/|watch\?v=|&v=)([^#&?]{11})/);
+  if (ytMatch) {
+    ytId = ytMatch[1];
+    showToast("⚡ Resolving YouTube stream...");
+    try {
+      const res = await safeFetchWithRetry(`/api/media/resolve?url=${encodeURIComponent(url)}`);
+      if (res.ok) {
+        const data = await res.json();
+        if (data.resolved && data.stream_url) {
+          playUrl = data.stream_url;
+          playTitle = data.title || playTitle;
+          mimeType = data.mime_type || "application/x-mpegurl";
+        }
+      }
+    } catch (e) {
+      console.warn("Media resolve notice:", e);
+    }
+  }
+
   // Path 0: Native Android TV Hub App -> Cast directly to TV via phone local Wi-Fi!
   if (window.TVHubAndroid && typeof window.TVHubAndroid.isNativeApp === "function" && window.TVHubAndroid.isNativeApp()) {
-    const selectedDev = state.devices.find(d => d.id === state.currentTvId) || {};
-    const targetIp = selectedDev.ip || (state.currentTvId === "hisense" ? "192.168.50.249" : "192.168.50.205");
-    const devType = selectedDev.dev_type || (state.currentTvId === "hisense" ? "hisense" : "google_tv");
-    let ytId = "";
-    const ytMatch = url.match(/(?:youtu\.be\/|v\/|u\/\w\/|embed\/|watch\?v=|&v=)([^#&?]{11})/);
-    if (ytMatch) ytId = ytMatch[1];
-    showToast(`Casting video to ${state.currentTvName}...`);
-    window.TVHubAndroid.castToTv(targetIp, devType, makeCastPlayableUrl(url), title || "Video Stream", "video/mp4", ytId);
-    state.currentTitle = title || "Video Stream";
+    const target = resolveSelectedTarget(state.currentTvId);
+    showToast(`Casting to ${target.name}...`);
+    window.TVHubAndroid.castToTv(target.ip, target.dev_type, makeCastPlayableUrl(playUrl), playTitle, mimeType, ytId);
+    state.currentTitle = playTitle;
     const barTitle = document.getElementById("bar-title");
     if (barTitle) barTitle.textContent = state.currentTitle;
     return;

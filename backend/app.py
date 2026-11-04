@@ -127,12 +127,21 @@ async def monitor_tv_status_loop():
 
             elif selected_id == "web_receiver":
                 is_active = len(ws_manager.receivers) > 0
-                ws_manager.update_state({
-                    "tv_online": is_active,
-                    "state": ws_manager.current_state.get("state", "IDLE") if is_active else "STANDBY",
-                    "status_text": "Web Receiver Connected" if is_active else "No Browser Receiver Connected"
-                })
-                await ws_manager.broadcast_to_controllers("tv_status_sync", ws_manager.current_state)
+                if is_active:
+                    ws_manager.update_state({
+                        "selected_device_id": "web_receiver",
+                        "tv_online": True,
+                        "state": ws_manager.current_state.get("state", "IDLE"),
+                        "status_text": "Web Receiver Connected"
+                    })
+                    await ws_manager.broadcast_to_controllers("tv_status_sync", ws_manager.current_state)
+                elif not is_cloud_instance():
+                    ws_manager.update_state({
+                        "tv_online": False,
+                        "state": "STANDBY",
+                        "status_text": "No Browser Receiver Connected"
+                    })
+                    await ws_manager.broadcast_to_controllers("tv_status_sync", ws_manager.current_state)
 
         except asyncio.CancelledError:
             break

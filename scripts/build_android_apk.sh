@@ -1,6 +1,6 @@
 #!/bin/bash
 set -e
-echo '=== Building Fully Autonomous TV Hub Android Host App (v7.0.0) ==='
+echo '=== Building Fully Autonomous TV Hub Android Host App (v7.1.0) ==='
 
 BUILD_DIR=/home/ubuntu/tvhub_apk_build
 rm -rf $BUILD_DIR
@@ -36,7 +36,7 @@ def make_png(w, h, r, g, b):
             # Rounded corners
             if dx * dx + dy * dy < (w // 6) * (w // 6) and (x < w // 6 or x > w - w // 6) and (y < h // 6 or y > h - h // 6):
                 raw += bytes([11, 15, 25])
-            # Center screen (dark slate)
+            # Center screen (white screen preview)
             elif x > w // 5 and x < w - w // 5 and y > h // 5 and y < h - h // 3:
                 raw += bytes([255, 255, 255])
             # TV stand
@@ -70,8 +70,8 @@ cat << 'MANIFEST' > $BUILD_DIR/AndroidManifest.xml
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     package="com.tvhub.app"
-    android:versionCode="700"
-    android:versionName="7.0.0">
+    android:versionCode="710"
+    android:versionName="7.1.0">
 
     <uses-sdk android:minSdkVersion="26" android:targetSdkVersion="34" />
 
@@ -105,7 +105,7 @@ cat << 'MANIFEST' > $BUILD_DIR/AndroidManifest.xml
 </manifest>
 MANIFEST
 
-# 5. MainActivity.java with Complete Native Google Cast V2 + DLNA + DIAL Controller
+# 5. MainActivity.java with High-Speed Google Cast V2 + DLNA + DIAL Controller
 cat << 'JAVA' > $BUILD_DIR/src/com/tvhub/app/MainActivity.java
 package com.tvhub.app;
 
@@ -189,6 +189,11 @@ public class MainActivity extends Activity {
 
         setContentView(rootLayout);
 
+        // Clear stale WebView cache so latest features take effect immediately
+        try {
+            webView.clearCache(true);
+        } catch (Exception ignored) {}
+
         // Maximum Performance WebSettings
         WebSettings settings = webView.getSettings();
         settings.setJavaScriptEnabled(true);
@@ -203,8 +208,8 @@ public class MainActivity extends Activity {
         settings.setSupportZoom(true);
         settings.setBuiltInZoomControls(true);
         settings.setDisplayZoomControls(false);
-        settings.setCacheMode(WebSettings.LOAD_DEFAULT);
-        settings.setUserAgentString("Mozilla/5.0 (Linux; Android 14; Pixel 8) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Mobile Safari/537.36 TVHubHostApp/7.0");
+        settings.setCacheMode(WebSettings.LOAD_NO_CACHE);
+        settings.setUserAgentString("Mozilla/5.0 (Linux; Android 14; Pixel 8) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Mobile Safari/537.36 TVHubHostApp/7.1");
 
         // Expose Native TV Hub Android Host Bridge
         webView.addJavascriptInterface(new TVHubBridge(), "TVHubAndroid");
@@ -221,7 +226,7 @@ public class MainActivity extends Activity {
                 view.postDelayed(new Runnable() {
                     @Override
                     public void run() {
-                        view.loadUrl("https://tvhub.92.5.71.162.sslip.io");
+                        view.loadUrl("https://tvhub.92.5.71.162.sslip.io?v=7.1.0");
                     }
                 }, 2000);
             }
@@ -261,7 +266,7 @@ public class MainActivity extends Activity {
             }
         });
 
-        webView.loadUrl("https://tvhub.92.5.71.162.sslip.io");
+        webView.loadUrl("https://tvhub.92.5.71.162.sslip.io?v=7.1.0");
     }
 
     // --- Native Android Host Bridge Exposed to JavaScript ---
@@ -306,24 +311,24 @@ public class MainActivity extends Activity {
         String targetIp = (ip != null && !ip.isEmpty()) ? ip : "192.168.50.205";
         String type = (devType != null) ? devType.toLowerCase() : "";
 
-        // 1. Wake TV from standby
+        // 1. Wake TV from standby via direct local UDP magic packet
         sendWakeOnLanPacket();
 
-        // 2. DIAL YouTube launch (Directly opens YouTube app on TV in 4K with 0 ads)
-        if (youtubeId != null && !youtubeId.isEmpty()) {
-            boolean dialOk = launchDialYouTube(targetIp, youtubeId);
-            if (dialOk) {
-                notifyUser("Playing YouTube on " + (targetIp.endsWith(".249") ? "Hisense VIDAA TV" : "TCL Smart TV Pro") + "!");
-                return;
-            }
-        }
-
-        // 3. Google Cast V2 Protocol (TCL Smart TV Pro 192.168.50.205:8009 & Google TVs)
+        // 2. Google Cast V2 Protocol for TCL Smart TV Pro (192.168.50.205:8009) & Google TVs
         if (type.contains("google_tv") || targetIp.endsWith(".205") || targetIp.endsWith(".3")) {
             notifyUser("Connecting to TCL Smart TV Pro via Cast V2...");
             boolean castOk = castToGoogleTv(targetIp, streamUrl, title);
             if (castOk) {
                 notifyUser("🎉 Now Playing " + title + " on TCL Smart TV Pro!");
+                return;
+            }
+        }
+
+        // 3. DIAL for Hisense VIDAA TV (192.168.50.249) if YouTube ID present
+        if (youtubeId != null && !youtubeId.isEmpty() && (type.contains("hisense") || targetIp.endsWith(".249"))) {
+            boolean dialOk = launchDialYouTube(targetIp, youtubeId);
+            if (dialOk) {
+                notifyUser("Playing YouTube on Hisense VIDAA TV!");
                 return;
             }
         }
@@ -339,7 +344,7 @@ public class MainActivity extends Activity {
             }
         }
 
-        // 5. Universal Fallback (Try Google Cast V2 port 8009 then DLNA port 38400)
+        // 5. Universal Fallback: Try Cast V2 on 8009 then DLNA on 38400
         boolean castFallback = castToGoogleTv(targetIp, streamUrl, title);
         if (castFallback) {
             notifyUser("🎉 Playing " + title + " on Smart TV!");
@@ -352,7 +357,7 @@ public class MainActivity extends Activity {
             return;
         }
 
-        notifyUser("⚡ Power signal sent. If TV was off, please turn it on.");
+        notifyUser("⚡ Power signal sent to TV. If TV is off, please turn it on.");
     }
 
     private void notifyUser(final String msg) {
@@ -377,7 +382,7 @@ public class MainActivity extends Activity {
             SSLContext sc = SSLContext.getInstance("TLS");
             sc.init(null, trustAll, new SecureRandom());
             SSLSocket socket = (SSLSocket) sc.getSocketFactory().createSocket(ip, 8009);
-            socket.setSoTimeout(4500);
+            socket.setSoTimeout(1200); // Short timeout so read never blocks indefinitely
             socket.startHandshake();
 
             OutputStream out = socket.getOutputStream();
@@ -389,21 +394,26 @@ public class MainActivity extends Activity {
             // 2. Launch Default Media Receiver (CC1AD845)
             sendCastMsg(out, "sender-0", "receiver-0", "urn:x-cast:com.google.cast.receiver", "{\"type\":\"LAUNCH\",\"appId\":\"CC1AD845\",\"requestId\":1}");
 
-            // 3. Read response for transportId
+            // 3. Read response for transportId with non-blocking timeout handling
             String transportId = "web-1";
-            for (int i = 0; i < 15; i++) {
-                byte[] raw = readCastMsg(in);
-                if (raw == null) break;
-                String text = new String(raw, "UTF-8");
-                int idx = text.indexOf("\"transportId\":\"");
-                if (idx != -1) {
-                    int endIdx = text.indexOf("\"", idx + 15);
-                    if (endIdx != -1) {
-                        transportId = text.substring(idx + 15, endIdx);
-                        break;
+            for (int i = 0; i < 6; i++) {
+                try {
+                    byte[] raw = readCastMsg(in);
+                    if (raw == null) break;
+                    String text = new String(raw, "UTF-8");
+                    int idx = text.indexOf("\"transportId\":\"");
+                    if (idx != -1) {
+                        int endIdx = text.indexOf("\"", idx + 15);
+                        if (endIdx != -1) {
+                            transportId = text.substring(idx + 15, endIdx);
+                            break;
+                        }
                     }
+                } catch (java.net.SocketTimeoutException ste) {
+                    break; // Timeout waiting for transportId, proceed with default transportId
+                } catch (Exception ignored) {
+                    break;
                 }
-                try { Thread.sleep(60); } catch (Exception ignored) {}
             }
 
             // 4. Connect to media transport
@@ -415,7 +425,7 @@ public class MainActivity extends Activity {
             String loadJson = "{\"type\":\"LOAD\",\"requestId\":2,\"autoplay\":true,\"media\":{\"contentId\":\"" + escapeJson(streamUrl) + "\",\"streamType\":\"LIVE\",\"contentType\":\"" + mime + "\",\"metadata\":{\"metadataType\":0,\"title\":\"" + escapeJson(title) + "\"}}}";
             sendCastMsg(out, "sender-0", transportId, "urn:x-cast:com.google.cast.media", loadJson);
 
-            try { Thread.sleep(500); } catch (Exception ignored) {}
+            try { Thread.sleep(400); } catch (Exception ignored) {}
             socket.close();
             return true;
         } catch (Exception e) {
@@ -475,16 +485,16 @@ public class MainActivity extends Activity {
         return body;
     }
 
-    // --- DIAL YouTube Engine (Port 8008 / 56789 / 7676) ---
+    // --- DIAL YouTube Engine (Port 56789 / 8008) ---
     private boolean launchDialYouTube(String ip, String vidId) {
-        int[] ports = new int[]{8008, 56789, 7676};
+        int[] ports = new int[]{56789, 8008};
         for (int p : ports) {
             try {
                 URL url = new URL("http://" + ip + ":" + p + "/apps/YouTube");
                 HttpURLConnection conn = (HttpURLConnection) url.openConnection();
                 conn.setRequestMethod("POST");
-                conn.setConnectTimeout(1800);
-                conn.setReadTimeout(1800);
+                conn.setConnectTimeout(800);
+                conn.setReadTimeout(800);
                 conn.setDoOutput(true);
                 conn.setRequestProperty("Content-Type", "application/x-www-form-urlencoded");
                 byte[] data = ("v=" + vidId).getBytes("UTF-8");
@@ -522,7 +532,7 @@ public class MainActivity extends Activity {
             boolean uriSet = sendSoap(controlUrl, "urn:schemas-upnp-org:service:AVTransport:1", "SetAVTransportURI", setUriBody);
             if (!uriSet) return false;
 
-            Thread.sleep(120);
+            Thread.sleep(100);
 
             String playBody = "<InstanceID>0</InstanceID><Speed>1</Speed>";
             return sendSoap(controlUrl, "urn:schemas-upnp-org:service:AVTransport:1", "Play", playBody);
@@ -536,8 +546,8 @@ public class MainActivity extends Activity {
             URL url = new URL(controlUrl);
             HttpURLConnection conn = (HttpURLConnection) url.openConnection();
             conn.setRequestMethod("POST");
-            conn.setConnectTimeout(2500);
-            conn.setReadTimeout(2500);
+            conn.setConnectTimeout(2000);
+            conn.setReadTimeout(2000);
             conn.setDoOutput(true);
             conn.setRequestProperty("Content-Type", "text/xml; charset=\"utf-8\"");
             conn.setRequestProperty("SOAPAction", "\"" + serviceType + "#" + action + "\"");
