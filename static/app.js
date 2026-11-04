@@ -44,13 +44,17 @@ function makePlayableUrl(rawUrl) {
 
 function makeCastPlayableUrl(rawUrl) {
   if (!rawUrl) return "";
-  const cloudHost = CLOUD_FALLBACK_URL;
-  const base = getHubBase() || cloudHost;
-  if (rawUrl.includes("/proxy?url=") || rawUrl.includes("/api/stream/proxy?url=")) {
-    if (rawUrl.startsWith("/")) return `${base}${rawUrl}`;
-    return rawUrl.replace(/^http:\/\//, "https://");
+  const cloudHost = "https://tvhub.92.5.71.162.sslip.io";
+  let full = rawUrl.trim();
+  if (full.startsWith("/")) {
+    full = `${cloudHost}${full}`;
+  } else if (!full.startsWith("http://") && !full.startsWith("https://")) {
+    full = `${cloudHost}/${full}`;
   }
-  return `${base}/proxy?url=${encodeURIComponent(rawUrl)}&sid=s_cast_${Date.now()}`;
+  if (full.includes("/proxy?url=") || full.includes("/api/stream/proxy?url=")) {
+    return full.replace(/^http:\/\/[^\/]+/, cloudHost).replace(/^https:\/\/[^\/]+/, cloudHost);
+  }
+  return `${cloudHost}/proxy?url=${encodeURIComponent(full)}&sid=s_cast_${Date.now()}`;
 }
 
 function isDirectMediaUrl(u) {
@@ -1468,7 +1472,7 @@ async function executeUniversalCast(url, title = "") {
       if (res.ok) {
         const data = await res.json();
         if (data.resolved && data.stream_url) {
-          playUrl = data.stream_url.includes("/proxy?url=") ? data.stream_url : `/proxy?url=${encodeURIComponent(data.stream_url)}`;
+          playUrl = data.stream_url.includes("/proxy?url=") ? data.stream_url : `https://tvhub.92.5.71.162.sslip.io/proxy?url=${encodeURIComponent(data.stream_url)}`;
           playTitle = data.title || playTitle;
           mimeType = data.mime_type || "application/x-mpegurl";
         }

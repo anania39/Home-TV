@@ -1,6 +1,6 @@
 #!/bin/bash
 set -e
-echo '=== Building Fully Autonomous TV Hub Android Host App (v7.2.0) ==='
+echo '=== Building Fully Autonomous TV Hub Android Host App (v7.3.0) ==='
 
 BUILD_DIR=/home/ubuntu/tvhub_apk_build
 rm -rf $BUILD_DIR
@@ -70,8 +70,8 @@ cat << 'MANIFEST' > $BUILD_DIR/AndroidManifest.xml
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     package="com.tvhub.app"
-    android:versionCode="720"
-    android:versionName="7.2.0">
+    android:versionCode="730"
+    android:versionName="7.3.0">
 
     <uses-sdk android:minSdkVersion="26" android:targetSdkVersion="34" />
 
@@ -228,7 +228,7 @@ public class MainActivity extends Activity {
         settings.setBuiltInZoomControls(true);
         settings.setDisplayZoomControls(false);
         settings.setCacheMode(WebSettings.LOAD_NO_CACHE);
-        settings.setUserAgentString("Mozilla/5.0 (Linux; Android 14; Pixel 8) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Mobile Safari/537.36 TVHubHostApp/7.2");
+        settings.setUserAgentString("Mozilla/5.0 (Linux; Android 14; Pixel 8) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Mobile Safari/537.36 TVHubHostApp/7.3");
 
         // Expose Native TV Hub Android Host Bridge
         webView.addJavascriptInterface(new TVHubBridge(), "TVHubAndroid");
@@ -245,7 +245,7 @@ public class MainActivity extends Activity {
                 view.postDelayed(new Runnable() {
                     @Override
                     public void run() {
-                        view.loadUrl("https://tvhub.92.5.71.162.sslip.io?v=7.2.0");
+                        view.loadUrl("https://tvhub.92.5.71.162.sslip.io?v=7.3.0");
                     }
                 }, 2000);
             }
@@ -285,7 +285,7 @@ public class MainActivity extends Activity {
             }
         });
 
-        webView.loadUrl("https://tvhub.92.5.71.162.sslip.io?v=7.2.0");
+        webView.loadUrl("https://tvhub.92.5.71.162.sslip.io?v=7.3.0");
     }
 
     // --- Native Android Host Bridge Exposed to JavaScript ---
@@ -328,6 +328,9 @@ public class MainActivity extends Activity {
 
     private void performDirectCast(String ip, String devType, String streamUrl, String title, String mimeType, String youtubeId) {
         String targetIp = (ip != null && !ip.isEmpty()) ? ip : "192.168.50.205";
+        if (streamUrl != null && streamUrl.startsWith("/")) {
+            streamUrl = "https://tvhub.92.5.71.162.sslip.io" + streamUrl;
+        }
         String type = (devType != null) ? devType.toLowerCase() : "";
 
         // 1. Wake TV from standby via direct local UDP magic packet
@@ -417,9 +420,10 @@ public class MainActivity extends Activity {
             // 2. Launch Default Media Receiver (CC1AD845)
             sendCastMsg(out, "sender-0", "receiver-0", "urn:x-cast:com.google.cast.receiver", "{\"type\":\"LAUNCH\",\"appId\":\"CC1AD845\",\"requestId\":1}");
 
-            // 3. Read response for real transportId
+            // 3. Read responses until real transportId is found (up to 8 seconds)
             String transportId = null;
-            for (int i = 0; i < 6; i++) {
+            long startWait = System.currentTimeMillis();
+            while (System.currentTimeMillis() - startWait < 8000) {
                 try {
                     byte[] raw = readCastMsg(in);
                     if (raw == null) break;
@@ -433,14 +437,37 @@ public class MainActivity extends Activity {
                         }
                     }
                 } catch (java.net.SocketTimeoutException ste) {
-                    break;
+                    try {
+                        sendCastMsg(out, "sender-0", "receiver-0", "urn:x-cast:com.google.cast.receiver", "{\"type\":\"GET_STATUS\",\"requestId\":3}");
+                    } catch (Exception ignored) {}
                 } catch (Exception ignored) {
                     break;
                 }
             }
 
+            if (transportId == null || transportId.isEmpty() || transportId.equals("web-1")) {
+                sendCastMsg(out, "sender-0", "receiver-0", "urn:x-cast:com.google.cast.receiver", "{\"type\":\"GET_STATUS\",\"requestId\":4}");
+                for (int j = 0; j < 6; j++) {
+                    try {
+                        byte[] raw = readCastMsg(in);
+                        if (raw == null) break;
+                        String text = new String(raw, "UTF-8");
+                        int idx = text.indexOf("\"transportId\":\"");
+                        if (idx != -1) {
+                            int endIdx = text.indexOf("\"", idx + 15);
+                            if (endIdx != -1) {
+                                transportId = text.substring(idx + 15, endIdx);
+                                break;
+                            }
+                        }
+                    } catch (Exception ignored) {}
+                }
+            }
+
             if (transportId == null || transportId.isEmpty()) {
-                transportId = "web-1";
+                notifyUser("⚠️ Smart TV Cast receiver not ready. Retrying...");
+                closeActiveCast();
+                return false;
             }
 
             // 4. Connect to media transport
