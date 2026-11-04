@@ -1,6 +1,6 @@
 #!/bin/bash
 set -e
-echo '=== Building Fully Autonomous TV Hub Android Host App (v7.1.0) ==='
+echo '=== Building Fully Autonomous TV Hub Android Host App (v7.2.0) ==='
 
 BUILD_DIR=/home/ubuntu/tvhub_apk_build
 rm -rf $BUILD_DIR
@@ -70,8 +70,8 @@ cat << 'MANIFEST' > $BUILD_DIR/AndroidManifest.xml
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     package="com.tvhub.app"
-    android:versionCode="710"
-    android:versionName="7.1.0">
+    android:versionCode="720"
+    android:versionName="7.2.0">
 
     <uses-sdk android:minSdkVersion="26" android:targetSdkVersion="34" />
 
@@ -152,6 +152,25 @@ public class MainActivity extends Activity {
     private FrameLayout customViewContainer;
     private WifiManager.MulticastLock multicastLock;
     private Handler mainHandler;
+    private SSLSocket activeCastSocket = null;
+    private OutputStream activeCastOut = null;
+    private Thread activeCastHeartbeat = null;
+    private String activeCastIp = null;
+    private String currentTransportId = null;
+
+    private synchronized void closeActiveCast() {
+        if (activeCastHeartbeat != null) {
+            try { activeCastHeartbeat.interrupt(); } catch (Exception ignored) {}
+            activeCastHeartbeat = null;
+        }
+        if (activeCastSocket != null) {
+            try { activeCastSocket.close(); } catch (Exception ignored) {}
+            activeCastSocket = null;
+            activeCastOut = null;
+            activeCastIp = null;
+            currentTransportId = null;
+        }
+    }
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -209,7 +228,7 @@ public class MainActivity extends Activity {
         settings.setBuiltInZoomControls(true);
         settings.setDisplayZoomControls(false);
         settings.setCacheMode(WebSettings.LOAD_NO_CACHE);
-        settings.setUserAgentString("Mozilla/5.0 (Linux; Android 14; Pixel 8) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Mobile Safari/537.36 TVHubHostApp/7.1");
+        settings.setUserAgentString("Mozilla/5.0 (Linux; Android 14; Pixel 8) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Mobile Safari/537.36 TVHubHostApp/7.2");
 
         // Expose Native TV Hub Android Host Bridge
         webView.addJavascriptInterface(new TVHubBridge(), "TVHubAndroid");
@@ -226,7 +245,7 @@ public class MainActivity extends Activity {
                 view.postDelayed(new Runnable() {
                     @Override
                     public void run() {
-                        view.loadUrl("https://tvhub.92.5.71.162.sslip.io?v=7.1.0");
+                        view.loadUrl("https://tvhub.92.5.71.162.sslip.io?v=7.2.0");
                     }
                 }, 2000);
             }
@@ -266,7 +285,7 @@ public class MainActivity extends Activity {
             }
         });
 
-        webView.loadUrl("https://tvhub.92.5.71.162.sslip.io?v=7.1.0");
+        webView.loadUrl("https://tvhub.92.5.71.162.sslip.io?v=7.2.0");
     }
 
     // --- Native Android Host Bridge Exposed to JavaScript ---
@@ -369,9 +388,11 @@ public class MainActivity extends Activity {
         });
     }
 
-    // --- Google Cast V2 TLS Engine (Port 8009) ---
-    private boolean castToGoogleTv(String ip, String streamUrl, String title) {
+    // --- Google Cast V2 TLS Engine (Port 8009) with Persistent Heartbeat ---
+    private synchronized boolean castToGoogleTv(String ip, String streamUrl, String title) {
         try {
+            closeActiveCast();
+
             TrustManager[] trustAll = new TrustManager[]{
                 new X509TrustManager() {
                     public X509Certificate[] getAcceptedIssuers() { return new X509Certificate[0]; }
@@ -382,11 +403,13 @@ public class MainActivity extends Activity {
             SSLContext sc = SSLContext.getInstance("TLS");
             sc.init(null, trustAll, new SecureRandom());
             SSLSocket socket = (SSLSocket) sc.getSocketFactory().createSocket(ip, 8009);
-            socket.setSoTimeout(1200); // Short timeout so read never blocks indefinitely
+            socket.setSoTimeout(3500);
+            socket.setKeepAlive(true);
+            socket.setTcpNoDelay(true);
             socket.startHandshake();
 
-            OutputStream out = socket.getOutputStream();
-            InputStream in = socket.getInputStream();
+            final OutputStream out = socket.getOutputStream();
+            final InputStream in = socket.getInputStream();
 
             // 1. Send CONNECT to receiver-0
             sendCastMsg(out, "sender-0", "receiver-0", "urn:x-cast:com.google.cast.tp.connection", "{\"type\":\"CONNECT\"}");
@@ -394,8 +417,8 @@ public class MainActivity extends Activity {
             // 2. Launch Default Media Receiver (CC1AD845)
             sendCastMsg(out, "sender-0", "receiver-0", "urn:x-cast:com.google.cast.receiver", "{\"type\":\"LAUNCH\",\"appId\":\"CC1AD845\",\"requestId\":1}");
 
-            // 3. Read response for transportId with non-blocking timeout handling
-            String transportId = "web-1";
+            // 3. Read response for real transportId
+            String transportId = null;
             for (int i = 0; i < 6; i++) {
                 try {
                     byte[] raw = readCastMsg(in);
@@ -410,26 +433,52 @@ public class MainActivity extends Activity {
                         }
                     }
                 } catch (java.net.SocketTimeoutException ste) {
-                    break; // Timeout waiting for transportId, proceed with default transportId
+                    break;
                 } catch (Exception ignored) {
                     break;
                 }
+            }
+
+            if (transportId == null || transportId.isEmpty()) {
+                transportId = "web-1";
             }
 
             // 4. Connect to media transport
             sendCastMsg(out, "sender-0", transportId, "urn:x-cast:com.google.cast.tp.connection", "{\"type\":\"CONNECT\"}");
 
             // 5. Send LOAD
-            boolean isHls = streamUrl.contains(".m3u8");
+            boolean isHls = streamUrl.contains(".m3u8") || streamUrl.contains("/proxy?url=");
             String mime = isHls ? "application/x-mpegurl" : "video/mp4";
             String loadJson = "{\"type\":\"LOAD\",\"requestId\":2,\"autoplay\":true,\"media\":{\"contentId\":\"" + escapeJson(streamUrl) + "\",\"streamType\":\"LIVE\",\"contentType\":\"" + mime + "\",\"metadata\":{\"metadataType\":0,\"title\":\"" + escapeJson(title) + "\"}}}";
             sendCastMsg(out, "sender-0", transportId, "urn:x-cast:com.google.cast.media", loadJson);
 
-            try { Thread.sleep(400); } catch (Exception ignored) {}
-            socket.close();
+            // Keep connection alive in background with Cast heartbeat PING every 4.5 seconds
+            activeCastSocket = socket;
+            activeCastOut = out;
+            activeCastIp = ip;
+            currentTransportId = transportId;
+
+            final SSLSocket liveSocket = socket;
+            activeCastHeartbeat = new Thread(new Runnable() {
+                @Override
+                public void run() {
+                    try {
+                        while (!Thread.currentThread().isInterrupted() && liveSocket != null && !liveSocket.isClosed()) {
+                            Thread.sleep(4500);
+                            synchronized (MainActivity.this) {
+                                if (liveSocket.isClosed()) break;
+                                sendCastMsg(out, "sender-0", "receiver-0", "urn:x-cast:com.google.cast.tp.heartbeat", "{\"type\":\"PING\"}");
+                            }
+                        }
+                    } catch (Exception ignored) {}
+                }
+            });
+            activeCastHeartbeat.start();
+
             return true;
         } catch (Exception e) {
             e.printStackTrace();
+            closeActiveCast();
             return false;
         }
     }
@@ -632,6 +681,7 @@ public class MainActivity extends Activity {
     @Override
     protected void onDestroy() {
         super.onDestroy();
+        closeActiveCast();
         if (multicastLock != null && multicastLock.isHeld()) {
             multicastLock.release();
         }

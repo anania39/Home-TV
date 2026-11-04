@@ -1468,7 +1468,7 @@ async function executeUniversalCast(url, title = "") {
       if (res.ok) {
         const data = await res.json();
         if (data.resolved && data.stream_url) {
-          playUrl = data.stream_url;
+          playUrl = data.stream_url.includes("/proxy?url=") ? data.stream_url : `/proxy?url=${encodeURIComponent(data.stream_url)}`;
           playTitle = data.title || playTitle;
           mimeType = data.mime_type || "application/x-mpegurl";
         }
