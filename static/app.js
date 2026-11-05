@@ -2009,10 +2009,14 @@ function connectWebSocket() {
       if (msg.type === "tv_status_sync" || msg.type === "sync_state" || msg.type === "playback_update") {
         updateHardwareStatus(msg.data);
       } else if (msg.type === "playback_action" && msg.action === "speed" && msg.value) {
-        state.speed = parseFloat(msg.value) || 1.0;
+        const spdNum = parseFloat(msg.value) || 1.0;
+        state.speed = spdNum;
+        window._userSelectedSpeed = spdNum;
+        try { localStorage.setItem("tvhub_user_speed", String(spdNum)); } catch (e) {}
         const spdStr = String(msg.value);
         document.querySelectorAll(".speed-pill").forEach(p => {
-          p.classList.toggle("active", p.dataset.speed === spdStr || parseFloat(p.dataset.speed) === parseFloat(spdStr));
+          const pSpd = parseFloat(p.dataset.speed) || 1.0;
+          p.classList.toggle("active", Math.abs(pSpd - spdNum) < 0.05);
         });
       } else if (msg.type === "volume_update") {
         state.volume = msg.data.volume;
@@ -3563,7 +3567,7 @@ function initActiveCastDeck() {
         const pct = Math.max(0, Math.min(100, parseFloat(pctVal) || 0));
         const targetSec = Math.min(dur, Math.max(0, Math.round((pct / 100) * dur)));
         activeDeckCurrentTime = targetSec;
-        window._scrubLockUntil = Date.now() + 4500;
+        window._scrubLockUntil = Date.now() + 5000;
         isScrubbing = false;
         if (timeCur) timeCur.textContent = formatDeckTime(activeDeckCurrentTime);
         if (scrubber && dur > 0) {
@@ -3574,8 +3578,9 @@ function initActiveCastDeck() {
       }, 40);
     };
 
-    scrubber.oninput = () => {
+        scrubber.oninput = () => {
       isScrubbing = true;
+      window._scrubLockUntil = Date.now() + 5000;
       const dur = (activeDeckDuration > 0) ? activeDeckDuration : (state.duration > 0 ? state.duration : 0);
       const val = parseFloat(scrubber.value) || 0;
       if (dur > 0 && timeCur) timeCur.textContent = formatDeckTime((val / 100) * dur);
@@ -3584,6 +3589,14 @@ function initActiveCastDeck() {
     scrubber.onchange = () => {
       triggerSeek(scrubber.value);
     };
+
+    // Support instant click / tap anywhere along the progress bar to jump
+    scrubber.onclick = () => {
+      triggerSeek(scrubber.value);
+    };
+    scrubber.addEventListener("pointerup", () => {
+      triggerSeek(scrubber.value);
+    });
   }
 
   // 5. Playback Speed Selector Pills

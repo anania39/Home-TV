@@ -2,27 +2,20 @@
 name: Deploy static content to Pages
 
 on:
-  # Runs on pushes targeting the default branch
   push:
     branches: ["main"]
-
-  # Allows you to run this workflow manually from the Actions tab
   workflow_dispatch:
 
-# Sets permissions of the GITHUB_TOKEN to allow deployment to GitHub Pages
 permissions:
   contents: read
   pages: write
   id-token: write
 
-# Allow only one concurrent deployment, skipping runs queued between the run in-progress and latest queued.
-# However, do NOT cancel in-progress runs as we want to allow these production deployments to complete.
 concurrency:
   group: "pages"
-  cancel-in-progress: false
+  cancel-in-progress: true
 
 jobs:
-  # Single deploy job since we're just deploying
   deploy:
     environment:
       name: github-pages
@@ -35,7 +28,9 @@ jobs:
         run: |
           mkdir -p _site
           cp index.html manifest.json sw.js tv.html endpoint.json _site/
-          cp -r static _site/
+          mkdir -p _site/static
+          cp static/app.js static/style.css static/endpoint.json _site/static/
+          cp -r static/logos _site/static/
           rm -f _site/TVHub.apk _site/static/TVHub.apk
       - name: Setup Pages
         uses: actions/configure-pages@v5

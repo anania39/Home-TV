@@ -71,8 +71,8 @@ cat << 'MANIFEST' > $BUILD_DIR/AndroidManifest.xml
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     package="com.tvhub.app"
-    android:versionCode="802"
-    android:versionName="8.0.2">
+    android:versionCode="803"
+    android:versionName="8.0.3">
 
     <uses-sdk android:minSdkVersion="26" android:targetSdkVersion="34" />
 
@@ -282,7 +282,7 @@ public class MainActivity extends Activity {
         settings.setBuiltInZoomControls(true);
         settings.setDisplayZoomControls(false);
         settings.setCacheMode(WebSettings.LOAD_NO_CACHE);
-        settings.setUserAgentString("Mozilla/5.0 (Linux; Android 14; Pixel 8) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Mobile Safari/537.36 TVHubHostApp/7.9.9");
+        settings.setUserAgentString("Mozilla/5.0 (Linux; Android 14; Pixel 8) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Mobile Safari/537.36 TVHubHostApp/8.0.3");
 
         // Expose Native TV Hub Android Host Bridge
         webView.addJavascriptInterface(new TVHubBridge(), "TVHubAndroid");
@@ -299,7 +299,7 @@ public class MainActivity extends Activity {
                 view.postDelayed(new Runnable() {
                     @Override
                     public void run() {
-                        view.loadUrl("https://tvhub.92.5.71.162.sslip.io?v=8.0.2");
+                        view.loadUrl("https://tvhub.92.5.71.162.sslip.io?v=8.0.3");
                     }
                 }, 2000);
             }
@@ -339,7 +339,7 @@ public class MainActivity extends Activity {
             }
         });
 
-        webView.loadUrl("https://tvhub.92.5.71.162.sslip.io?v=8.0.2");
+        webView.loadUrl("https://tvhub.92.5.71.162.sslip.io?v=8.0.3");
     }
 
     // --- Native Android Host Bridge Exposed to JavaScript ---
@@ -487,41 +487,22 @@ public class MainActivity extends Activity {
 
             if ("play".equals(action)) {
                 sendLoungeCommand("playVideo", null);
-                if (activeCastOut != null && currentTransportId != null) {
-                    sendCastMsg(activeCastOut, "sender-0", currentTransportId, "urn:x-cast:com.google.cast.media",
-                        "{\"type\":\"PLAY\",\"mediaSessionId\":" + sessId + ",\"requestId\":" + reqId + "}");
-                }
                 notifyUser("▶️ Playing YouTube on TV");
             } else if ("pause".equals(action)) {
                 sendLoungeCommand("pauseVideo", null);
-                if (activeCastOut != null && currentTransportId != null) {
-                    sendCastMsg(activeCastOut, "sender-0", currentTransportId, "urn:x-cast:com.google.cast.media",
-                        "{\"type\":\"PAUSE\",\"mediaSessionId\":" + sessId + ",\"requestId\":" + reqId + "}");
-                }
                 notifyUser("⏸️ Paused YouTube on TV");
             } else if ("stop".equals(action)) {
                 sendLoungeCommand("stopVideo", null);
-                if (activeCastOut != null && currentTransportId != null) {
-                    sendCastMsg(activeCastOut, "sender-0", currentTransportId, "urn:x-cast:com.google.cast.media",
-                        "{\"type\":\"STOP\",\"mediaSessionId\":" + sessId + ",\"requestId\":" + reqId + "}");
-                }
                 notifyUser("⏹️ Stopped YouTube Cast");
             } else if ("speed".equals(action) || "rate".equals(action)) {
                 Map<String, String> p1 = new HashMap<>();
-                p1.put("req0_playbackRate", value);
+                p1.put("playbackRate", value);
                 sendLoungeCommand("setPlaybackRate", p1);
 
                 Map<String, String> p2 = new HashMap<>();
-                p2.put("req0_playbackSpeed", value);
+                p2.put("playbackSpeed", value);
                 sendLoungeCommand("setPlaybackSpeed", p2);
 
-                if (activeCastOut != null && currentTransportId != null) {
-                    try {
-                        double r = Double.parseDouble(value);
-                        sendCastMsg(activeCastOut, "sender-0", currentTransportId, "urn:x-cast:com.google.cast.media",
-                            "{\"type\":\"SET_PLAYBACK_RATE\",\"playbackRate\":" + r + ",\"mediaSessionId\":" + sessId + ",\"requestId\":" + reqId + "}");
-                    } catch (Exception ignored) {}
-                }
                 notifyUser("⚡ Playback Speed: " + value + "x on TV");
             } else if ("seek".equals(action) || "seek_relative".equals(action)) {
                 int sec = 0;
@@ -540,13 +521,8 @@ public class MainActivity extends Activity {
                 String sVal = String.valueOf(Math.max(0, sec));
 
                 Map<String, String> p = new HashMap<>();
-                p.put("req0_newTime", sVal);
+                p.put("newTime", sVal);
                 sendLoungeCommand("seekTo", p);
-
-                if (activeCastOut != null && currentTransportId != null) {
-                    sendCastMsg(activeCastOut, "sender-0", currentTransportId, "urn:x-cast:com.google.cast.media",
-                        "{\"type\":\"SEEK\",\"currentTime\":" + sec + ",\"resumeState\":\"PLAYBACK_START\",\"mediaSessionId\":" + sessId + ",\"requestId\":" + reqId + "}");
-                }
             } else if ("subtitles".equals(action)) {
                 if ("off".equalsIgnoreCase(value) || "0".equals(value)) {
                     Map<String, String> p = new HashMap<>();
@@ -672,7 +648,11 @@ public class MainActivity extends Activity {
                 sb.append("count=1&req0__sc=").append(URLEncoder.encode(sc, "UTF-8"));
                 if (extraParams != null) {
                     for (Map.Entry<String, String> entry : extraParams.entrySet()) {
-                        sb.append("&").append(URLEncoder.encode(entry.getKey(), "UTF-8")).append("=").append(URLEncoder.encode(entry.getValue(), "UTF-8"));
+                        String key = entry.getKey();
+                        if (!key.startsWith("req0_")) {
+                            key = "req0_" + key;
+                        }
+                        sb.append("&").append(URLEncoder.encode(key, "UTF-8")).append("=").append(URLEncoder.encode(entry.getValue(), "UTF-8"));
                     }
                 }
                 byte[] postData = sb.toString().getBytes("UTF-8");
@@ -1448,13 +1428,7 @@ public class MainActivity extends Activity {
                                     }
                                     lastPingSent = now;
                                 }
-                                if (now - lastStatusSent >= 2000) {
-                                    synchronized (MainActivity.this) {
-                                        if (liveSocket.isClosed()) break;
-                                        sendCastMsg(activeOut, "sender-0", activeTid, "urn:x-cast:com.google.cast.media", "{\"type\":\"GET_STATUS\",\"requestId\":" + (++castRequestId) + "}");
-                                    }
-                                    lastStatusSent = now;
-                                }
+
                                 try {
                                     byte[] raw = readCastMsg(activeIn);
                                     if (raw != null) {
