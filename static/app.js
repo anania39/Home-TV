@@ -1,6 +1,9 @@
 
 // Global synchronization bridge from native Android host to Cast Deck
-window.syncNativePlaybackState = function(currentTime, duration, playerState, speed) {
+window.syncNativePlaybackState = function(currentTime, duration, playerState) {
+  if (isScrubbing || Date.now() < (window._scrubLockUntil || 0)) {
+    return; // Lock active seek/jump from being overwritten by delayed TV updates!
+  }
   if (typeof currentTime === "number" && !isNaN(currentTime)) {
     activeDeckCurrentTime = currentTime;
     if (duration && typeof duration === "number" && duration > 0) {
@@ -13,7 +16,7 @@ window.syncNativePlaybackState = function(currentTime, duration, playerState, sp
     if (timeCur) timeCur.textContent = formatDeckTime(currentTime);
 
     const scrubber = document.getElementById("deck-scrubber");
-    if (scrubber && activeDeckDuration > 0 && !isScrubbing) {
+    if (scrubber && activeDeckDuration > 0) {
       scrubber.value = Math.min(100, Math.max(0, (currentTime / activeDeckDuration) * 100));
     }
     if (playerState === "PLAYING") {
@@ -22,13 +25,6 @@ window.syncNativePlaybackState = function(currentTime, duration, playerState, sp
     } else if (playerState === "PAUSED") {
       state.playbackState = "PAUSED";
       updatePlayPauseButton(false);
-    }
-    if (speed && typeof speed === "number" && speed > 0) {
-      state.speed = speed;
-      const spdStr = String(speed);
-      document.querySelectorAll(".speed-pill").forEach(p => {
-        p.classList.toggle("active", p.dataset.speed === spdStr || parseFloat(p.dataset.speed) === parseFloat(spdStr));
-      });
     }
   }
 };
@@ -1992,13 +1988,6 @@ function connectWebSocket() {
       const msg = JSON.parse(event.data);
       if (msg.type === "tv_status_sync" || msg.type === "sync_state" || msg.type === "playback_update") {
         updateHardwareStatus(msg.data);
-        if (msg.data && msg.data.speed) {
-          state.speed = parseFloat(msg.data.speed) || 1.0;
-          const spdStr = String(msg.data.speed);
-          document.querySelectorAll(".speed-pill").forEach(p => {
-            p.classList.toggle("active", p.dataset.speed === spdStr || parseFloat(p.dataset.speed) === parseFloat(spdStr));
-          });
-        }
       } else if (msg.type === "playback_action" && msg.action === "speed" && msg.value) {
         state.speed = parseFloat(msg.value) || 1.0;
         const spdStr = String(msg.value);
@@ -3625,6 +3614,7 @@ function initActiveCastDeck() {
       speedPills.forEach(p => p.classList.remove("active"));
       pill.classList.add("active");
       const spd = pill.dataset.speed;
+      state.speed = parseFloat(spd) || 1.0;
       showToast(`⚡ Playback Speed: ${spd}x on TV`);
       sendPlaybackAction("speed", spd);
     };

@@ -71,8 +71,8 @@ cat << 'MANIFEST' > $BUILD_DIR/AndroidManifest.xml
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     package="com.tvhub.app"
-    android:versionCode="797"
-    android:versionName="7.9.7">
+    android:versionCode="798"
+    android:versionName="7.9.8">
 
     <uses-sdk android:minSdkVersion="26" android:targetSdkVersion="34" />
 
@@ -281,7 +281,7 @@ public class MainActivity extends Activity {
         settings.setBuiltInZoomControls(true);
         settings.setDisplayZoomControls(false);
         settings.setCacheMode(WebSettings.LOAD_NO_CACHE);
-        settings.setUserAgentString("Mozilla/5.0 (Linux; Android 14; Pixel 8) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Mobile Safari/537.36 TVHubHostApp/7.9.7");
+        settings.setUserAgentString("Mozilla/5.0 (Linux; Android 14; Pixel 8) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Mobile Safari/537.36 TVHubHostApp/7.9.8");
 
         // Expose Native TV Hub Android Host Bridge
         webView.addJavascriptInterface(new TVHubBridge(), "TVHubAndroid");
@@ -298,7 +298,7 @@ public class MainActivity extends Activity {
                 view.postDelayed(new Runnable() {
                     @Override
                     public void run() {
-                        view.loadUrl("https://tvhub.92.5.71.162.sslip.io?v=7.9.7");
+                        view.loadUrl("https://tvhub.92.5.71.162.sslip.io?v=7.9.8");
                     }
                 }, 2000);
             }
@@ -338,7 +338,7 @@ public class MainActivity extends Activity {
             }
         });
 
-        webView.loadUrl("https://tvhub.92.5.71.162.sslip.io?v=7.9.7");
+        webView.loadUrl("https://tvhub.92.5.71.162.sslip.io?v=7.9.8");
     }
 
     // --- Native Android Host Bridge Exposed to JavaScript ---
@@ -512,9 +512,6 @@ public class MainActivity extends Activity {
                 }
                 notifyUser("⏹️ Stopped YouTube Cast");
             } else if ("speed".equals(action) || "rate".equals(action)) {
-                double r = 1.0;
-                try { r = Double.parseDouble(value); } catch (Exception ignored) {}
-                final double finalRate = r;
                 Map<String, String> p = new HashMap<>();
                 p.put("req0_playbackRate", value);
                 p.put("req0_rate", value);
@@ -522,19 +519,7 @@ public class MainActivity extends Activity {
                 p.put("req0_speed", value);
                 sendLoungeCommand("setPlaybackRate", p);
                 sendLoungeCommand("setPlaybackSpeed", p);
-                if (activeCastOut != null && currentTransportId != null) {
-                    sendCastMsg(activeCastOut, "sender-0", currentTransportId, "urn:x-cast:com.google.cast.media",
-                        "{\"type\":\"SET_PLAYBACK_RATE\",\"playbackRate\":" + r + ",\"mediaSessionId\":" + sessId + ",\"requestId\":" + reqId + "}");
-                }
                 notifyUser("⚡ Playback Speed: " + value + "x on TV");
-                mainHandler.post(new Runnable() {
-                    @Override
-                    public void run() {
-                        if (webView != null) {
-                            webView.evaluateJavascript("if (window.syncNativePlaybackState) window.syncNativePlaybackState(" + liveTvCurrentTime + ", " + liveTvDuration + ", 'PLAYING', " + finalRate + ");", null);
-                        }
-                    }
-                });
             } else if ("seek".equals(action) || "seek_relative".equals(action)) {
                 int sec = 0;
                 if ("seek_relative".equals(action) || (value != null && (value.startsWith("+") || value.startsWith("-")))) {
@@ -552,10 +537,6 @@ public class MainActivity extends Activity {
                 Map<String, String> p = new HashMap<>();
                 p.put("req0_newTime", String.valueOf(Math.max(0, sec)));
                 sendLoungeCommand("seekTo", p);
-                if (activeCastOut != null && currentTransportId != null) {
-                    sendCastMsg(activeCastOut, "sender-0", currentTransportId, "urn:x-cast:com.google.cast.media",
-                        "{\"type\":\"SEEK\",\"currentTime\":" + sec + ",\"resumeState\":\"PLAYBACK_START\",\"mediaSessionId\":" + sessId + ",\"requestId\":" + reqId + "}");
-                }
             } else if ("subtitles".equals(action)) {
                 if ("off".equalsIgnoreCase(value) || "0".equals(value)) {
                     Map<String, String> p = new HashMap<>();
@@ -584,17 +565,8 @@ public class MainActivity extends Activity {
                 int sessId = activeMediaSessionId > 0 ? activeMediaSessionId : 1;
                 if ("speed".equals(action) || "rate".equals(action)) {
                     double r = Double.parseDouble(value);
-                    final double finalRate = r;
                     msgJson = "{\"type\":\"SET_PLAYBACK_RATE\",\"playbackRate\":" + r + ",\"mediaSessionId\":" + sessId + ",\"requestId\":" + reqId + "}";
                     notifyUser("⚡ Playback Speed: " + value + "x on TV");
-                    mainHandler.post(new Runnable() {
-                        @Override
-                        public void run() {
-                            if (webView != null) {
-                                webView.evaluateJavascript("if (window.syncNativePlaybackState) window.syncNativePlaybackState(" + liveTvCurrentTime + ", " + liveTvDuration + ", 'PLAYING', " + finalRate + ");", null);
-                            }
-                        }
-                    });
                 } else if ("play".equals(action)) {
                     msgJson = "{\"type\":\"PLAY\",\"mediaSessionId\":" + sessId + ",\"requestId\":" + reqId + "}";
                     notifyUser("▶️ Playing on TV");
@@ -1241,12 +1213,11 @@ public class MainActivity extends Activity {
                                         final double cTime = st.currentTime;
                                         final double dTime = st.duration > 0 ? st.duration : liveTvDuration;
                                         final String pState = st.playerState;
-                                        final double pRate = st.playbackRate > 0 ? st.playbackRate : 1.0;
                                         mainHandler.post(new Runnable() {
                                             @Override
                                             public void run() {
                                                 if (webView != null) {
-                                                    webView.evaluateJavascript("if (window.syncNativePlaybackState) window.syncNativePlaybackState(" + cTime + ", " + dTime + ", '" + pState + "', " + pRate + ");", null);
+                                                    webView.evaluateJavascript("if (window.syncNativePlaybackState) window.syncNativePlaybackState(" + cTime + ", " + dTime + ", '" + pState + "');", null);
                                                 }
                                             }
                                         });
@@ -1535,12 +1506,11 @@ public class MainActivity extends Activity {
                                             final double cTime = liveTvCurrentTime;
                                             final double dTime = liveTvDuration;
                                             final String pState = info.playerState;
-                                            final double pRate = info.playbackRate > 0 ? info.playbackRate : 1.0;
                                             runOnUiThread(new Runnable() {
                                                 @Override
                                                 public void run() {
                                                     if (webView != null) {
-                                                        webView.evaluateJavascript("if (window.syncNativePlaybackState) window.syncNativePlaybackState(" + cTime + ", " + dTime + ", '" + pState + "', " + pRate + ");", null);
+                                                        webView.evaluateJavascript("if (window.syncNativePlaybackState) window.syncNativePlaybackState(" + cTime + ", " + dTime + ", '" + pState + "');", null);
                                                     }
                                                 }
                                             });

@@ -600,6 +600,7 @@ class GoogleCastController:
                     }
                     self._send_lounge_command(ip, "setPlaybackRate", p)
                     self._send_lounge_command(ip, "setPlaybackSpeed", p)
+                    return True
             if cast and cast.media_controller:
                 mc = cast.media_controller
                 mc.supporting_app_id = None
