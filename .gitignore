@@ -38,3 +38,12 @@ backend/.selected_device.json
 
 backend/.active_cast.json
 .active_cast.json
+
+# Local scraped player dumps
+tv_*.js
+tv_*.html
+tv_*.txt
+scripts/test_*.py
+scripts/inspect_*.py
+scripts/search_*.py
+scripts/probe_*.py

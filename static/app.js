@@ -1593,7 +1593,8 @@ async function executeUniversalCast(url, title = "") {
     state.currentTitle = playTitle || resolvedInfo?.title || "Video Stream";
     state.playbackState = "PLAYING";
     state.playbackType = isYtStream ? "youtube" : (detectUrlType(url) === "movie" ? "movie" : "stream");
-    window._userSelectedSpeed = null;
+    // Maintain user's chosen playback speed across casts
+    if (window._userSelectedSpeed === undefined || window._userSelectedSpeed === null) { try { const s = localStorage.getItem('tvhub_user_speed'); if (s) window._userSelectedSpeed = parseFloat(s); } catch (e) {} }
     window.TVHubAndroid.castToTv(target.ip, target.dev_type, targetCastUrl, state.currentTitle, mimeType, ytId);
 
     const barTitle = document.getElementById("bar-title");
@@ -3279,13 +3280,13 @@ function updateActiveCastDeck(info) {
     deckTarget.textContent = `${tvName} • 100% Ad-Free`;
   }
 
-  if (info.speed && !window._userSelectedSpeed) {
-    state.speed = parseFloat(info.speed) || 1.0;
-    const spdStr = String(info.speed);
-    document.querySelectorAll(".speed-pill").forEach(p => {
-      p.classList.toggle("active", p.dataset.speed === spdStr || parseFloat(p.dataset.speed) === parseFloat(spdStr));
-    });
-  }
+  const effectiveSpeed = (window._userSelectedSpeed !== null && window._userSelectedSpeed !== undefined)
+    ? window._userSelectedSpeed
+    : (parseFloat(info.speed) || state.speed || 1.0);
+  state.speed = effectiveSpeed;
+  document.querySelectorAll(".speed-pill").forEach(p => {
+    p.classList.toggle("active", parseFloat(p.dataset.speed) === effectiveSpeed);
+  });
 
   const deckThumb = document.getElementById("deck-thumb");
   if (deckThumb) {
@@ -3560,7 +3561,7 @@ function initActiveCastDeck() {
         }
         const targetSec = Math.min(dur, Math.max(0, Math.floor((pct / 100) * dur)));
         activeDeckCurrentTime = targetSec;
-        window._scrubLockUntil = Date.now() + 4000;
+        window._scrubLockUntil = Date.now() + 6000;
         isScrubbing = false;
         if (timeCur) timeCur.textContent = formatDeckTime(activeDeckCurrentTime);
         if (scrubber && dur > 0) {
@@ -3613,13 +3614,18 @@ function initActiveCastDeck() {
   // 5. Playback Speed Selector Pills
   const speedPills = document.querySelectorAll(".speed-pill");
   speedPills.forEach(pill => {
-    pill.onclick = async () => {
+    pill.onclick = async (e) => {
+      if (e) {
+        e.preventDefault();
+        e.stopPropagation();
+      }
       vibrate(20);
-      speedPills.forEach(p => p.classList.remove("active"));
-      pill.classList.add("active");
       const spd = pill.dataset.speed;
-      state.speed = parseFloat(spd) || 1.0;
-      window._userSelectedSpeed = state.speed;
+      const spdNum = parseFloat(spd) || 1.0;
+      state.speed = spdNum;
+      window._userSelectedSpeed = spdNum;
+      try { localStorage.setItem("tvhub_user_speed", String(spdNum)); } catch (err) {}
+      speedPills.forEach(p => p.classList.toggle("active", parseFloat(p.dataset.speed) === spdNum));
       showToast(`⚡ Playback Speed: ${spd}x on TV`);
       sendPlaybackAction("speed", spd);
     };

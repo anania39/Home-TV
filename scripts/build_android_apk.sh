@@ -299,7 +299,7 @@ public class MainActivity extends Activity {
                 view.postDelayed(new Runnable() {
                     @Override
                     public void run() {
-                        view.loadUrl("https://tvhub.92.5.71.162.sslip.io?v=7.9.9");
+                        view.loadUrl("https://tvhub.92.5.71.162.sslip.io?v=8.0.0");
                     }
                 }, 2000);
             }
@@ -339,7 +339,7 @@ public class MainActivity extends Activity {
             }
         });
 
-        webView.loadUrl("https://tvhub.92.5.71.162.sslip.io?v=7.9.9");
+        webView.loadUrl("https://tvhub.92.5.71.162.sslip.io?v=8.0.0");
     }
 
     // --- Native Android Host Bridge Exposed to JavaScript ---
@@ -508,12 +508,22 @@ public class MainActivity extends Activity {
                 notifyUser("⏹️ Stopped YouTube Cast");
             } else if ("speed".equals(action) || "rate".equals(action)) {
                 Map<String, String> p = new HashMap<>();
-                p.put("req0_playbackRate", value);
-                p.put("req0_rate", value);
+                p.put("req0_playback_speed", value);
+                p.put("req0__playback_speed", value);
+                p.put("playback_speed", value);
                 p.put("req0_playbackSpeed", value);
+                p.put("req0__playbackSpeed", value);
+                p.put("playbackSpeed", value);
+                p.put("req0_playbackRate", value);
+                p.put("req0__playbackRate", value);
+                p.put("playbackRate", value);
+                p.put("req0_rate", value);
+                p.put("rate", value);
                 p.put("req0_speed", value);
-                sendLoungeCommand("setPlaybackRate", p);
+                p.put("speed", value);
                 sendLoungeCommand("setPlaybackSpeed", p);
+                sendLoungeCommand("setPlaybackRate", p);
+                sendLoungeCommand("set_playback_speed", p);
                 notifyUser("⚡ Playback Speed: " + value + "x on TV");
             } else if ("seek".equals(action) || "seek_relative".equals(action)) {
                 int sec = 0;
@@ -526,11 +536,19 @@ public class MainActivity extends Activity {
                     int mins = sec / 60;
                     int remSecs = sec % 60;
                     String timeStr = String.format("%02d:%02d", mins, remSecs);
-                    notifyUser("⏩ Jumped to " + timeStr + " on TV");
+                    notifyUser("📍 Jumped to " + timeStr + " on TV");
                 }
                 liveTvCurrentTime = sec;
+                String sVal = String.valueOf(Math.max(0, sec));
                 Map<String, String> p = new HashMap<>();
-                p.put("newTime", String.valueOf(Math.max(0, sec)));
+                p.put("req0_newTime", sVal);
+                p.put("req0__newTime", sVal);
+                p.put("newTime", sVal);
+                p.put("req0_currentTime", sVal);
+                p.put("req0__currentTime", sVal);
+                p.put("currentTime", sVal);
+                p.put("req0_new_time", sVal);
+                p.put("new_time", sVal);
                 sendLoungeCommand("seekTo", p);
             } else if ("subtitles".equals(action)) {
                 if ("off".equalsIgnoreCase(value) || "0".equals(value)) {
@@ -646,13 +664,10 @@ public class MainActivity extends Activity {
 
                 StringBuilder sb = new StringBuilder();
                 sb.append("count=1&req0__sc=").append(URLEncoder.encode(sc, "UTF-8"));
+                sb.append("&req0___sc=").append(URLEncoder.encode(sc, "UTF-8"));
                 if (extraParams != null) {
                     for (Map.Entry<String, String> entry : extraParams.entrySet()) {
-                        String k = entry.getKey();
-                        if (!k.startsWith("req0_")) {
-                            k = "req0_" + k;
-                        }
-                        sb.append("&").append(URLEncoder.encode(k, "UTF-8")).append("=").append(URLEncoder.encode(entry.getValue(), "UTF-8"));
+                        sb.append("&").append(URLEncoder.encode(entry.getKey(), "UTF-8")).append("=").append(URLEncoder.encode(entry.getValue(), "UTF-8"));
                     }
                 }
                 byte[] postData = sb.toString().getBytes("UTF-8");
