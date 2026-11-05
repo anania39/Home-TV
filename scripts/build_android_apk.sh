@@ -71,8 +71,8 @@ cat << 'MANIFEST' > $BUILD_DIR/AndroidManifest.xml
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     package="com.tvhub.app"
-    android:versionCode="788"
-    android:versionName="7.8.8">
+    android:versionCode="792"
+    android:versionName="7.9.2">
 
     <uses-sdk android:minSdkVersion="26" android:targetSdkVersion="34" />
 
@@ -498,8 +498,11 @@ public class MainActivity extends Activity {
                     Map<String, String> p = new HashMap<>();
                     p.put("req0_playbackRate", value);
                     p.put("req0_rate", value);
+                    p.put("req0_playbackSpeed", value);
+                    p.put("req0_speed", value);
                     sendLoungeCommand("setPlaybackRate", p);
-                    notifyUser("📺 YouTube Speed: Press ⚙️ on TV Remote to change speed");
+                    sendLoungeCommand("setPlaybackSpeed", p);
+                    notifyUser("⚡ Playback Speed: " + value + "x on TV");
                 } else if ("seek".equals(action) || "seek_relative".equals(action)) {
                     int sec = 0;
                     if ("seek_relative".equals(action) || (value != null && (value.startsWith("+") || value.startsWith("-")))) {
@@ -508,7 +511,10 @@ public class MainActivity extends Activity {
                         notifyUser((delta < 0 ? "⏪ Rewound " + (int)Math.abs(delta) : "⏩ Forward " + (int)delta) + "s on TV");
                     } else {
                         try { sec = (int) Double.parseDouble(value); } catch (Exception ignored) {}
-                        notifyUser("⏩ Seeked to " + sec + "s on TV");
+                        int mins = sec / 60;
+                        int remSecs = sec % 60;
+                        String timeStr = String.format("%02d:%02d", mins, remSecs);
+                        notifyUser("⏩ Jumped to " + timeStr + " on TV");
                     }
                     liveTvCurrentTime = sec;
                     Map<String, String> p = new HashMap<>();
@@ -576,41 +582,47 @@ public class MainActivity extends Activity {
     }
 
     private synchronized boolean sendLoungeCommand(String sc, Map<String, String> extraParams) {
-        try {
-            if (lastLoungeToken == null || lastSid == null || lastGsessionId == null) {
-                if (!ensureLoungeSession()) return false;
-            }
-            int rid = loungeRid++;
-            URL cmdUrl = new URL("https://www.youtube.com/api/lounge/bc/bind?SID=" + URLEncoder.encode(lastSid, "UTF-8") + "&gsessionid=" + URLEncoder.encode(lastGsessionId, "UTF-8") + "&RID=" + rid + "&VER=8&CVER=1");
-            HttpURLConnection conn = (HttpURLConnection) cmdUrl.openConnection();
-            conn.setRequestMethod("POST");
-            conn.setDoOutput(true);
-            conn.setConnectTimeout(4000);
-            conn.setReadTimeout(4000);
-            conn.setRequestProperty("Origin", "https://www.youtube.com");
-            conn.setRequestProperty("Content-Type", "application/x-www-form-urlencoded");
-            conn.setRequestProperty("X-YouTube-LoungeId-Token", lastLoungeToken);
-
-            StringBuilder sb = new StringBuilder();
-            sb.append("count=1&req0__sc=").append(URLEncoder.encode(sc, "UTF-8"));
-            if (extraParams != null) {
-                for (Map.Entry<String, String> entry : extraParams.entrySet()) {
-                    sb.append("&").append(URLEncoder.encode(entry.getKey(), "UTF-8")).append("=").append(URLEncoder.encode(entry.getValue(), "UTF-8"));
+        for (int attempt = 0; attempt < 2; attempt++) {
+            try {
+                if (lastLoungeToken == null || lastSid == null || lastGsessionId == null) {
+                    if (!ensureLoungeSession()) return false;
                 }
-            }
-            byte[] postData = sb.toString().getBytes("UTF-8");
-            conn.setFixedLengthStreamingMode(postData.length);
-            OutputStream os = conn.getOutputStream();
-            os.write(postData);
-            os.flush();
-            os.close();
+                int rid = loungeRid++;
+                URL cmdUrl = new URL("https://www.youtube.com/api/lounge/bc/bind?SID=" + URLEncoder.encode(lastSid, "UTF-8") + "&gsessionid=" + URLEncoder.encode(lastGsessionId, "UTF-8") + "&RID=" + rid + "&VER=8&CVER=1");
+                HttpURLConnection conn = (HttpURLConnection) cmdUrl.openConnection();
+                conn.setRequestMethod("POST");
+                conn.setDoOutput(true);
+                conn.setConnectTimeout(4000);
+                conn.setReadTimeout(4000);
+                conn.setRequestProperty("Origin", "https://www.youtube.com");
+                conn.setRequestProperty("Content-Type", "application/x-www-form-urlencoded");
+                conn.setRequestProperty("X-YouTube-LoungeId-Token", lastLoungeToken);
 
-            int respCode = conn.getResponseCode();
-            if (respCode == 200) return true;
-            lastLoungeToken = null;
-            lastSid = null;
-            lastGsessionId = null;
-        } catch (Exception ignored) {}
+                StringBuilder sb = new StringBuilder();
+                sb.append("count=1&req0__sc=").append(URLEncoder.encode(sc, "UTF-8"));
+                if (extraParams != null) {
+                    for (Map.Entry<String, String> entry : extraParams.entrySet()) {
+                        sb.append("&").append(URLEncoder.encode(entry.getKey(), "UTF-8")).append("=").append(URLEncoder.encode(entry.getValue(), "UTF-8"));
+                    }
+                }
+                byte[] postData = sb.toString().getBytes("UTF-8");
+                conn.setFixedLengthStreamingMode(postData.length);
+                OutputStream os = conn.getOutputStream();
+                os.write(postData);
+                os.flush();
+                os.close();
+
+                int respCode = conn.getResponseCode();
+                if (respCode == 200) return true;
+                lastLoungeToken = null;
+                lastSid = null;
+                lastGsessionId = null;
+            } catch (Exception e) {
+                lastLoungeToken = null;
+                lastSid = null;
+                lastGsessionId = null;
+            }
+        }
         return false;
     }
 
@@ -628,7 +640,7 @@ public class MainActivity extends Activity {
             SSLContext sc = SSLContext.getInstance("TLS");
             sc.init(null, trustAll, new SecureRandom());
             SSLSocket socket = (SSLSocket) sc.getSocketFactory().createSocket(ip, 8009);
-            socket.setSoTimeout(1800);
+            socket.setSoTimeout(4000);
             socket.startHandshake();
 
             OutputStream out = socket.getOutputStream();
@@ -1007,16 +1019,13 @@ public class MainActivity extends Activity {
             final OutputStream out = socket.getOutputStream();
             final InputStream in = socket.getInputStream();
 
-            // 1. Send CONNECT to receiver-0
+            // 1. Send CONNECT to receiver-0 and check active status
             sendCastMsg(out, "sender-0", "receiver-0", "urn:x-cast:com.google.cast.tp.connection", "{\"type\":\"CONNECT\"}");
-
-            // 2. Launch Default Media Receiver (CC1AD845) explicitly
-            sendCastMsg(out, "sender-0", "receiver-0", "urn:x-cast:com.google.cast.receiver", "{\"type\":\"LAUNCH\",\"appId\":\"CC1AD845\",\"requestId\":1}");
+            sendCastMsg(out, "sender-0", "receiver-0", "urn:x-cast:com.google.cast.receiver", "{\"type\":\"GET_STATUS\",\"requestId\":1}");
 
             String transportId = null;
             long startWait = System.currentTimeMillis();
-
-            while (System.currentTimeMillis() - startWait < 8500) {
+            while (System.currentTimeMillis() - startWait < 2500) {
                 try {
                     byte[] raw = readCastMsg(in);
                     if (raw == null) break;
@@ -1027,11 +1036,34 @@ public class MainActivity extends Activity {
                         break;
                     }
                 } catch (java.net.SocketTimeoutException ste) {
-                    try {
-                        sendCastMsg(out, "sender-0", "receiver-0", "urn:x-cast:com.google.cast.receiver", "{\"type\":\"GET_STATUS\",\"requestId\":2}");
-                    } catch (Exception ignored) {}
+                    break;
                 } catch (Exception ignored) {
                     break;
+                }
+            }
+
+            // Only send LAUNCH if CC1AD845 was NOT already running!
+            // This prevents the blue Google Cast backdrop splash screen from ever reappearing!
+            if (transportId == null || transportId.isEmpty()) {
+                sendCastMsg(out, "sender-0", "receiver-0", "urn:x-cast:com.google.cast.receiver", "{\"type\":\"LAUNCH\",\"appId\":\"CC1AD845\",\"requestId\":2}");
+                startWait = System.currentTimeMillis();
+                while (System.currentTimeMillis() - startWait < 8500) {
+                    try {
+                        byte[] raw = readCastMsg(in);
+                        if (raw == null) break;
+                        String text = new String(raw, "UTF-8");
+                        String tid = extractTransportIdForApp(text, "CC1AD845");
+                        if (tid != null && !tid.isEmpty()) {
+                            transportId = tid;
+                            break;
+                        }
+                    } catch (java.net.SocketTimeoutException ste) {
+                        try {
+                            sendCastMsg(out, "sender-0", "receiver-0", "urn:x-cast:com.google.cast.receiver", "{\"type\":\"GET_STATUS\",\"requestId\":3}");
+                        } catch (Exception ignored) {}
+                    } catch (Exception ignored) {
+                        break;
+                    }
                 }
             }
 
@@ -1052,6 +1084,23 @@ public class MainActivity extends Activity {
             String loadJson = "{\"type\":\"LOAD\",\"requestId\":3,\"autoplay\":true,\"media\":{\"contentId\":\"" + escapeJson(streamUrl) + "\",\"streamType\":\"" + streamType + "\",\"contentType\":\"" + mime + "\",\"metadata\":{\"metadataType\":0,\"title\":\"" + escapeJson(title) + "\"} } }";
             sendCastMsg(out, "sender-0", transportId, "urn:x-cast:com.google.cast.media", loadJson);
             activeMediaSessionId = 1;
+
+            // Wait up to 3s to capture the real mediaSessionId from MEDIA_STATUS
+            long waitSt = System.currentTimeMillis();
+            while (System.currentTimeMillis() - waitSt < 3000) {
+                try {
+                    byte[] raw = readCastMsg(in);
+                    if (raw == null) break;
+                    String text = new String(raw, "UTF-8");
+                    MediaStatusInfo st = parseMediaStatus(text);
+                    if (st != null && st.mediaSessionId > 0) {
+                        activeMediaSessionId = st.mediaSessionId;
+                        liveTvCurrentTime = st.currentTime;
+                        if (st.duration > 0) liveTvDuration = st.duration;
+                        break;
+                    }
+                } catch (Exception ignored) { break; }
+            }
 
             // 5. Keep connection alive with FULL BI-DIRECTIONAL PING/PONG READER THREAD
             activeCastSocket = socket;

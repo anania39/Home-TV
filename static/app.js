@@ -1297,13 +1297,12 @@ async function sendPlaybackAction(action, value = null, extra = {}) {
   if (window.TVHubAndroid && typeof window.TVHubAndroid.controlPlayback === "function") {
     try {
       window.TVHubAndroid.controlPlayback(action, String(value || ""));
-      return; // Return immediately to prevent duplicate/conflicting pychromecast commands on backend
     } catch (e) {
       console.warn("Native controlPlayback notice:", e);
     }
   }
 
-  // 2. Also forward to backend for web / browser receiver synchronization
+  // 2. Also forward to backend for web / browser receiver synchronization & server-side fallback
   try {
     const res = await safeFetchWithRetry("/api/playback/action", {
       method: "POST",
@@ -3567,7 +3566,7 @@ function initActiveCastDeck() {
         window._scrubLockUntil = Date.now() + 2500;
         isScrubbing = false;
         if (timeCur) timeCur.textContent = formatDeckTime(activeDeckCurrentTime);
-        showToast(`Jumped to ${formatDeckTime(targetSec)}`);
+        showToast(`⏩ Jumped to ${formatDeckTime(targetSec)}`);
         sendPlaybackAction("seek", targetSec.toString(), { is_absolute: true });
       }, 30);
     };
@@ -3619,12 +3618,7 @@ function initActiveCastDeck() {
       speedPills.forEach(p => p.classList.remove("active"));
       pill.classList.add("active");
       const spd = pill.dataset.speed;
-      const isYt = state.playbackType === "youtube" || (state.currentTitle && state.currentTitle.includes("YouTube"));
-      if (isYt) {
-        showToast(`📺 YouTube TV Speed: Use TV Remote ⚙️ Settings`);
-      } else {
-        showToast(`⚡ Playback Speed: ${spd}x on TV`);
-      }
+      showToast(`⚡ Playback Speed: ${spd}x on TV`);
       sendPlaybackAction("speed", spd);
     };
   });
@@ -3667,14 +3661,14 @@ function initActiveCastDeck() {
       const qLabel = displayInfo.label.split(" ")[0];
 
       if (state.playbackType === "youtube") {
-        showToast(`📺 YouTube Quality: ${qLabel} (Auto-optimized on TV in 1080p/4K)`);
+        showToast(`📺 YouTube Quality: ${qLabel}`);
+        sendPlaybackAction("quality", q);
         return;
       }
 
-      // DO NOT call castToTv()! Calling castToTv terminates the active session, drops connection,
-      // and re-launches CC1AD845 which causes the TV receiver to display the blue Cast splash screen!
-      // The master playlist (.m3u8) on Google TV Default Media Receiver automatically streams in 1080p Full HD!
       showToast(`📺 Stream Quality: ${displayInfo.tier} (${displayInfo.label})`);
+      const targetUrl = activeDeckQualityUrls[q] || null;
+      sendPlaybackAction("quality", q, { url: targetUrl });
     };
   }
 

@@ -122,13 +122,9 @@ class GoogleCastController:
                 except Exception as ex:
                     logger.debug(f"launch_app CC1AD845 notice: {ex}")
             else:
-                # Receiver is already running. If a media stream was actively playing, stop it cleanly
-                try:
-                    if mc.status and mc.status.player_state in ("PLAYING", "PAUSED", "BUFFERING"):
-                        mc.stop()
-                        time.sleep(0.12)
-                except Exception:
-                    pass
+                # Receiver is already running. NEVER call mc.stop()!
+                # mc.play_media smoothly replaces media without detaching the video decoder surface.
+                pass
 
             is_m3u8 = ".m3u8" in url or "mpegurl" in mime_type.lower()
             content_type = "application/x-mpegurl" if is_m3u8 else (mime_type or "video/mp4")
@@ -178,9 +174,79 @@ class GoogleCastController:
             logger.error(f"Google Cast play_media failed on {ip}: {e}")
             return False
 
+    def _send_lounge_command(self, ip: str, sc: str, params: Optional[Dict[str, Any]] = None) -> bool:
+        """Send YouTube Lounge MDX command for instant playback/speed/seek control on official YouTube TV app."""
+        try:
+            cast = self.get_cast(ip)
+            if not cast:
+                return False
+            from pychromecast.controllers.youtube import YouTubeController
+            yt_ctrl = None
+            for h in cast.custom_controllers:
+                if isinstance(h, YouTubeController):
+                    yt_ctrl = h
+                    break
+            if not yt_ctrl:
+                yt_ctrl = YouTubeController()
+                cast.register_handler(yt_ctrl)
+
+            if not getattr(yt_ctrl, "_screen_id", None):
+                yt_ctrl.update_screen_id()
+
+            screen_id = getattr(yt_ctrl, "_screen_id", None)
+            if not screen_id:
+                return False
+
+            import requests
+            headers = {'Origin': 'https://www.youtube.com', 'Content-Type': 'application/x-www-form-urlencoded'}
+            r = requests.post('https://www.youtube.com/api/lounge/pairing/get_lounge_token_batch', data={'screen_ids': screen_id}, headers=headers, timeout=4)
+            if r.status_code != 200 or not r.json().get('screens'):
+                return False
+            lounge_token = r.json()['screens'][0]['loungeToken']
+
+            bind_headers = dict(headers)
+            bind_headers['X-YouTube-LoungeId-Token'] = lounge_token
+            bind_data = {
+                'device': 'REMOTE_CONTROL',
+                'id': 'tvhubbackend_ctrl',
+                'name': 'Android',
+                'mdx-version': 3,
+                'pairing_type': 'cast',
+                'app': 'android-phone-13.14.55'
+            }
+            r2 = requests.post('https://www.youtube.com/api/lounge/bc/bind', params={'RID': 0, 'VER': 8, 'CVER': 1}, data=bind_data, headers=bind_headers, timeout=4)
+            m_sid = re.search(r'"c","(.*?)","', r2.text)
+            m_gsid = re.search(r'"S","(.*?)"\]', r2.text)
+            if not m_sid or not m_gsid:
+                return False
+            sid = m_sid.group(1)
+            gsessionid = m_gsid.group(1)
+
+            body = {'count': 1, 'req0__sc': sc}
+            if params:
+                for k, v in params.items():
+                    body[f'req0_{k}'] = str(v)
+
+            r_cmd = requests.post(
+                'https://www.youtube.com/api/lounge/bc/bind',
+                params={'SID': sid, 'gsessionid': gsessionid, 'RID': 1, 'VER': 8, 'CVER': 1},
+                data=body,
+                headers=bind_headers,
+                timeout=4
+            )
+            logger.info(f"YouTube Lounge command '{sc}' dispatched to {ip}: {r_cmd.status_code}")
+            return r_cmd.status_code == 200
+        except Exception as e:
+            logger.warning(f"YouTube Lounge command notice on {ip}: {e}")
+            return False
+
     def play(self, ip: str) -> bool:
         try:
             cast = self.get_cast(ip)
+            if cast:
+                app = getattr(cast, "app_id", None) or (cast.status.app_id if cast.status else None)
+                if app == "233637DE":
+                    return self._send_lounge_command(ip, "playVideo")
             if cast and cast.media_controller:
                 cast.media_controller.play()
                 return True
@@ -191,6 +257,10 @@ class GoogleCastController:
     def pause(self, ip: str) -> bool:
         try:
             cast = self.get_cast(ip)
+            if cast:
+                app = getattr(cast, "app_id", None) or (cast.status.app_id if cast.status else None)
+                if app == "233637DE":
+                    return self._send_lounge_command(ip, "pauseVideo")
             if cast and cast.media_controller:
                 cast.media_controller.pause()
                 return True
@@ -232,6 +302,11 @@ class GoogleCastController:
         """Non-blocking, instant rewind/forward and absolute seek on Google Cast."""
         try:
             cast = self.get_cast(ip)
+            if cast:
+                app = getattr(cast, "app_id", None) or (cast.status.app_id if cast.status else None)
+                if app == "233637DE":
+                    target_time = max(0.0, float(seconds))
+                    return self._send_lounge_command(ip, "seekTo", {"newTime": str(int(target_time))})
             if cast and cast.media_controller:
                 mc = cast.media_controller
                 mc.supporting_app_id = None
@@ -337,6 +412,18 @@ class GoogleCastController:
     def set_playback_rate(self, ip: str, rate: float) -> bool:
         try:
             cast = self.get_cast(ip)
+            if cast:
+                app = getattr(cast, "app_id", None) or (cast.status.app_id if cast.status else None)
+                if app == "233637DE":
+                    p = {
+                        "playbackRate": str(rate),
+                        "rate": str(rate),
+                        "playbackSpeed": str(rate),
+                        "speed": str(rate)
+                    }
+                    self._send_lounge_command(ip, "setPlaybackRate", p)
+                    self._send_lounge_command(ip, "setPlaybackSpeed", p)
+                    return True
             if cast and cast.media_controller:
                 mc = cast.media_controller
                 mc.supporting_app_id = None
