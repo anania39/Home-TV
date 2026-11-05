@@ -72,7 +72,7 @@ cat << 'MANIFEST' > $BUILD_DIR/AndroidManifest.xml
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     package="com.tvhub.app"
     android:versionCode="803"
-    android:versionName="8.0.3">
+    android:versionName="8.0.4">
 
     <uses-sdk android:minSdkVersion="26" android:targetSdkVersion="34" />
 
@@ -282,7 +282,7 @@ public class MainActivity extends Activity {
         settings.setBuiltInZoomControls(true);
         settings.setDisplayZoomControls(false);
         settings.setCacheMode(WebSettings.LOAD_NO_CACHE);
-        settings.setUserAgentString("Mozilla/5.0 (Linux; Android 14; Pixel 8) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Mobile Safari/537.36 TVHubHostApp/8.0.3");
+        settings.setUserAgentString("Mozilla/5.0 (Linux; Android 14; Pixel 8) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Mobile Safari/537.36 TVHubHostApp/8.0.4");
 
         // Expose Native TV Hub Android Host Bridge
         webView.addJavascriptInterface(new TVHubBridge(), "TVHubAndroid");
@@ -299,7 +299,7 @@ public class MainActivity extends Activity {
                 view.postDelayed(new Runnable() {
                     @Override
                     public void run() {
-                        view.loadUrl("https://tvhub.92.5.71.162.sslip.io?v=8.0.3");
+                        view.loadUrl("https://tvhub.92.5.71.162.sslip.io?v=8.0.4");
                     }
                 }, 2000);
             }
@@ -339,7 +339,7 @@ public class MainActivity extends Activity {
             }
         });
 
-        webView.loadUrl("https://tvhub.92.5.71.162.sslip.io?v=8.0.3");
+        webView.loadUrl("https://tvhub.92.5.71.162.sslip.io?v=8.0.4");
     }
 
     // --- Native Android Host Bridge Exposed to JavaScript ---
@@ -476,7 +476,7 @@ public class MainActivity extends Activity {
         if (action == null) return;
         action = action.toLowerCase().trim();
 
-        boolean isYouTube = "youtube".equals(lastCastType) || lastLoungeToken != null || (lastScreenId != null && !lastScreenId.isEmpty());
+        boolean isYouTube = "youtube".equalsIgnoreCase(lastCastType);
 
         // 1. YouTube MDX Lounge Synchronization
         if (isYouTube) {
@@ -497,10 +497,12 @@ public class MainActivity extends Activity {
             } else if ("speed".equals(action) || "rate".equals(action)) {
                 Map<String, String> p1 = new HashMap<>();
                 p1.put("playbackRate", value);
+                p1.put("rate", value);
                 sendLoungeCommand("setPlaybackRate", p1);
 
                 Map<String, String> p2 = new HashMap<>();
                 p2.put("playbackSpeed", value);
+                p2.put("speed", value);
                 sendLoungeCommand("setPlaybackSpeed", p2);
 
                 notifyUser("⚡ Playback Speed: " + value + "x on TV");
@@ -1126,6 +1128,7 @@ public class MainActivity extends Activity {
             activeCastIp = ip;
             currentTransportId = transportId;
             lastCastType = "cast";
+            lastLoungeToken = null;
             lastCastIp = ip;
 
             final SSLSocket liveSocket = socket;

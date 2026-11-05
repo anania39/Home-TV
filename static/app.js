@@ -3591,12 +3591,24 @@ function initActiveCastDeck() {
     };
 
     // Support instant click / tap anywhere along the progress bar to jump
-    scrubber.onclick = () => {
+    const handleScrubberTap = (e) => {
+      if (e && scrubber) {
+        const rect = scrubber.getBoundingClientRect();
+        if (rect && rect.width > 0) {
+          const clientX = e.clientX !== undefined ? e.clientX : (e.touches && e.touches[0] ? e.touches[0].clientX : null);
+          if (clientX !== null) {
+            const pct = Math.max(0, Math.min(100, ((clientX - rect.left) / rect.width) * 100));
+            scrubber.value = pct;
+            triggerSeek(pct);
+            return;
+          }
+        }
+      }
       triggerSeek(scrubber.value);
     };
-    scrubber.addEventListener("pointerup", () => {
-      triggerSeek(scrubber.value);
-    });
+
+    scrubber.onclick = handleScrubberTap;
+    scrubber.addEventListener("pointerup", handleScrubberTap);
   }
 
   // 5. Playback Speed Selector Pills

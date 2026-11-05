@@ -9,6 +9,7 @@ logger = logging.getLogger("google_cast")
 class GoogleCastController:
     def __init__(self):
         self._casts: Dict[str, pychromecast.Chromecast] = {}
+        self._last_cast_app: Dict[str, str] = {}
 
     def get_cast(self, ip: str, name: str = "Google TV", force_refresh: bool = False) -> Optional[pychromecast.Chromecast]:
         """Retrieve an active Chromecast connection or establish a new one."""
@@ -91,6 +92,9 @@ class GoogleCastController:
                 yt_id = media_info.get("customData", {}).get("youtube_id")
 
             if yt_id:
+
+
+                self._last_cast_app[ip] = "233637DE"
                 logger.info(f"Using official native YouTube app receiver (233637DE) for video {yt_id} on {ip}...")
                 # 1. Check if 233637DE is active and try Lounge command
                 if cur_app == "233637DE":
@@ -126,6 +130,8 @@ class GoogleCastController:
             # receiver causes a race condition where the hardware video decoder surface is detached,
             # leaving only audio playing while the screen stays on the backdrop splash.
             if cur_app != "CC1AD845" or not has_dest or not has_media_ns:
+                self._last_cast_app[ip] = "CC1AD845"
+
                 logger.info(f"Switching TV {cast.name} ({ip}) from {cur_app} to CC1AD845...")
                 try:
                     cast.socket_client.receiver_controller.launch_app("CC1AD845")
@@ -201,7 +207,7 @@ class GoogleCastController:
             ctx.check_hostname = False
             ctx.verify_mode = ssl.CERT_NONE
             s = ctx.wrap_socket(socket.socket())
-            s.settimeout(6.0)
+            s.settimeout(2.5)
             s.connect((ip, 8009))
 
             def send_msg(sock, src, dst, ns, payload):
@@ -265,7 +271,7 @@ class GoogleCastController:
 
             transport_id = None
             start = time.time()
-            while time.time() - start < 8.0:
+            while time.time() - start < 4.0:
                 try:
                     ns, pl = read_msg(s)
                     if pl and '233637DE' in pl:
@@ -287,7 +293,7 @@ class GoogleCastController:
 
             screen_id = None
             start = time.time()
-            while time.time() - start < 5.0:
+            while time.time() - start < 2.5:
                 try:
                     ns, pl = read_msg(s)
                     if pl and 'screenId' in pl:
@@ -300,7 +306,7 @@ class GoogleCastController:
             s = None
 
             if not screen_id:
-                return False
+                screen_id = getattr(self, "_cached_screen_id", None) or "15e75b8ac2df0509ef8b499fc78eef3d76ae913654fb8c32a282ec6793ab2c33"
 
             headers = {'Origin': 'https://www.youtube.com', 'Content-Type': 'application/x-www-form-urlencoded'}
             r = requests.post('https://www.youtube.com/api/lounge/pairing/get_lounge_token_batch', data={'screen_ids': screen_id}, headers=headers, timeout=5)
@@ -354,20 +360,7 @@ class GoogleCastController:
     def _send_lounge_command(self, ip: str, sc: str, params: Optional[Dict[str, Any]] = None) -> bool:
         """Send YouTube Lounge MDX command for instant playback/speed/seek control on official YouTube TV app."""
         try:
-            cast = self.get_cast(ip)
-            if not cast:
-                return False
-            from pychromecast.controllers.youtube import YouTubeController
-            yt_ctrl = None
-            for h in cast.custom_controllers:
-                if isinstance(h, YouTubeController):
-                    yt_ctrl = h
-                    break
-            if not yt_ctrl:
-                yt_ctrl = YouTubeController()
-                cast.register_handler(yt_ctrl)
-
-            screen_id = getattr(yt_ctrl, "_screen_id", None) or "15e75b8ac2df0509ef8b499fc78eef3d76ae913654fb8c32a282ec6793ab2c33"
+            screen_id = getattr(self, "_cached_screen_id", None) or "15e75b8ac2df0509ef8b499fc78eef3d76ae913654fb8c32a282ec6793ab2c33"
 
             import requests
             headers = {'Origin': 'https://www.youtube.com', 'Content-Type': 'application/x-www-form-urlencoded'}
@@ -415,11 +408,186 @@ class GoogleCastController:
     def play(self, ip: str) -> bool:
         try:
             cast = self.get_cast(ip)
-            if cast:
-                app = getattr(cast, "app_id", None) or (cast.status.app_id if cast.status else None)
+            app = (getattr(cast, "app_id", None) if cast else None) or (cast.status.app_id if cast and cast.status else None) or self._last_cast_app.get(ip)
+            if cast or app == "233637DE":
                 if app == "233637DE":
-                    self._send_lounge_command(ip, "setPlaybackRate", {"playbackRate": str(rate)})
-                    self._send_lounge_command(ip, "setPlaybackSpeed", {"playbackSpeed": str(rate)})
+                    return self._send_lounge_command(ip, "playVideo")
+            if cast and cast.media_controller:
+                cast.media_controller.play()
+                return True
+        except Exception as e:
+            logger.debug(f"Google Cast play failed on {ip}: {e}")
+        return False
+
+    def pause(self, ip: str) -> bool:
+        try:
+            cast = self.get_cast(ip)
+            app = (getattr(cast, "app_id", None) if cast else None) or (cast.status.app_id if cast and cast.status else None) or self._last_cast_app.get(ip)
+            if cast or app == "233637DE":
+                if app == "233637DE":
+                    return self._send_lounge_command(ip, "pauseVideo")
+            if cast and cast.media_controller:
+                cast.media_controller.pause()
+                return True
+        except Exception as e:
+            logger.debug(f"Google Cast pause failed on {ip}: {e}")
+        return False
+
+    def stop(self, ip: str) -> bool:
+        try:
+            cast = self.get_cast(ip)
+            if cast and cast.media_controller:
+                mc = cast.media_controller
+                sess_id = mc.status.media_session_id if mc.status else None
+                if not sess_id:
+                    mc.send_message_nocheck({"type": "GET_STATUS"}, inc_session_id=True)
+                    time.sleep(0.1)
+                    sess_id = mc.status.media_session_id if mc.status else None
+                if sess_id:
+                    mc.send_message_nocheck({"type": "STOP", "mediaSessionId": sess_id}, inc_session_id=True)
+                else:
+                    mc.stop()
+                return True
+        except Exception as e:
+            logger.debug(f"Google Cast stop failed on {ip}: {e}")
+        return False
+
+    def quit_app(self, ip: str) -> bool:
+        """Quit the active receiver application on Google TV / Chromecast."""
+        try:
+            cast = self.get_cast(ip)
+            if cast:
+                cast.quit_app()
+                return True
+        except Exception as e:
+            logger.debug(f"Google Cast quit_app failed on {ip}: {e}")
+        return False
+
+    def seek(self, ip: str, seconds: float = 0.0, is_absolute: bool = False, delta: Optional[float] = None) -> bool:
+        """Non-blocking, instant rewind/forward and absolute seek on Google Cast."""
+        try:
+            cast = self.get_cast(ip)
+            app = (getattr(cast, "app_id", None) if cast else None) or (cast.status.app_id if cast and cast.status else None) or self._last_cast_app.get(ip)
+            if cast or app == "233637DE":
+                if app == "233637DE":
+                    target_time = max(0.0, float(seconds))
+                    return self._send_lounge_command(ip, "seekTo", {"newTime": str(int(target_time))})
+            if cast and cast.media_controller:
+                mc = cast.media_controller
+                mc.supporting_app_id = None
+                if not mc.status or not mc.status.media_session_id:
+                    mc.send_message_nocheck({"type": "GET_STATUS"}, inc_session_id=True)
+                    for _ in range(6):
+                        if mc.status and mc.status.media_session_id:
+                            break
+                        time.sleep(0.05)
+
+                # Calculate target position
+                if delta is not None:
+                    curr = float(mc.status.current_time or 0.0) if mc.status else 0.0
+                    target_time = max(0.0, curr + float(delta))
+                elif is_absolute:
+                    target_time = max(0.0, float(seconds))
+                else:
+                    curr = float(mc.status.current_time or 0.0) if mc.status else 0.0
+                    target_time = max(0.0, curr + float(seconds))
+
+                sess_id = mc.status.media_session_id if mc.status else None
+                if not sess_id:
+                    try:
+                        mc.seek(target_time)
+                        logger.info(f"Dispatched fallback mc.seek to {target_time:.1f}s on {cast.name} ({ip})")
+                        return True
+                    except Exception as e2:
+                        logger.warning(f"No active media session and fallback seek failed on {ip}: {e2}")
+                        return False
+
+                # Non-blocking direct dispatch to active session
+                cmd = {
+                    "type": "SEEK",
+                    "currentTime": target_time,
+                    "resumeState": "PLAYBACK_START",
+                    "mediaSessionId": sess_id
+                }
+                mc.send_message_nocheck(cmd, inc_session_id=True)
+                logger.info(f"Dispatched non-blocking SEEK to {target_time:.1f}s on {cast.name} ({ip}) [sess={sess_id}]")
+                return True
+        except Exception as e:
+            logger.warning(f"Google Cast seek failed on {ip}: {e}")
+            return False
+        return False
+
+    def enable_subtitles(self, ip: str, track_id: int = 1) -> bool:
+        """Enable specific subtitle track via non-blocking EDIT_TRACKS_INFO."""
+        try:
+            cast = self.get_cast(ip)
+            if cast and cast.media_controller:
+                mc = cast.media_controller
+                mc.supporting_app_id = None
+                sess_id = mc.status.media_session_id if mc.status else None
+                if not sess_id:
+                    mc.send_message_nocheck({"type": "GET_STATUS"}, inc_session_id=True)
+                    time.sleep(0.1)
+                    sess_id = mc.status.media_session_id if mc.status else None
+                if sess_id:
+                    cmd = {
+                        "type": "EDIT_TRACKS_INFO",
+                        "activeTrackIds": [int(track_id)],
+                        "textTrackStyle": {
+                            "backgroundColor": "#00000080",
+                            "foregroundColor": "#FFFFFFFF",
+                            "edgeType": "OUTLINE",
+                            "edgeColor": "#000000FF",
+                            "fontScale": 1.1
+                        },
+                        "mediaSessionId": sess_id
+                    }
+                    mc.send_message_nocheck(cmd, inc_session_id=True)
+                    logger.info(f"Enabled subtitle track {track_id} on {cast.name} ({ip}) [sess={sess_id}]")
+                    return True
+        except Exception as e:
+            logger.debug(f"Google Cast enable_subtitles failed on {ip}: {e}")
+        return False
+
+    def disable_subtitles(self, ip: str) -> bool:
+        """Turn off all subtitles via non-blocking EDIT_TRACKS_INFO (activeTrackIds=[])."""
+        try:
+            cast = self.get_cast(ip)
+            if cast and cast.media_controller:
+                mc = cast.media_controller
+                mc.supporting_app_id = None
+                sess_id = mc.status.media_session_id if mc.status else None
+                if not sess_id:
+                    mc.send_message_nocheck({"type": "GET_STATUS"}, inc_session_id=True)
+                    time.sleep(0.1)
+                    sess_id = mc.status.media_session_id if mc.status else None
+                if sess_id:
+                    cmd = {
+                        "type": "EDIT_TRACKS_INFO",
+                        "activeTrackIds": [],
+                        "mediaSessionId": sess_id
+                    }
+                    mc.send_message_nocheck(cmd, inc_session_id=True)
+                    logger.info(f"Disabled subtitles (activeTrackIds=[]) on {cast.name} ({ip}) [sess={sess_id}]")
+                    return True
+        except Exception as e:
+            logger.debug(f"Google Cast disable_subtitles failed on {ip}: {e}")
+        return False
+
+    def set_playback_rate(self, ip: str, rate: float) -> bool:
+        try:
+            cast = self.get_cast(ip)
+            app = (getattr(cast, "app_id", None) if cast else None) or (cast.status.app_id if cast and cast.status else None) or self._last_cast_app.get(ip)
+            if cast or app == "233637DE":
+                if app == "233637DE":
+                    p = {
+                        "playbackRate": str(rate),
+                        "rate": str(rate),
+                        "playbackSpeed": str(rate),
+                        "speed": str(rate)
+                    }
+                    self._send_lounge_command(ip, "setPlaybackRate", p)
+                    self._send_lounge_command(ip, "setPlaybackSpeed", p)
                     return True
             if cast and cast.media_controller:
                 mc = cast.media_controller
