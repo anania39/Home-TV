@@ -27,11 +27,10 @@ jobs:
       - name: Stage Pages Content
         run: |
           mkdir -p _site
-          cp index.html manifest.json sw.js tv.html endpoint.json _site/
+          cp index.html manifest.json sw.js tv.html endpoint.json TVHub.apk _site/
           mkdir -p _site/static
-          cp static/app.js static/style.css static/endpoint.json _site/static/
+          cp static/app.js static/style.css static/endpoint.json static/TVHub.apk _site/static/
           cp -r static/logos _site/static/
-          rm -f _site/TVHub.apk _site/static/TVHub.apk
       - name: Setup Pages
         uses: actions/configure-pages@v5
       - name: Upload artifact
