@@ -298,7 +298,7 @@ public class MainActivity extends Activity {
                 view.postDelayed(new Runnable() {
                     @Override
                     public void run() {
-                        view.loadUrl("https://tvhub.92.5.71.162.sslip.io?v=7.8.9");
+                        view.loadUrl("https://tvhub.92.5.71.162.sslip.io?v=7.9.0");
                     }
                 }, 2000);
             }
@@ -338,7 +338,7 @@ public class MainActivity extends Activity {
             }
         });
 
-        webView.loadUrl("https://tvhub.92.5.71.162.sslip.io?v=7.8.9");
+        webView.loadUrl("https://tvhub.92.5.71.162.sslip.io?v=7.9.0");
     }
 
     // --- Native Android Host Bridge Exposed to JavaScript ---
@@ -481,7 +481,45 @@ public class MainActivity extends Activity {
             }
         }
 
-        // 1. If we have an active streaming Cast socket, dispatch immediately
+        // 1. YouTube MDX Lounge Control (Strictly Isolated - NEVER send Cast V2 media to YouTube)
+        if ("youtube".equals(lastCastType)) {
+            ensureLoungeSession();
+            if (lastLoungeToken != null && lastSid != null && lastGsessionId != null) {
+                if ("play".equals(action)) {
+                    sendLoungeCommand("playVideo", null);
+                    notifyUser("▶️ Playing YouTube on TV");
+                } else if ("pause".equals(action)) {
+                    sendLoungeCommand("pauseVideo", null);
+                    notifyUser("⏸️ Paused YouTube on TV");
+                } else if ("stop".equals(action)) {
+                    sendLoungeCommand("stopVideo", null);
+                    notifyUser("⏹️ Stopped YouTube Cast");
+                } else if ("speed".equals(action) || "rate".equals(action)) {
+                    Map<String, String> p = new HashMap<>();
+                    p.put("req0_playbackRate", value);
+                    p.put("req0_rate", value);
+                    sendLoungeCommand("setPlaybackRate", p);
+                    notifyUser("📺 YouTube Speed: Press ⚙️ on TV Remote to change speed");
+                } else if ("seek".equals(action) || "seek_relative".equals(action)) {
+                    int sec = 0;
+                    if ("seek_relative".equals(action) || (value != null && (value.startsWith("+") || value.startsWith("-")))) {
+                        double delta = Double.parseDouble(value);
+                        sec = (int) Math.max(0.0, liveTvCurrentTime + delta);
+                        notifyUser((delta < 0 ? "⏪ Rewound " + (int)Math.abs(delta) : "⏩ Forward " + (int)delta) + "s on TV");
+                    } else {
+                        try { sec = (int) Double.parseDouble(value); } catch (Exception ignored) {}
+                        notifyUser("⏩ Seeked to " + sec + "s on TV");
+                    }
+                    liveTvCurrentTime = sec;
+                    Map<String, String> p = new HashMap<>();
+                    p.put("req0_newTime", String.valueOf(Math.max(0, sec)));
+                    sendLoungeCommand("seekTo", p);
+                }
+            }
+            return; // Finished YouTube control! NEVER fall through to sendCastDirectControl!
+        }
+
+        // 2. Cast V2 Active Socket for Default Media Receiver (CC1AD845) - Movies & Channels
         if (activeCastOut != null && currentTransportId != null) {
             try {
                 int reqId = ++castRequestId;
@@ -522,39 +560,8 @@ public class MainActivity extends Activity {
             } catch (Exception ignored) {}
         }
 
-        // 2. Direct Cast V2 Control (Works on Google TV for both YouTube 233637DE and Media Receiver CC1AD845!)
+        // 3. Fallback direct Cast V2 (Only for CC1AD845, never for YouTube)
         sendCastDirectControl(action, value);
-
-        // 3. Complementary YouTube MDX Lounge command
-        if ("youtube".equals(lastCastType)) {
-            ensureLoungeSession();
-            if (lastLoungeToken != null && lastSid != null && lastGsessionId != null) {
-                if ("play".equals(action)) sendLoungeCommand("playVideo", null);
-                else if ("pause".equals(action)) sendLoungeCommand("pauseVideo", null);
-                else if ("stop".equals(action)) sendLoungeCommand("stopVideo", null);
-                else if ("speed".equals(action) || "rate".equals(action)) {
-                    Map<String, String> p = new HashMap<>();
-                    p.put("req0_playbackRate", value);
-                    p.put("req0_rate", value);
-                    sendLoungeCommand("setPlaybackRate", p);
-                    notifyUser("📺 YouTube Speed: Press ⚙️ on TV Remote to change speed");
-                } else if ("seek".equals(action) || "seek_relative".equals(action)) {
-                    int sec = 0;
-                    if ("seek_relative".equals(action) || (value != null && (value.startsWith("+") || value.startsWith("-")))) {
-                        double delta = Double.parseDouble(value);
-                        sec = (int) Math.max(0.0, liveTvCurrentTime + delta);
-                        notifyUser((delta < 0 ? "⏪ Rewound " + (int)Math.abs(delta) : "⏩ Forward " + (int)delta) + "s on TV");
-                    } else {
-                        try { sec = (int) Double.parseDouble(value); } catch (Exception ignored) {}
-                        notifyUser("⏩ Seeked to " + sec + "s on TV");
-                    }
-                    liveTvCurrentTime = sec;
-                    Map<String, String> p = new HashMap<>();
-                    p.put("req0_newTime", String.valueOf(Math.max(0, sec)));
-                    sendLoungeCommand("seekTo", p);
-                }
-            }
-        }
         // 3. DLNA Control for Hisense TV
         if ("dlna".equals(lastCastType) || (lastCastIp != null && (lastCastIp.endsWith(".249") || lastCastIp.contains("hisense")))) {
             String controlUrl = "http://" + lastCastIp + ":38400/upnp/control/mingusavtr";
@@ -783,6 +790,11 @@ public class MainActivity extends Activity {
                     String text = new String(raw, "UTF-8");
                     String[] appInfo = extractActiveMediaApp(text);
                     if (appInfo != null) {
+                        if ("233637DE".equals(appInfo[0])) {
+                            // YouTube app is running - do not send Cast V2 media namespace commands!
+                            s.close();
+                            return;
+                        }
                         tid = appInfo[1];
                         break;
                     }

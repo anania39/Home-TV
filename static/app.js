@@ -1549,13 +1549,13 @@ async function executeUniversalCast(url, title = "") {
   // Resolve clean media stream from web platform if not already a direct .m3u8/.mp4
   let resolvedInfo = window.activeResolvedData || null;
   if (!isDirectMediaUrl(url)) {
-    if (!resolvedInfo || !resolvedInfo.stream_url) {
-      showToast("⚡ Resolving clean ad-free stream...");
+    if (!resolvedInfo || !resolvedInfo.stream_url || !resolvedInfo.duration || resolvedInfo.duration <= 0) {
+      showToast("⚡ Resolving video length & stream...");
       try {
         const res = await safeFetchWithRetry(`/api/media/resolve?url=${encodeURIComponent(url)}`);
         if (res.ok) {
           const data = await res.json();
-          if (data.resolved && data.stream_url) {
+          if (data.resolved) {
             resolvedInfo = data;
           }
         }
@@ -1563,9 +1563,9 @@ async function executeUniversalCast(url, title = "") {
         console.warn("Media resolve notice:", e);
       }
     }
-    if (resolvedInfo && resolvedInfo.stream_url) {
-      playUrl = resolvedInfo.stream_url;
-      if (resolvedInfo.title) {
+    if (resolvedInfo) {
+      if (resolvedInfo.stream_url) playUrl = resolvedInfo.stream_url;
+      if (resolvedInfo.title && (!playTitle || playTitle === "Video Stream" || playTitle === "YouTube Video")) {
         playTitle = resolvedInfo.title;
       }
       mimeType = resolvedInfo.mime_type || (playUrl.includes(".m3u8") ? "application/x-mpegurl" : "video/mp4");
@@ -1587,17 +1587,23 @@ async function executeUniversalCast(url, title = "") {
       ytId = "";
     }
     state.currentStreamUrl = targetCastUrl;
-    window.TVHubAndroid.castToTv(target.ip, target.dev_type, targetCastUrl, playTitle, mimeType, ytId);
-    state.currentTitle = playTitle;
+    state.currentTitle = playTitle || resolvedInfo?.title || "Video Stream";
     state.playbackState = "PLAYING";
+    state.playbackType = ytId ? "youtube" : (detectUrlType(url) === "movie" ? "movie" : "stream");
+    window.TVHubAndroid.castToTv(target.ip, target.dev_type, targetCastUrl, state.currentTitle, mimeType, ytId);
+
     const barTitle = document.getElementById("bar-title");
     if (barTitle) barTitle.textContent = state.currentTitle;
     updatePlayPauseButton(true);
+
+    const activeDur = (resolvedInfo?.duration && resolvedInfo.duration > 0) ? resolvedInfo.duration : 0;
+    const activeDurStr = (activeDur > 0) ? formatDeckTime(activeDur) : (resolvedInfo?.duration_str && resolvedInfo.duration_str !== "Live" ? resolvedInfo.duration_str : "--:--");
+
     updateActiveCastDeck({
-      title: playTitle,
+      title: state.currentTitle,
       state: "PLAYING",
-      duration: resolvedInfo?.duration || 0,
-      duration_str: resolvedInfo?.duration_str || "",
+      duration: activeDur,
+      duration_str: activeDurStr,
       thumbnail: resolvedInfo?.thumbnail || "",
       subtitles: resolvedInfo?.subtitles || [],
       qualities: resolvedInfo?.qualities || ["Auto", "1080p", "720p", "480p", "360p"],
@@ -3254,7 +3260,7 @@ function updateActiveCastDeck(info) {
   const thumb = info.thumbnail || "";
   const durNum = typeof info.duration === "number" ? info.duration : parseFloat(info.duration);
   const duration = (durNum && !isNaN(durNum) && durNum > 0) ? durNum : activeDeckDuration;
-  const durationStr = info.duration_str || (duration > 0 ? formatDeckTime(duration) : "--:--");
+  const durationStr = (duration > 0 ? formatDeckTime(duration) : (info.duration_str && info.duration_str !== "Live" ? info.duration_str : "--:--"));
 
   deck.style.display = "block";
 

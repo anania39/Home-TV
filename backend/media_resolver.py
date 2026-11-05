@@ -113,7 +113,7 @@ class MediaResolver:
     def _format_duration(seconds: int) -> str:
         seconds = max(0, int(seconds or 0))
         if seconds <= 0:
-            return "Live"
+            return "--:--"
         h = seconds // 3600
         m = (seconds % 3600) // 60
         s = seconds % 60
