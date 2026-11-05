@@ -728,6 +728,11 @@ async def cast_media(req: CastRequest, request: Request, client_ip: str = Depend
     raw_stream_url = req.url.strip()
     title = req.title or "Live Stream"
 
+    yt_id_entry = None
+    yt_m_entry = re.search(r"(?:youtu\.be/|v/|u/\w/|embed/|watch\?v=|&v=)([^#&?]{11})", raw_stream_url)
+    if yt_m_entry:
+        yt_id_entry = yt_m_entry.group(1)
+
     # Universal Ad-Free Media Resolver:
     # Automatically extracts clean, ad-free direct streams from YouTube, movie platforms & web players
     try:
@@ -1005,6 +1010,16 @@ async def cast_media(req: CastRequest, request: Request, client_ip: str = Depend
                                 })
                         if formatted_tracks:
                             media_info["tracks"] = formatted_tracks
+
+            if yt_id_entry or (isinstance(resolved, dict) and resolved.get("youtube_id")):
+                final_yt_id = yt_id_entry or resolved.get("youtube_id")
+                if not media_info:
+                    media_info = {}
+                media_info["youtube_id"] = final_yt_id
+                media_info["source_type"] = "youtube"
+                media_info.setdefault("customData", {})["youtube_id"] = final_yt_id
+                media_info["customData"]["source_type"] = "youtube"
+                tv_stream_url = f"https://www.youtube.com/watch?v={final_yt_id}"
 
             if not media_info:
                 media_info = None

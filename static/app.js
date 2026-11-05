@@ -1283,8 +1283,7 @@ function initRemoteKeys() {
           scrubber.value = (activeDeckCurrentTime / activeDeckDuration) * 100;
         }
         showToast(delta < 0 ? `⏪ Rewound ${Math.abs(delta)}s` : `⏩ Fast Forward ${delta}s`);
-        const deltaStr = delta > 0 ? `+${delta}` : `${delta}`;
-        await sendPlaybackAction("seek_relative", deltaStr, { delta: delta.toString() });
+        await sendPlaybackAction("seek", target.toString(), { is_absolute: true, delta: delta.toString() });
       } else {
         await sendPlaybackAction(action, val);
       }

@@ -92,15 +92,33 @@ class GoogleCastController:
 
             if yt_id:
                 logger.info(f"Using official native YouTube app receiver (233637DE) for video {yt_id} on {ip}...")
-                try:
-                    from pychromecast.controllers.youtube import YouTubeController
-                    yt_ctrl = YouTubeController()
-                    cast.register_handler(yt_ctrl)
-                    yt_ctrl.play_video(yt_id)
-                    logger.info(f"Successfully started native YouTube playback for {yt_id} on {ip}")
+                # 1. Check if 233637DE is active and try Lounge command
+                if cur_app == "233637DE":
+                    play_params = {
+                        "videoId": yt_id,
+                        "currentTime": "0",
+                        "currentIndex": "-1",
+                        "audioOnly": "false",
+                        "listId": ""
+                    }
+                    if self._send_lounge_command(ip, "setPlaylist", play_params):
+                        logger.info(f"Instantly loaded YouTube video {yt_id} via active Lounge session on {ip}")
+                        return True
+
+                # 2. Direct TLS launch of 233637DE + Lounge bind
+                yt_success = self._launch_and_play_youtube(ip, yt_id)
+                if yt_success:
+                    logger.info(f"Successfully launched and started YouTube {yt_id} on {ip}")
                     return True
-                except Exception as ex:
-                    logger.warning(f"YouTubeController launch notice on {ip}: {ex}, continuing to CC1AD845 fallback")
+
+                # 3. Retry once after 600ms
+                time.sleep(0.6)
+                if self._launch_and_play_youtube(ip, yt_id):
+                    logger.info(f"Successfully started YouTube {yt_id} on {ip} on retry")
+                    return True
+
+                logger.warning(f"YouTube launch on {ip} did not complete; maintaining TV state without CC1AD845 disruption")
+                return False
 
             # If Default Media Receiver is not the active app (e.g. YouTube app 2C6A6E3D, Netflix, or Home screen),
             # launch CC1AD845 and wait for the media namespace to be established.
@@ -173,6 +191,165 @@ class GoogleCastController:
         except Exception as e:
             logger.error(f"Google Cast play_media failed on {ip}: {e}")
             return False
+
+    def _launch_and_play_youtube(self, ip: str, video_id: str) -> bool:
+        """Direct TLS launch of 233637DE and Lounge MDX token binding without CC1AD845 fallthrough."""
+        s = None
+        try:
+            import ssl, socket, struct, requests, re
+            ctx = ssl.create_default_context()
+            ctx.check_hostname = False
+            ctx.verify_mode = ssl.CERT_NONE
+            s = ctx.wrap_socket(socket.socket())
+            s.settimeout(6.0)
+            s.connect((ip, 8009))
+
+            def send_msg(sock, src, dst, ns, payload):
+                b_src = src.encode('utf-8')
+                b_dst = dst.encode('utf-8')
+                b_ns = ns.encode('utf-8')
+                b_pl = payload.encode('utf-8')
+                def varint(n):
+                    res = bytearray()
+                    while (n & ~0x7F) != 0:
+                        res.append((n & 0x7F) | 0x80)
+                        n >>= 7
+                    res.append(n)
+                    return bytes(res)
+                msg = bytearray()
+                msg += b'\x08\x00'
+                msg += b'\x12' + varint(len(b_src)) + b_src
+                msg += b'\x1a' + varint(len(b_dst)) + b_dst
+                msg += b'\x22' + varint(len(b_ns)) + b_ns
+                msg += b'\x28\x00'
+                msg += b'\x32' + varint(len(b_pl)) + b_pl
+                sock.sendall(struct.pack('>I', len(msg)) + bytes(msg))
+
+            def read_msg(sock):
+                raw_len = sock.recv(4)
+                if not raw_len: return None, None
+                l = struct.unpack('>I', raw_len)[0]
+                data = b''
+                while len(data) < l:
+                    chunk = sock.recv(l - len(data))
+                    if not chunk: break
+                    data += chunk
+                idx = 0
+                pl = None
+                ns = None
+                while idx < len(data):
+                    tag = data[idx]
+                    idx += 1
+                    fn = tag >> 3
+                    wt = tag & 0x07
+                    if wt == 0:
+                        while data[idx] & 0x80: idx += 1
+                        idx += 1
+                    elif wt == 2:
+                        l_val = 0
+                        shift = 0
+                        while True:
+                            b = data[idx]
+                            idx += 1
+                            l_val |= (b & 0x7F) << shift
+                            shift += 7
+                            if not (b & 0x80): break
+                        val = data[idx:idx+l_val]
+                        idx += l_val
+                        if fn == 4: ns = val.decode('utf-8', 'ignore')
+                        elif fn == 6: pl = val.decode('utf-8', 'ignore')
+                return ns, pl
+
+            send_msg(s, 'sender-0', 'receiver-0', 'urn:x-cast:com.google.cast.tp.connection', '{"type":"CONNECT"}')
+            send_msg(s, 'sender-0', 'receiver-0', 'urn:x-cast:com.google.cast.receiver', '{"type":"LAUNCH","appId":"233637DE","requestId":1}')
+
+            transport_id = None
+            start = time.time()
+            while time.time() - start < 8.0:
+                try:
+                    ns, pl = read_msg(s)
+                    if pl and '233637DE' in pl:
+                        d = json.loads(pl)
+                        for a in d.get('status', {}).get('applications', []):
+                            if a.get('appId') == '233637DE':
+                                transport_id = a.get('transportId')
+                                break
+                    if transport_id: break
+                except Exception:
+                    break
+
+            if not transport_id:
+                s.close()
+                return False
+
+            send_msg(s, 'sender-0', transport_id, 'urn:x-cast:com.google.cast.tp.connection', '{"type":"CONNECT"}')
+            send_msg(s, 'sender-0', transport_id, 'urn:x-cast:com.google.youtube.mdx', '{"type":"getMdxSessionStatus"}')
+
+            screen_id = None
+            start = time.time()
+            while time.time() - start < 5.0:
+                try:
+                    ns, pl = read_msg(s)
+                    if pl and 'screenId' in pl:
+                        m = re.search(r'"screenId":"([^"]+)"', pl)
+                        if m: screen_id = m.group(1); break
+                except Exception:
+                    break
+
+            s.close()
+            s = None
+
+            if not screen_id:
+                return False
+
+            headers = {'Origin': 'https://www.youtube.com', 'Content-Type': 'application/x-www-form-urlencoded'}
+            r = requests.post('https://www.youtube.com/api/lounge/pairing/get_lounge_token_batch', data={'screen_ids': screen_id}, headers=headers, timeout=5)
+            if r.status_code != 200 or not r.json().get('screens'):
+                return False
+            lounge_token = r.json()['screens'][0]['loungeToken']
+
+            bind_headers = dict(headers)
+            bind_headers['X-YouTube-LoungeId-Token'] = lounge_token
+            bind_data = {
+                'device': 'REMOTE_CONTROL',
+                'id': 'tvhubbackend_cast',
+                'name': 'Android',
+                'mdx-version': 3,
+                'pairing_type': 'cast',
+                'app': 'android-phone-13.14.55'
+            }
+            r2 = requests.post('https://www.youtube.com/api/lounge/bc/bind', params={'RID': 0, 'VER': 8, 'CVER': 1}, data=bind_data, headers=bind_headers, timeout=5)
+            m_sid = re.search(r'"c","(.*?)","', r2.text)
+            m_gsid = re.search(r'"S","(.*?)"\]', r2.text)
+            if not m_sid or not m_gsid:
+                return False
+            sid = m_sid.group(1)
+            gsessionid = m_gsid.group(1)
+
+            play_data = {
+                'count': 1,
+                'req0__sc': 'setPlaylist',
+                'req0_videoId': video_id,
+                'req0_currentTime': '0',
+                'req0_currentIndex': '-1',
+                'req0_audioOnly': 'false',
+                'req0_listId': ''
+            }
+            r_play = requests.post(
+                'https://www.youtube.com/api/lounge/bc/bind',
+                params={'SID': sid, 'gsessionid': gsessionid, 'RID': 1, 'VER': 8, 'CVER': 1},
+                data=play_data,
+                headers=bind_headers,
+                timeout=5
+            )
+            return r_play.status_code == 200
+        except Exception as e:
+            logger.debug(f"_launch_and_play_youtube notice on {ip}: {e}")
+            return False
+        finally:
+            if s:
+                try: s.close()
+                except Exception: pass
 
     def _send_lounge_command(self, ip: str, sc: str, params: Optional[Dict[str, Any]] = None) -> bool:
         """Send YouTube Lounge MDX command for instant playback/speed/seek control on official YouTube TV app."""

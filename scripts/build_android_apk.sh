@@ -71,8 +71,8 @@ cat << 'MANIFEST' > $BUILD_DIR/AndroidManifest.xml
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     package="com.tvhub.app"
-    android:versionCode="795"
-    android:versionName="7.9.5">
+    android:versionCode="796"
+    android:versionName="7.9.6">
 
     <uses-sdk android:minSdkVersion="26" android:targetSdkVersion="34" />
 
@@ -438,7 +438,9 @@ public class MainActivity extends Activity {
         try {
             int brace = text.indexOf('{');
             if (brace == -1) return null;
-            JSONObject root = new JSONObject(text.substring(brace));
+            int lastBrace = text.lastIndexOf('}');
+            if (lastBrace == -1 || lastBrace <= brace) return null;
+            JSONObject root = new JSONObject(text.substring(brace, lastBrace + 1));
             if ("MEDIA_STATUS".equals(root.optString("type")) || root.has("status")) {
                 JSONArray arr = root.optJSONArray("status");
                 if (arr != null && arr.length() > 0) {
@@ -485,26 +487,26 @@ public class MainActivity extends Activity {
         if ("youtube".equals(lastCastType)) {
             ensureLoungeSession();
             int reqId = ++castRequestId;
-            int sessId = activeMediaSessionId;
+            int sessId = activeMediaSessionId > 0 ? activeMediaSessionId : 1;
             try {
 
             if ("play".equals(action)) {
                 sendLoungeCommand("playVideo", null);
-                if (activeCastOut != null && currentTransportId != null && sessId > 0) {
+                if (activeCastOut != null && currentTransportId != null) {
                     sendCastMsg(activeCastOut, "sender-0", currentTransportId, "urn:x-cast:com.google.cast.media",
                         "{\"type\":\"PLAY\",\"mediaSessionId\":" + sessId + ",\"requestId\":" + reqId + "}");
                 }
                 notifyUser("▶️ Playing YouTube on TV");
             } else if ("pause".equals(action)) {
                 sendLoungeCommand("pauseVideo", null);
-                if (activeCastOut != null && currentTransportId != null && sessId > 0) {
+                if (activeCastOut != null && currentTransportId != null) {
                     sendCastMsg(activeCastOut, "sender-0", currentTransportId, "urn:x-cast:com.google.cast.media",
                         "{\"type\":\"PAUSE\",\"mediaSessionId\":" + sessId + ",\"requestId\":" + reqId + "}");
                 }
                 notifyUser("⏸️ Paused YouTube on TV");
             } else if ("stop".equals(action)) {
                 sendLoungeCommand("stopVideo", null);
-                if (activeCastOut != null && currentTransportId != null && sessId > 0) {
+                if (activeCastOut != null && currentTransportId != null) {
                     sendCastMsg(activeCastOut, "sender-0", currentTransportId, "urn:x-cast:com.google.cast.media",
                         "{\"type\":\"STOP\",\"mediaSessionId\":" + sessId + ",\"requestId\":" + reqId + "}");
                 }
@@ -519,7 +521,7 @@ public class MainActivity extends Activity {
                 p.put("req0_speed", value);
                 sendLoungeCommand("setPlaybackRate", p);
                 sendLoungeCommand("setPlaybackSpeed", p);
-                if (activeCastOut != null && currentTransportId != null && sessId > 0) {
+                if (activeCastOut != null && currentTransportId != null) {
                     sendCastMsg(activeCastOut, "sender-0", currentTransportId, "urn:x-cast:com.google.cast.media",
                         "{\"type\":\"SET_PLAYBACK_RATE\",\"playbackRate\":" + r + ",\"mediaSessionId\":" + sessId + ",\"requestId\":" + reqId + "}");
                 }
@@ -541,9 +543,9 @@ public class MainActivity extends Activity {
                 Map<String, String> p = new HashMap<>();
                 p.put("req0_newTime", String.valueOf(Math.max(0, sec)));
                 sendLoungeCommand("seekTo", p);
-                if (activeCastOut != null && currentTransportId != null && sessId > 0) {
+                if (activeCastOut != null && currentTransportId != null) {
                     sendCastMsg(activeCastOut, "sender-0", currentTransportId, "urn:x-cast:com.google.cast.media",
-                        "{\"type\":\"SEEK\",\"currentTime\":" + sec + ",\"mediaSessionId\":" + sessId + ",\"requestId\":" + reqId + "}");
+                        "{\"type\":\"SEEK\",\"currentTime\":" + sec + ",\"resumeState\":\"PLAYBACK_START\",\"mediaSessionId\":" + sessId + ",\"requestId\":" + reqId + "}");
                 }
             } else if ("subtitles".equals(action)) {
                 if ("off".equalsIgnoreCase(value) || "0".equals(value)) {
@@ -955,10 +957,16 @@ public class MainActivity extends Activity {
             if (youtubeId != null && !youtubeId.isEmpty()) {
                 notifyUser("Launching YouTube on TCL Smart TV Pro...");
                 boolean ytOk = castYouTubeToGoogleTv(targetIp, youtubeId);
+                if (!ytOk) {
+                    try { Thread.sleep(600); } catch (Exception ignored) {}
+                    ytOk = castYouTubeToGoogleTv(targetIp, youtubeId);
+                }
                 if (ytOk) {
                     notifyUser("🎉 Now Playing YouTube on TCL Smart TV Pro!");
-                    return;
+                } else {
+                    notifyUser("⚠️ Launching YouTube on TV, please wait a moment...");
                 }
+                return; // Strictly NEVER fall through to castToGoogleTv for YouTube!
             }
             notifyUser("Connecting to TCL Smart TV Pro via Cast V2...");
             boolean castOk = castToGoogleTv(targetIp, streamUrl, title);
@@ -992,8 +1000,10 @@ public class MainActivity extends Activity {
         if (youtubeId != null && !youtubeId.isEmpty()) {
             if (castYouTubeToGoogleTv(targetIp, youtubeId)) {
                 notifyUser("🎉 Playing YouTube on Smart TV!");
-                return;
+            } else {
+                notifyUser("⚠️ Launching YouTube on TV, please wait a moment...");
             }
+            return; // NEVER fall through to castToGoogleTv for YouTube!
         }
         boolean castFallback = castToGoogleTv(targetIp, streamUrl, title);
         if (castFallback) {
@@ -1314,7 +1324,7 @@ public class MainActivity extends Activity {
             SSLContext sc = SSLContext.getInstance("TLS");
             sc.init(null, trustAll, new SecureRandom());
             SSLSocket socket = (SSLSocket) sc.getSocketFactory().createSocket(ip, 8009);
-            socket.setSoTimeout(2500);
+            socket.setSoTimeout(5000);
             socket.startHandshake();
 
             OutputStream out = socket.getOutputStream();
@@ -1326,10 +1336,13 @@ public class MainActivity extends Activity {
 
             String transportId = null;
             long startWait = System.currentTimeMillis();
-            while (System.currentTimeMillis() - startWait < 8000) {
+            while (System.currentTimeMillis() - startWait < 9000) {
                 try {
                     byte[] raw = readCastMsg(in);
-                    if (raw == null) break;
+                    if (raw == null) {
+                        try { Thread.sleep(200); } catch (Exception ignored) {}
+                        continue;
+                    }
                     String text = new String(raw, "UTF-8");
                     String tid = extractTransportIdForApp(text, "233637DE");
                     if (tid != null && !tid.isEmpty()) {

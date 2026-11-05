@@ -559,11 +559,14 @@ class MediaResolver:
                 mime = "application/x-mpegurl" if (manifest_url or ".m3u8" in stream_url) else ("video/mp4" if ext == "mp4" else "video/webm")
                 subs_list, qualities, quality_urls, audio_tracks = self._extract_subtitles_and_qualities(info)
                 dur_str = self._format_duration(duration)
+                yt_m = re.search(r"(?:youtu\.be/|v/|u/\w/|embed/|watch\?v=|&v=)([^#&?]{11})", url)
+                vid_id = yt_m.group(1) if yt_m else (info.get("id") or "")
                 logger.info(f"Successfully resolved YouTube stream: {title} (Zero Ads, {len(subs_list)} subs, {len(qualities)} qualities, {len(audio_tracks)} audio tracks)")
                 return {
                     "resolved": True,
                     "stream_url": stream_url,
                     "manifest_url": manifest_url,
+                    "youtube_id": vid_id,
                     "title": title,
                     "thumbnail": thumbnail,
                     "duration": duration,
