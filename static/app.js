@@ -1596,8 +1596,13 @@ async function executeUniversalCast(url, title = "") {
     if (barTitle) barTitle.textContent = state.currentTitle;
     updatePlayPauseButton(true);
 
-    const activeDur = (resolvedInfo?.duration && resolvedInfo.duration > 0) ? resolvedInfo.duration : 0;
+    const activeDur = (resolvedInfo?.duration && resolvedInfo.duration > 0) ? resolvedInfo.duration : (state.duration > 0 ? state.duration : 0);
     const activeDurStr = (activeDur > 0) ? formatDeckTime(activeDur) : (resolvedInfo?.duration_str && resolvedInfo.duration_str !== "Live" ? resolvedInfo.duration_str : "--:--");
+
+    if (activeDur > 0) {
+      activeDeckDuration = activeDur;
+      state.duration = activeDur;
+    }
 
     updateActiveCastDeck({
       title: state.currentTitle,
@@ -3552,12 +3557,12 @@ function initActiveCastDeck() {
         }
 
         vibrate(20);
-        let targetSec = 0;
-        if (dur > 0) {
-          targetSec = Math.floor((pct / 100) * dur);
-        } else {
-          targetSec = Math.floor(pct * 36);
+        if (dur <= 0) {
+          showToast("⏱️ Synchronizing video length with TV...");
+          isScrubbing = false;
+          return;
         }
+        const targetSec = Math.min(dur, Math.max(0, Math.floor((pct / 100) * dur)));
         activeDeckCurrentTime = targetSec;
         window._scrubLockUntil = Date.now() + 2500;
         isScrubbing = false;
@@ -3616,7 +3621,7 @@ function initActiveCastDeck() {
       const spd = pill.dataset.speed;
       const isYt = state.playbackType === "youtube" || (state.currentTitle && state.currentTitle.includes("YouTube"));
       if (isYt) {
-        showToast(`📺 YouTube Speed: ${spd}x (Use TV remote ⚙️ Settings)`);
+        showToast(`📺 YouTube TV Speed: Use TV Remote ⚙️ Settings`);
       } else {
         showToast(`⚡ Playback Speed: ${spd}x on TV`);
       }

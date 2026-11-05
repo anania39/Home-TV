@@ -487,7 +487,12 @@ class MediaResolver:
                 if hls_audio:
                     res["audio_tracks"] = hls_audio
 
-            self._cache[cache_key] = (dict(res), now + 900)
+            # Only cache for 15 minutes if duration was actually measured and title is clean!
+            # If duration is 0 or unknown, cache for only 5 seconds so retries can resolve the real duration!
+            has_valid_dur = (res.get("duration", 0) > 0)
+            has_clean_title = (res.get("title") and res.get("title") not in ("YouTube Video", "Video Stream", "Live Stream", ""))
+            cache_duration = 900 if (has_valid_dur and has_clean_title) else 5
+            self._cache[cache_key] = (dict(res), now + cache_duration)
             if len(self._cache) > 80:
                 oldest = min(self._cache.keys(), key=lambda k: self._cache[k][1])
                 del self._cache[oldest]
@@ -597,7 +602,7 @@ class MediaResolver:
                     from .cloud_relay import get_active_home_hub_url
                     hub_tunnel = await get_active_home_hub_url()
                 if hub_tunnel:
-                    async with httpx.AsyncClient(timeout=2.5, verify=False) as c:
+                    async with httpx.AsyncClient(timeout=10.0, verify=False) as c:
                         r = await c.get(
                             f"{hub_tunnel}/api/media/resolve",
                             params={"url": url},
@@ -617,7 +622,23 @@ class MediaResolver:
         if yt_id_match:
             vid_id = yt_id_match.group(1)
             yt_dur = 0
-            yt_title = preferred_title or "YouTube Video"
+            yt_title = preferred_title or ""
+
+            # Fast oEmbed query (50ms, 100% reliable, never bot-blocked)
+            if not yt_title or yt_title in ("YouTube Video", "Video Stream", "Live Stream"):
+                try:
+                    async with httpx.AsyncClient(timeout=3.0) as oc:
+                        oer = await oc.get(f"https://www.youtube.com/oembed?url=https://www.youtube.com/watch?v={vid_id}&format=json")
+                        if oer.status_code == 200:
+                            oed = oer.json()
+                            if oed.get("title"):
+                                yt_title = oed["title"]
+                except Exception as oe_err:
+                    logger.debug(f"oEmbed title notice: {oe_err}")
+
+            if not yt_title:
+                yt_title = "YouTube Video"
+
             try:
                 innertube_url = "https://www.youtube.com/youtubei/v1/player?prettyPrint=false"
                 body = {

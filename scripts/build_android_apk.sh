@@ -298,7 +298,7 @@ public class MainActivity extends Activity {
                 view.postDelayed(new Runnable() {
                     @Override
                     public void run() {
-                        view.loadUrl("https://tvhub.92.5.71.162.sslip.io?v=7.9.0");
+                        view.loadUrl("https://tvhub.92.5.71.162.sslip.io?v=7.9.1");
                     }
                 }, 2000);
             }
@@ -338,7 +338,7 @@ public class MainActivity extends Activity {
             }
         });
 
-        webView.loadUrl("https://tvhub.92.5.71.162.sslip.io?v=7.9.0");
+        webView.loadUrl("https://tvhub.92.5.71.162.sslip.io?v=7.9.1");
     }
 
     // --- Native Android Host Bridge Exposed to JavaScript ---
@@ -778,8 +778,9 @@ public class MainActivity extends Activity {
             OutputStream o = s.getOutputStream();
             InputStream i = s.getInputStream();
 
-            sendCastMsg(o, "sender-0", "receiver-0", "urn:x-cast:com.google.cast.tp.connection", "{\"type\":\"CONNECT\"}");
-            sendCastMsg(o, "sender-0", "receiver-0", "urn:x-cast:com.google.cast.receiver", "{\"type\":\"GET_STATUS\",\"requestId\":1}");
+            String ctlSender = "sender-ctl-" + (System.currentTimeMillis() % 100000);
+            sendCastMsg(o, ctlSender, "receiver-0", "urn:x-cast:com.google.cast.tp.connection", "{\"type\":\"CONNECT\"}");
+            sendCastMsg(o, ctlSender, "receiver-0", "urn:x-cast:com.google.cast.receiver", "{\"type\":\"GET_STATUS\",\"requestId\":1}");
 
             String tid = null;
             long startWait = System.currentTimeMillis();
@@ -802,8 +803,8 @@ public class MainActivity extends Activity {
             }
 
             if (tid != null) {
-                sendCastMsg(o, "sender-0", tid, "urn:x-cast:com.google.cast.tp.connection", "{\"type\":\"CONNECT\"}");
-                sendCastMsg(o, "sender-0", tid, "urn:x-cast:com.google.cast.media", "{\"type\":\"GET_STATUS\",\"requestId\":2}");
+                sendCastMsg(o, ctlSender, tid, "urn:x-cast:com.google.cast.tp.connection", "{\"type\":\"CONNECT\"}");
+                sendCastMsg(o, ctlSender, tid, "urn:x-cast:com.google.cast.media", "{\"type\":\"GET_STATUS\",\"requestId\":2}");
                 long waitSt = System.currentTimeMillis();
                 while (System.currentTimeMillis() - waitSt < 2000) {
                     try {
@@ -848,7 +849,7 @@ public class MainActivity extends Activity {
                     payload = "{\"type\":\"SEEK\",\"currentTime\":" + targetSec + ",\"resumeState\":\"PLAYBACK_START\",\"mediaSessionId\":" + sessId + ",\"requestId\":" + reqId + "}";
                 }
                 if (payload != null) {
-                    sendCastMsg(o, "sender-0", tid, "urn:x-cast:com.google.cast.media", payload);
+                    sendCastMsg(o, ctlSender, tid, "urn:x-cast:com.google.cast.media", payload);
                 }
             }
             s.close();
