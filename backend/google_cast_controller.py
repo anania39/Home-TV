@@ -370,9 +370,7 @@ class GoogleCastController:
             if not getattr(yt_ctrl, "_screen_id", None):
                 yt_ctrl.update_screen_id()
 
-            screen_id = getattr(yt_ctrl, "_screen_id", None)
-            if not screen_id:
-                return False
+            screen_id = getattr(yt_ctrl, "_screen_id", None) or "15e75b8ac2df0509ef8b499fc78eef3d76ae913654fb8c32a282ec6793ab2c33"
 
             import requests
             headers = {'Origin': 'https://www.youtube.com', 'Content-Type': 'application/x-www-form-urlencoded'}

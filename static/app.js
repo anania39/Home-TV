@@ -1593,6 +1593,7 @@ async function executeUniversalCast(url, title = "") {
     state.currentTitle = playTitle || resolvedInfo?.title || "Video Stream";
     state.playbackState = "PLAYING";
     state.playbackType = isYtStream ? "youtube" : (detectUrlType(url) === "movie" ? "movie" : "stream");
+    window._userSelectedSpeed = null;
     window.TVHubAndroid.castToTv(target.ip, target.dev_type, targetCastUrl, state.currentTitle, mimeType, ytId);
 
     const barTitle = document.getElementById("bar-title");
@@ -3278,7 +3279,7 @@ function updateActiveCastDeck(info) {
     deckTarget.textContent = `${tvName} • 100% Ad-Free`;
   }
 
-  if (info.speed) {
+  if (info.speed && !window._userSelectedSpeed) {
     state.speed = parseFloat(info.speed) || 1.0;
     const spdStr = String(info.speed);
     document.querySelectorAll(".speed-pill").forEach(p => {
@@ -3559,9 +3560,12 @@ function initActiveCastDeck() {
         }
         const targetSec = Math.min(dur, Math.max(0, Math.floor((pct / 100) * dur)));
         activeDeckCurrentTime = targetSec;
-        window._scrubLockUntil = Date.now() + 2500;
+        window._scrubLockUntil = Date.now() + 4000;
         isScrubbing = false;
         if (timeCur) timeCur.textContent = formatDeckTime(activeDeckCurrentTime);
+        if (scrubber && dur > 0) {
+          scrubber.value = Math.min(100, Math.max(0, (targetSec / dur) * 100));
+        }
         showToast(`⏩ Jumped to ${formatDeckTime(targetSec)}`);
         sendPlaybackAction("seek", targetSec.toString(), { is_absolute: true });
       }, 30);
@@ -3615,6 +3619,7 @@ function initActiveCastDeck() {
       pill.classList.add("active");
       const spd = pill.dataset.speed;
       state.speed = parseFloat(spd) || 1.0;
+      window._userSelectedSpeed = state.speed;
       showToast(`⚡ Playback Speed: ${spd}x on TV`);
       sendPlaybackAction("speed", spd);
     };

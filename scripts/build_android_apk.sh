@@ -71,8 +71,8 @@ cat << 'MANIFEST' > $BUILD_DIR/AndroidManifest.xml
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     package="com.tvhub.app"
-    android:versionCode="798"
-    android:versionName="7.9.8">
+    android:versionCode="799"
+    android:versionName="7.9.9">
 
     <uses-sdk android:minSdkVersion="26" android:targetSdkVersion="34" />
 
@@ -179,6 +179,7 @@ public class MainActivity extends Activity {
     private int castRequestId = 10;
     private String lastCastType = "";
     private String lastCastIp = "192.168.50.205";
+    private String lastScreenId = "15e75b8ac2df0509ef8b499fc78eef3d76ae913654fb8c32a282ec6793ab2c33";
     private String lastLoungeToken = null;
     private String lastSid = null;
     private String lastGsessionId = null;
@@ -281,7 +282,7 @@ public class MainActivity extends Activity {
         settings.setBuiltInZoomControls(true);
         settings.setDisplayZoomControls(false);
         settings.setCacheMode(WebSettings.LOAD_NO_CACHE);
-        settings.setUserAgentString("Mozilla/5.0 (Linux; Android 14; Pixel 8) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Mobile Safari/537.36 TVHubHostApp/7.9.8");
+        settings.setUserAgentString("Mozilla/5.0 (Linux; Android 14; Pixel 8) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Mobile Safari/537.36 TVHubHostApp/7.9.9");
 
         // Expose Native TV Hub Android Host Bridge
         webView.addJavascriptInterface(new TVHubBridge(), "TVHubAndroid");
@@ -298,7 +299,7 @@ public class MainActivity extends Activity {
                 view.postDelayed(new Runnable() {
                     @Override
                     public void run() {
-                        view.loadUrl("https://tvhub.92.5.71.162.sslip.io?v=7.9.8");
+                        view.loadUrl("https://tvhub.92.5.71.162.sslip.io?v=7.9.9");
                     }
                 }, 2000);
             }
@@ -338,7 +339,7 @@ public class MainActivity extends Activity {
             }
         });
 
-        webView.loadUrl("https://tvhub.92.5.71.162.sslip.io?v=7.9.8");
+        webView.loadUrl("https://tvhub.92.5.71.162.sslip.io?v=7.9.9");
     }
 
     // --- Native Android Host Bridge Exposed to JavaScript ---
@@ -475,16 +476,10 @@ public class MainActivity extends Activity {
         if (action == null) return;
         action = action.toLowerCase().trim();
 
-        if (lastCastType == null || lastCastType.isEmpty()) {
-            if (activeCastOut != null) {
-                lastCastType = "cast";
-            } else if (lastLoungeToken != null) {
-                lastCastType = "youtube";
-            }
-        }
+        boolean isYouTube = "youtube".equals(lastCastType) || lastLoungeToken != null || (lastScreenId != null && !lastScreenId.isEmpty());
 
-        // 1. YouTube MDX Lounge + Cast V2 Hybrid Synchronization
-        if ("youtube".equals(lastCastType)) {
+        // 1. YouTube MDX Lounge Synchronization
+        if (isYouTube) {
             ensureLoungeSession();
             int reqId = ++castRequestId;
             int sessId = activeMediaSessionId > 0 ? activeMediaSessionId : 1;
@@ -535,7 +530,7 @@ public class MainActivity extends Activity {
                 }
                 liveTvCurrentTime = sec;
                 Map<String, String> p = new HashMap<>();
-                p.put("req0_newTime", String.valueOf(Math.max(0, sec)));
+                p.put("newTime", String.valueOf(Math.max(0, sec)));
                 sendLoungeCommand("seekTo", p);
             } else if ("subtitles".equals(action)) {
                 if ("off".equalsIgnoreCase(value) || "0".equals(value)) {
@@ -653,7 +648,11 @@ public class MainActivity extends Activity {
                 sb.append("count=1&req0__sc=").append(URLEncoder.encode(sc, "UTF-8"));
                 if (extraParams != null) {
                     for (Map.Entry<String, String> entry : extraParams.entrySet()) {
-                        sb.append("&").append(URLEncoder.encode(entry.getKey(), "UTF-8")).append("=").append(URLEncoder.encode(entry.getValue(), "UTF-8"));
+                        String k = entry.getKey();
+                        if (!k.startsWith("req0_")) {
+                            k = "req0_" + k;
+                        }
+                        sb.append("&").append(URLEncoder.encode(k, "UTF-8")).append("=").append(URLEncoder.encode(entry.getValue(), "UTF-8"));
                     }
                 }
                 byte[] postData = sb.toString().getBytes("UTF-8");
@@ -680,77 +679,11 @@ public class MainActivity extends Activity {
     private synchronized boolean ensureLoungeSession() {
         if (lastLoungeToken != null && lastSid != null && lastGsessionId != null) return true;
         try {
-            String ip = (lastCastIp != null && !lastCastIp.isEmpty()) ? lastCastIp : "192.168.50.205";
-            TrustManager[] trustAll = new TrustManager[]{
-                new X509TrustManager() {
-                    public X509Certificate[] getAcceptedIssuers() { return new X509Certificate[0]; }
-                    public void checkClientTrusted(X509Certificate[] c, String a) {}
-                    public void checkServerTrusted(X509Certificate[] c, String a) {}
-                }
-            };
-            SSLContext sc = SSLContext.getInstance("TLS");
-            sc.init(null, trustAll, new SecureRandom());
-            SSLSocket socket = (SSLSocket) sc.getSocketFactory().createSocket(ip, 8009);
-            socket.setSoTimeout(4000);
-            socket.startHandshake();
-
-            OutputStream out = socket.getOutputStream();
-            InputStream in = socket.getInputStream();
-
-            sendCastMsg(out, "sender-0", "receiver-0", "urn:x-cast:com.google.cast.tp.connection", "{\"type\":\"CONNECT\"}");
-            sendCastMsg(out, "sender-0", "receiver-0", "urn:x-cast:com.google.cast.receiver", "{\"type\":\"GET_STATUS\",\"requestId\":1}");
-
-            String transportId = null;
-            long startWait = System.currentTimeMillis();
-            while (System.currentTimeMillis() - startWait < 6000) {
-                try {
-                    byte[] raw = readCastMsg(in);
-                    if (raw == null) break;
-                    String text = new String(raw, "UTF-8");
-                    String tid = extractTransportIdForApp(text, "233637DE");
-                    if (tid != null && !tid.isEmpty()) {
-                        transportId = tid;
-                        break;
-                    }
-                } catch (java.net.SocketTimeoutException ste) {
-                    continue;
-                } catch (Exception ignored) {
-                    break;
-                }
+            String screenId = lastScreenId;
+            if (screenId == null || screenId.isEmpty()) {
+                screenId = "15e75b8ac2df0509ef8b499fc78eef3d76ae913654fb8c32a282ec6793ab2c33";
+                lastScreenId = screenId;
             }
-
-            if (transportId == null) {
-                socket.close();
-                return false;
-            }
-
-            sendCastMsg(out, "sender-0", transportId, "urn:x-cast:com.google.cast.tp.connection", "{\"type\":\"CONNECT\"}");
-            sendCastMsg(out, "sender-0", transportId, "urn:x-cast:com.google.youtube.mdx", "{\"type\":\"getMdxSessionStatus\"}");
-
-            String screenId = null;
-            startWait = System.currentTimeMillis();
-            while (System.currentTimeMillis() - startWait < 6000) {
-                try {
-                    byte[] raw = readCastMsg(in);
-                    if (raw == null) break;
-                    String text = new String(raw, "UTF-8");
-                    int idx = text.indexOf("\"screenId\":\"");
-                    if (idx != -1) {
-                        int endIdx = text.indexOf("\"", idx + 12);
-                        if (endIdx != -1) {
-                            screenId = text.substring(idx + 12, endIdx);
-                            break;
-                        }
-                    }
-                } catch (java.net.SocketTimeoutException ste) {
-                    continue;
-                } catch (Exception ignored) {
-                    break;
-                }
-            }
-            socket.close();
-
-            if (screenId == null || screenId.isEmpty()) return false;
 
             URL tokenUrl = new URL("https://www.youtube.com/api/lounge/pairing/get_lounge_token_batch");
             HttpURLConnection conn1 = (HttpURLConnection) tokenUrl.openConnection();
@@ -815,7 +748,7 @@ public class MainActivity extends Activity {
             lastLoungeToken = loungeToken;
             lastSid = sid;
             lastGsessionId = gsessionid;
-            loungeRid = 2;
+            loungeRid = 1;
             lastCastType = "youtube";
             return true;
         } catch (Exception ignored) {}
@@ -1367,6 +1300,7 @@ public class MainActivity extends Activity {
                         int endIdx = text.indexOf("\"", idx + 12);
                         if (endIdx != -1) {
                             screenId = text.substring(idx + 12, endIdx);
+                            lastScreenId = screenId;
                             break;
                         }
                     }
@@ -1374,8 +1308,8 @@ public class MainActivity extends Activity {
             }
 
             if (screenId == null || screenId.isEmpty()) {
-                try { socket.close(); } catch (Exception ignored) {}
-                return false;
+                screenId = (lastScreenId != null && !lastScreenId.isEmpty()) ? lastScreenId : "15e75b8ac2df0509ef8b499fc78eef3d76ae913654fb8c32a282ec6793ab2c33";
+                lastScreenId = screenId;
             }
 
             // 3. Lounge Token
