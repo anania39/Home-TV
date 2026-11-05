@@ -80,29 +80,7 @@ class GoogleCastController:
             is_youtube_stream = ("googlevideo.com" in url.lower() or "youtube" in url.lower() or "youtu.be" in url.lower()
                                  or (media_info and (media_info.get("source_type") == "youtube" or media_info.get("customData", {}).get("source_type") == "youtube")))
 
-            # Check for YouTube video ID to launch official native YouTube app receiver (233637DE)
-            yt_id = None
-            yt_m = re.search(r"(?:youtu\.be/|v/|u/\w/|embed/|watch\?v=|&v=)([^#&?]{11})", url)
-            if yt_m:
-                yt_id = yt_m.group(1)
-            elif media_info and media_info.get("youtube_id"):
-                yt_id = media_info.get("youtube_id")
-            elif media_info and media_info.get("customData", {}).get("youtube_id"):
-                yt_id = media_info.get("customData", {}).get("youtube_id")
-
-            if yt_id:
-                logger.info(f"Using official native YouTube app receiver (233637DE) for video {yt_id} on {ip}...")
-                try:
-                    from pychromecast.controllers.youtube import YouTubeController
-                    yt_ctrl = YouTubeController()
-                    cast.register_handler(yt_ctrl)
-                    yt_ctrl.play_video(yt_id)
-                    logger.info(f"Successfully started native YouTube playback for {yt_id} on {ip}")
-                    return True
-                except Exception as ex:
-                    logger.warning(f"YouTubeController launch notice on {ip}: {ex}, continuing to CC1AD845 fallback")
-
-            # If Default Media Receiver is not the active app (e.g. YouTube app 2C6A6E3D, Netflix, or Home screen),
+# If Default Media Receiver is not the active app (e.g. YouTube app 2C6A6E3D, Netflix, or Home screen),
             # launch CC1AD845 and wait for the media namespace to be established.
             # If CC1AD845 is ALREADY running, NEVER force-relaunch it! Relaunching an already running
             # receiver causes a race condition where the hardware video decoder surface is detached,
@@ -245,8 +223,6 @@ class GoogleCastController:
             cast = self.get_cast(ip)
             if cast:
                 app = getattr(cast, "app_id", None) or (cast.status.app_id if cast.status else None)
-                if app == "233637DE":
-                    return self._send_lounge_command(ip, "playVideo")
             if cast and cast.media_controller:
                 cast.media_controller.play()
                 return True
@@ -259,8 +235,6 @@ class GoogleCastController:
             cast = self.get_cast(ip)
             if cast:
                 app = getattr(cast, "app_id", None) or (cast.status.app_id if cast.status else None)
-                if app == "233637DE":
-                    return self._send_lounge_command(ip, "pauseVideo")
             if cast and cast.media_controller:
                 cast.media_controller.pause()
                 return True
@@ -304,9 +278,6 @@ class GoogleCastController:
             cast = self.get_cast(ip)
             if cast:
                 app = getattr(cast, "app_id", None) or (cast.status.app_id if cast.status else None)
-                if app == "233637DE":
-                    target_time = max(0.0, float(seconds))
-                    return self._send_lounge_command(ip, "seekTo", {"newTime": str(int(target_time))})
             if cast and cast.media_controller:
                 mc = cast.media_controller
                 mc.supporting_app_id = None
@@ -414,16 +385,6 @@ class GoogleCastController:
             cast = self.get_cast(ip)
             if cast:
                 app = getattr(cast, "app_id", None) or (cast.status.app_id if cast.status else None)
-                if app == "233637DE":
-                    p = {
-                        "playbackRate": str(rate),
-                        "rate": str(rate),
-                        "playbackSpeed": str(rate),
-                        "speed": str(rate)
-                    }
-                    self._send_lounge_command(ip, "setPlaybackRate", p)
-                    self._send_lounge_command(ip, "setPlaybackSpeed", p)
-                    return True
             if cast and cast.media_controller:
                 mc = cast.media_controller
                 mc.supporting_app_id = None

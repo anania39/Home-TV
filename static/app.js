@@ -1579,8 +1579,12 @@ async function executeUniversalCast(url, title = "") {
     showToast(`Casting to ${target.name}...`);
     const useProxy = castUseProxy ? castUseProxy.checked : true;
     let targetCastUrl = makeCastPlayableUrl(playUrl);
-    if (useProxy && !targetCastUrl.includes("/proxy?url=") && !targetCastUrl.includes("googlevideo.com") && (detectUrlType(url) === "movie" || resolvedInfo?.source_type === "movie_platform")) {
+    const isYtStream = (url.includes("youtube.com") || url.includes("youtu.be") || targetCastUrl.includes("googlevideo.com") || resolvedInfo?.source_type === "youtube");
+    if (!targetCastUrl.includes("/proxy?url=") && (isYtStream || detectUrlType(url) === "movie" || resolvedInfo?.source_type === "movie_platform")) {
       targetCastUrl = `https://tvhub.92.5.71.162.sslip.io/proxy?url=${encodeURIComponent(targetCastUrl)}`;
+    }
+    if (isYtStream) {
+      mimeType = "application/x-mpegurl";
     }
     if (detectUrlType(url) === "movie" || resolvedInfo?.source_type === "movie_platform") {
       ytId = "";
@@ -1588,7 +1592,7 @@ async function executeUniversalCast(url, title = "") {
     state.currentStreamUrl = targetCastUrl;
     state.currentTitle = playTitle || resolvedInfo?.title || "Video Stream";
     state.playbackState = "PLAYING";
-    state.playbackType = ytId ? "youtube" : (detectUrlType(url) === "movie" ? "movie" : "stream");
+    state.playbackType = isYtStream ? "youtube" : (detectUrlType(url) === "movie" ? "movie" : "stream");
     window.TVHubAndroid.castToTv(target.ip, target.dev_type, targetCastUrl, state.currentTitle, mimeType, ytId);
 
     const barTitle = document.getElementById("bar-title");
@@ -3503,9 +3507,9 @@ function initActiveCastDeck() {
     }
     showToast(label);
     const deltaStr = (deltaSec > 0 ? "+" : "") + deltaSec;
-    sendPlaybackAction("seek_relative", deltaStr, {
-      delta: deltaSec.toString(),
-      is_absolute: false
+    sendPlaybackAction("seek", target.toString(), {
+      delta: deltaStr,
+      is_absolute: true
     });
   };
 
@@ -3626,11 +3630,7 @@ function initActiveCastDeck() {
       const code = subsSelect.value;
       if (code === "off") {
         showToast("Subtitles turned off");
-        await safeFetchWithRetry("/api/playback/action", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ action: "subtitles", value: "off", device_id: state.currentTvId })
-        });
+        sendPlaybackAction("subtitles", "off");
       } else {
         const found = activeDeckSubtitles.find(s => s.code === code);
         const vttUrl = found ? found.url : "";

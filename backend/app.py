@@ -845,8 +845,8 @@ async def cast_media(req: CastRequest, request: Request, client_ip: str = Depend
     if dev and dev.get("is_google_tv"):
         if manifest_url:
             tv_stream_url = raw_stream_url
-        elif "googlevideo.com" in raw_stream_url and not req.use_proxy:
-            tv_stream_url = raw_stream_url
+        elif "googlevideo.com" in raw_stream_url:
+            tv_stream_url = lan_proxy_url
         elif req.use_proxy or raw_stream_url.startswith("https://"):
             tv_stream_url = lan_proxy_url
         else:

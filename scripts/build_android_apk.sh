@@ -71,8 +71,8 @@ cat << 'MANIFEST' > $BUILD_DIR/AndroidManifest.xml
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     package="com.tvhub.app"
-    android:versionCode="793"
-    android:versionName="7.9.3">
+    android:versionCode="794"
+    android:versionName="7.9.4">
 
     <uses-sdk android:minSdkVersion="26" android:targetSdkVersion="34" />
 
@@ -481,49 +481,7 @@ public class MainActivity extends Activity {
             }
         }
 
-        // 1. YouTube MDX Lounge Control (Strictly Isolated - NEVER send Cast V2 media to YouTube)
-        if ("youtube".equals(lastCastType)) {
-            ensureLoungeSession();
-            if (lastLoungeToken != null && lastSid != null && lastGsessionId != null) {
-                if ("play".equals(action)) {
-                    sendLoungeCommand("playVideo", null);
-                    notifyUser("▶️ Playing YouTube on TV");
-                } else if ("pause".equals(action)) {
-                    sendLoungeCommand("pauseVideo", null);
-                    notifyUser("⏸️ Paused YouTube on TV");
-                } else if ("stop".equals(action)) {
-                    sendLoungeCommand("stopVideo", null);
-                    notifyUser("⏹️ Stopped YouTube Cast");
-                } else if ("speed".equals(action) || "rate".equals(action)) {
-                    Map<String, String> p = new HashMap<>();
-                    p.put("req0_playbackRate", value);
-                    p.put("req0_rate", value);
-                    p.put("req0_playbackSpeed", value);
-                    p.put("req0_speed", value);
-                    sendLoungeCommand("setPlaybackRate", p);
-                    sendLoungeCommand("setPlaybackSpeed", p);
-                    notifyUser("⚡ Playback Speed: " + value + "x on TV");
-                } else if ("seek".equals(action) || "seek_relative".equals(action)) {
-                    int sec = 0;
-                    if ("seek_relative".equals(action) || (value != null && (value.startsWith("+") || value.startsWith("-")))) {
-                        double delta = Double.parseDouble(value);
-                        sec = (int) Math.max(0.0, liveTvCurrentTime + delta);
-                        notifyUser((delta < 0 ? "⏪ Rewound " + (int)Math.abs(delta) : "⏩ Forward " + (int)delta) + "s on TV");
-                    } else {
-                        try { sec = (int) Double.parseDouble(value); } catch (Exception ignored) {}
-                        int mins = sec / 60;
-                        int remSecs = sec % 60;
-                        String timeStr = String.format("%02d:%02d", mins, remSecs);
-                        notifyUser("⏩ Jumped to " + timeStr + " on TV");
-                    }
-                    liveTvCurrentTime = sec;
-                    Map<String, String> p = new HashMap<>();
-                    p.put("req0_newTime", String.valueOf(Math.max(0, sec)));
-                    sendLoungeCommand("seekTo", p);
-                }
-            }
-            return; // Finished YouTube control! NEVER fall through to sendCastDirectControl!
-        }
+// All playback (YouTube, Movies, Live TV) uses native Cast V2 CC1AD845
 
         // 2. Cast V2 Active Socket for Default Media Receiver (CC1AD845) - Movies & Channels
         if (activeCastOut != null && currentTransportId != null) {
@@ -552,10 +510,12 @@ public class MainActivity extends Activity {
                         notifyUser((delta < 0 ? "⏪ Rewound " + (int)Math.abs(delta) : "⏩ Forward " + (int)delta) + "s on TV");
                     } else {
                         targetSec = Math.max(0.0, Double.parseDouble(value));
-                        notifyUser("⏩ Seeked to " + (int) targetSec + "s on TV");
+                        int mins = (int) (targetSec / 60);
+                        int remSecs = (int) (targetSec % 60);
+                        notifyUser("⏩ Jumped to " + String.format("%02d:%02d", mins, remSecs) + " on TV");
                     }
                     liveTvCurrentTime = targetSec;
-                    msgJson = "{\"type\":\"SEEK\",\"currentTime\":" + targetSec + ",\"mediaSessionId\":" + sessId + ",\"requestId\":" + reqId + "}";
+                    msgJson = "{\"type\":\"SEEK\",\"currentTime\":" + targetSec + ",\"resumeState\":\"PLAYBACK_START\",\"mediaSessionId\":" + sessId + ",\"requestId\":" + reqId + "}";
                 } else if ("subtitles".equals(action)) {
                     if ("off".equalsIgnoreCase(value) || "0".equals(value)) {
                         msgJson = "{\"type\":\"EDIT_TRACKS_INFO\",\"activeTrackIds\":[],\"mediaSessionId\":" + sessId + ",\"requestId\":" + reqId + "}";
@@ -818,14 +778,9 @@ public class MainActivity extends Activity {
                     byte[] raw = readCastMsg(i);
                     if (raw == null) break;
                     String text = new String(raw, "UTF-8");
-                    String[] appInfo = extractActiveMediaApp(text);
-                    if (appInfo != null) {
-                        if ("233637DE".equals(appInfo[0])) {
-                            // YouTube app is running - do not send Cast V2 media namespace commands!
-                            s.close();
-                            return;
-                        }
-                        tid = appInfo[1];
+                    String tidFound = extractTransportIdForApp(text, "CC1AD845");
+                    if (tidFound != null && !tidFound.isEmpty()) {
+                        tid = tidFound;
                         break;
                     }
                 } catch (Exception ignored) {}
@@ -913,16 +868,8 @@ public class MainActivity extends Activity {
         // 1. Wake TV from standby via direct local UDP magic packet
         sendWakeOnLanPacket();
 
-        // 2. Google Cast Protocol for TCL Smart TV Pro (192.168.50.205:8009) & Google TVs
+        // 2. Google Cast Protocol for TCL Smart TV Pro (192.168.50.205:8009) & Google TVs (100% Ad-Free Universal CC1AD845)
         if (type.contains("google_tv") || targetIp.endsWith(".205") || targetIp.endsWith(".3")) {
-            if (youtubeId != null && !youtubeId.isEmpty()) {
-                notifyUser("Launching YouTube on TCL Smart TV Pro...");
-                boolean ytOk = castYouTubeToGoogleTv(targetIp, youtubeId);
-                if (ytOk) {
-                    notifyUser("🎉 Playing YouTube on TCL Smart TV Pro!");
-                    return;
-                }
-            }
             notifyUser("Connecting to TCL Smart TV Pro via Cast V2...");
             boolean castOk = castToGoogleTv(targetIp, streamUrl, title);
             if (castOk) {
@@ -952,12 +899,6 @@ public class MainActivity extends Activity {
         }
 
         // 5. Universal Fallback: Try Cast V2 on 8009 then DLNA on 38400
-        if (youtubeId != null && !youtubeId.isEmpty()) {
-            if (castYouTubeToGoogleTv(targetIp, youtubeId)) {
-                notifyUser("🎉 Playing YouTube on Smart TV!");
-                return;
-            }
-        }
         boolean castFallback = castToGoogleTv(targetIp, streamUrl, title);
         if (castFallback) {
             notifyUser("🎉 Playing " + title + " on Smart TV!");
