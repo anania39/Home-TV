@@ -1579,12 +1579,9 @@ async function executeUniversalCast(url, title = "") {
     showToast(`Casting to ${target.name}...`);
     const useProxy = castUseProxy ? castUseProxy.checked : true;
     let targetCastUrl = makeCastPlayableUrl(playUrl);
-    const isYtStream = (url.includes("youtube.com") || url.includes("youtu.be") || targetCastUrl.includes("googlevideo.com") || resolvedInfo?.source_type === "youtube");
-    if (!targetCastUrl.includes("/proxy?url=") && (isYtStream || detectUrlType(url) === "movie" || resolvedInfo?.source_type === "movie_platform")) {
+    const isYtStream = Boolean(ytId || url.includes("youtube.com") || url.includes("youtu.be") || targetCastUrl.includes("googlevideo.com") || resolvedInfo?.source_type === "youtube");
+    if (!isYtStream && useProxy && !targetCastUrl.includes("/proxy?url=") && (detectUrlType(url) === "movie" || resolvedInfo?.source_type === "movie_platform")) {
       targetCastUrl = `https://tvhub.92.5.71.162.sslip.io/proxy?url=${encodeURIComponent(targetCastUrl)}`;
-    }
-    if (isYtStream) {
-      mimeType = "application/x-mpegurl";
     }
     if (detectUrlType(url) === "movie" || resolvedInfo?.source_type === "movie_platform") {
       ytId = "";

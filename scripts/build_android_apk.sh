@@ -71,8 +71,8 @@ cat << 'MANIFEST' > $BUILD_DIR/AndroidManifest.xml
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     package="com.tvhub.app"
-    android:versionCode="794"
-    android:versionName="7.9.4">
+    android:versionCode="795"
+    android:versionName="7.9.5">
 
     <uses-sdk android:minSdkVersion="26" android:targetSdkVersion="34" />
 
@@ -481,7 +481,89 @@ public class MainActivity extends Activity {
             }
         }
 
-// All playback (YouTube, Movies, Live TV) uses native Cast V2 CC1AD845
+        // 1. YouTube MDX Lounge + Cast V2 Hybrid Synchronization
+        if ("youtube".equals(lastCastType)) {
+            ensureLoungeSession();
+            int reqId = ++castRequestId;
+            int sessId = activeMediaSessionId;
+            try {
+
+            if ("play".equals(action)) {
+                sendLoungeCommand("playVideo", null);
+                if (activeCastOut != null && currentTransportId != null && sessId > 0) {
+                    sendCastMsg(activeCastOut, "sender-0", currentTransportId, "urn:x-cast:com.google.cast.media",
+                        "{\"type\":\"PLAY\",\"mediaSessionId\":" + sessId + ",\"requestId\":" + reqId + "}");
+                }
+                notifyUser("▶️ Playing YouTube on TV");
+            } else if ("pause".equals(action)) {
+                sendLoungeCommand("pauseVideo", null);
+                if (activeCastOut != null && currentTransportId != null && sessId > 0) {
+                    sendCastMsg(activeCastOut, "sender-0", currentTransportId, "urn:x-cast:com.google.cast.media",
+                        "{\"type\":\"PAUSE\",\"mediaSessionId\":" + sessId + ",\"requestId\":" + reqId + "}");
+                }
+                notifyUser("⏸️ Paused YouTube on TV");
+            } else if ("stop".equals(action)) {
+                sendLoungeCommand("stopVideo", null);
+                if (activeCastOut != null && currentTransportId != null && sessId > 0) {
+                    sendCastMsg(activeCastOut, "sender-0", currentTransportId, "urn:x-cast:com.google.cast.media",
+                        "{\"type\":\"STOP\",\"mediaSessionId\":" + sessId + ",\"requestId\":" + reqId + "}");
+                }
+                notifyUser("⏹️ Stopped YouTube Cast");
+            } else if ("speed".equals(action) || "rate".equals(action)) {
+                double r = 1.0;
+                try { r = Double.parseDouble(value); } catch (Exception ignored) {}
+                Map<String, String> p = new HashMap<>();
+                p.put("req0_playbackRate", value);
+                p.put("req0_rate", value);
+                p.put("req0_playbackSpeed", value);
+                p.put("req0_speed", value);
+                sendLoungeCommand("setPlaybackRate", p);
+                sendLoungeCommand("setPlaybackSpeed", p);
+                if (activeCastOut != null && currentTransportId != null && sessId > 0) {
+                    sendCastMsg(activeCastOut, "sender-0", currentTransportId, "urn:x-cast:com.google.cast.media",
+                        "{\"type\":\"SET_PLAYBACK_RATE\",\"playbackRate\":" + r + ",\"mediaSessionId\":" + sessId + ",\"requestId\":" + reqId + "}");
+                }
+                notifyUser("⚡ Playback Speed: " + value + "x on TV");
+            } else if ("seek".equals(action) || "seek_relative".equals(action)) {
+                int sec = 0;
+                if ("seek_relative".equals(action) || (value != null && (value.startsWith("+") || value.startsWith("-")))) {
+                    double delta = Double.parseDouble(value);
+                    sec = (int) Math.max(0.0, liveTvCurrentTime + delta);
+                    notifyUser((delta < 0 ? "⏪ Rewound " + (int)Math.abs(delta) : "⏩ Forward " + (int)delta) + "s on TV");
+                } else {
+                    try { sec = (int) Double.parseDouble(value); } catch (Exception ignored) {}
+                    int mins = sec / 60;
+                    int remSecs = sec % 60;
+                    String timeStr = String.format("%02d:%02d", mins, remSecs);
+                    notifyUser("⏩ Jumped to " + timeStr + " on TV");
+                }
+                liveTvCurrentTime = sec;
+                Map<String, String> p = new HashMap<>();
+                p.put("req0_newTime", String.valueOf(Math.max(0, sec)));
+                sendLoungeCommand("seekTo", p);
+                if (activeCastOut != null && currentTransportId != null && sessId > 0) {
+                    sendCastMsg(activeCastOut, "sender-0", currentTransportId, "urn:x-cast:com.google.cast.media",
+                        "{\"type\":\"SEEK\",\"currentTime\":" + sec + ",\"mediaSessionId\":" + sessId + ",\"requestId\":" + reqId + "}");
+                }
+            } else if ("subtitles".equals(action)) {
+                if ("off".equalsIgnoreCase(value) || "0".equals(value)) {
+                    Map<String, String> p = new HashMap<>();
+                    p.put("req0_hasSubtitles", "false");
+                    sendLoungeCommand("setSubtitleTrack", p);
+                    notifyUser("💬 Subtitles: Off");
+                } else {
+                    Map<String, String> p = new HashMap<>();
+                    p.put("req0_trackName", value);
+                    p.put("req0_hasSubtitles", "true");
+                    sendLoungeCommand("setSubtitleTrack", p);
+                    notifyUser("💬 Subtitles Enabled");
+                }
+            } else if ("quality".equals(action)) {
+                notifyUser("📺 Quality: " + value);
+            }
+            } catch (Exception ignored) {}
+            return;
+        }
 
         // 2. Cast V2 Active Socket for Default Media Receiver (CC1AD845) - Movies & Channels
         if (activeCastOut != null && currentTransportId != null) {
@@ -868,8 +950,16 @@ public class MainActivity extends Activity {
         // 1. Wake TV from standby via direct local UDP magic packet
         sendWakeOnLanPacket();
 
-        // 2. Google Cast Protocol for TCL Smart TV Pro (192.168.50.205:8009) & Google TVs (100% Ad-Free Universal CC1AD845)
+        // 2. Google Cast Protocol for TCL Smart TV Pro (192.168.50.205:8009) & Google TVs
         if (type.contains("google_tv") || targetIp.endsWith(".205") || targetIp.endsWith(".3")) {
+            if (youtubeId != null && !youtubeId.isEmpty()) {
+                notifyUser("Launching YouTube on TCL Smart TV Pro...");
+                boolean ytOk = castYouTubeToGoogleTv(targetIp, youtubeId);
+                if (ytOk) {
+                    notifyUser("🎉 Now Playing YouTube on TCL Smart TV Pro!");
+                    return;
+                }
+            }
             notifyUser("Connecting to TCL Smart TV Pro via Cast V2...");
             boolean castOk = castToGoogleTv(targetIp, streamUrl, title);
             if (castOk) {
@@ -899,6 +989,12 @@ public class MainActivity extends Activity {
         }
 
         // 5. Universal Fallback: Try Cast V2 on 8009 then DLNA on 38400
+        if (youtubeId != null && !youtubeId.isEmpty()) {
+            if (castYouTubeToGoogleTv(targetIp, youtubeId)) {
+                notifyUser("🎉 Playing YouTube on Smart TV!");
+                return;
+            }
+        }
         boolean castFallback = castToGoogleTv(targetIp, streamUrl, title);
         if (castFallback) {
             notifyUser("🎉 Playing " + title + " on Smart TV!");
@@ -1274,9 +1370,8 @@ public class MainActivity extends Activity {
                 } catch (java.net.SocketTimeoutException ignored) {}
             }
 
-            socket.close();
-
             if (screenId == null || screenId.isEmpty()) {
+                try { socket.close(); } catch (Exception ignored) {}
                 return false;
             }
 
@@ -1370,6 +1465,7 @@ public class MainActivity extends Activity {
                     @Override
                     public void run() {
                         long lastPingSent = System.currentTimeMillis();
+                        long lastStatusSent = 0;
                         try {
                             while (!Thread.currentThread().isInterrupted() && liveSocket != null && !liveSocket.isClosed()) {
                                 long now = System.currentTimeMillis();
@@ -1381,6 +1477,13 @@ public class MainActivity extends Activity {
                                     }
                                     lastPingSent = now;
                                 }
+                                if (now - lastStatusSent >= 2000) {
+                                    synchronized (MainActivity.this) {
+                                        if (liveSocket.isClosed()) break;
+                                        sendCastMsg(activeOut, "sender-0", activeTid, "urn:x-cast:com.google.cast.media", "{\"type\":\"GET_STATUS\",\"requestId\":" + (++castRequestId) + "}");
+                                    }
+                                    lastStatusSent = now;
+                                }
                                 try {
                                     byte[] raw = readCastMsg(activeIn);
                                     if (raw != null) {
@@ -1391,6 +1494,23 @@ public class MainActivity extends Activity {
                                                 sendCastMsg(activeOut, "sender-0", "receiver-0", "urn:x-cast:com.google.cast.tp.heartbeat", "{\"type\":\"PONG\"}");
                                                 sendCastMsg(activeOut, "sender-0", activeTid, "urn:x-cast:com.google.cast.tp.heartbeat", "{\"type\":\"PONG\"}");
                                             }
+                                        }
+                                        MediaStatusInfo info = parseMediaStatus(text);
+                                        if (info != null) {
+                                            if (info.mediaSessionId > 0) activeMediaSessionId = info.mediaSessionId;
+                                            if (info.currentTime >= 0) liveTvCurrentTime = info.currentTime;
+                                            if (info.duration > 0) liveTvDuration = info.duration;
+                                            final double cTime = liveTvCurrentTime;
+                                            final double dTime = liveTvDuration;
+                                            final String pState = info.playerState;
+                                            runOnUiThread(new Runnable() {
+                                                @Override
+                                                public void run() {
+                                                    if (webView != null) {
+                                                        webView.evaluateJavascript("if (window.syncNativePlaybackState) window.syncNativePlaybackState(" + cTime + ", " + dTime + ", '" + pState + "');", null);
+                                                    }
+                                                }
+                                            });
                                         }
                                     }
                                 } catch (java.net.SocketTimeoutException ste) {
