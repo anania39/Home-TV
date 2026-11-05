@@ -36,7 +36,8 @@ jobs:
           mkdir -p _site
           cp index.html manifest.json sw.js tv.html endpoint.json _site/
           cp -r static _site/
-          rm -f _site/static/TVHub.apk _site/TVHub.apk
+          cp TVHub.apk _site/TVHub.apk || true
+          cp TVHub.apk _site/static/TVHub.apk || true
       - name: Setup Pages
         uses: actions/configure-pages@v5
       - name: Upload artifact

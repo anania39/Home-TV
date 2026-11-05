@@ -71,8 +71,8 @@ cat << 'MANIFEST' > $BUILD_DIR/AndroidManifest.xml
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     package="com.tvhub.app"
-    android:versionCode="799"
-    android:versionName="7.9.9">
+    android:versionCode="801"
+    android:versionName="8.0.1">
 
     <uses-sdk android:minSdkVersion="26" android:targetSdkVersion="34" />
 
@@ -299,7 +299,7 @@ public class MainActivity extends Activity {
                 view.postDelayed(new Runnable() {
                     @Override
                     public void run() {
-                        view.loadUrl("https://tvhub.92.5.71.162.sslip.io?v=8.0.0");
+                        view.loadUrl("https://tvhub.92.5.71.162.sslip.io?v=8.0.1");
                     }
                 }, 2000);
             }
@@ -339,7 +339,7 @@ public class MainActivity extends Activity {
             }
         });
 
-        webView.loadUrl("https://tvhub.92.5.71.162.sslip.io?v=8.0.0");
+        webView.loadUrl("https://tvhub.92.5.71.162.sslip.io?v=8.0.1");
     }
 
     // --- Native Android Host Bridge Exposed to JavaScript ---
@@ -508,22 +508,22 @@ public class MainActivity extends Activity {
                 notifyUser("⏹️ Stopped YouTube Cast");
             } else if ("speed".equals(action) || "rate".equals(action)) {
                 Map<String, String> p = new HashMap<>();
-                p.put("req0_playback_speed", value);
-                p.put("req0__playback_speed", value);
-                p.put("playback_speed", value);
-                p.put("req0_playbackSpeed", value);
-                p.put("req0__playbackSpeed", value);
-                p.put("playbackSpeed", value);
                 p.put("req0_playbackRate", value);
-                p.put("req0__playbackRate", value);
-                p.put("playbackRate", value);
                 p.put("req0_rate", value);
-                p.put("rate", value);
-                p.put("req0_speed", value);
-                p.put("speed", value);
-                sendLoungeCommand("setPlaybackSpeed", p);
                 sendLoungeCommand("setPlaybackRate", p);
-                sendLoungeCommand("set_playback_speed", p);
+
+                Map<String, String> p2 = new HashMap<>();
+                p2.put("req0_playbackSpeed", value);
+                p2.put("req0_speed", value);
+                sendLoungeCommand("setPlaybackSpeed", p2);
+
+                if (activeCastOut != null && currentTransportId != null) {
+                    try {
+                        double r = Double.parseDouble(value);
+                        sendCastMsg(activeCastOut, "sender-0", currentTransportId, "urn:x-cast:com.google.cast.media",
+                            "{\"type\":\"SET_PLAYBACK_RATE\",\"playbackRate\":" + r + ",\"mediaSessionId\":" + sessId + ",\"requestId\":" + reqId + "}");
+                    } catch (Exception ignored) {}
+                }
                 notifyUser("⚡ Playback Speed: " + value + "x on TV");
             } else if ("seek".equals(action) || "seek_relative".equals(action)) {
                 int sec = 0;
@@ -540,16 +540,15 @@ public class MainActivity extends Activity {
                 }
                 liveTvCurrentTime = sec;
                 String sVal = String.valueOf(Math.max(0, sec));
+
                 Map<String, String> p = new HashMap<>();
                 p.put("req0_newTime", sVal);
-                p.put("req0__newTime", sVal);
-                p.put("newTime", sVal);
-                p.put("req0_currentTime", sVal);
-                p.put("req0__currentTime", sVal);
-                p.put("currentTime", sVal);
-                p.put("req0_new_time", sVal);
-                p.put("new_time", sVal);
                 sendLoungeCommand("seekTo", p);
+
+                if (activeCastOut != null && currentTransportId != null) {
+                    sendCastMsg(activeCastOut, "sender-0", currentTransportId, "urn:x-cast:com.google.cast.media",
+                        "{\"type\":\"SEEK\",\"currentTime\":" + sec + ",\"resumeState\":\"PLAYBACK_START\",\"mediaSessionId\":" + sessId + ",\"requestId\":" + reqId + "}");
+                }
             } else if ("subtitles".equals(action)) {
                 if ("off".equalsIgnoreCase(value) || "0".equals(value)) {
                     Map<String, String> p = new HashMap<>();
@@ -561,9 +560,18 @@ public class MainActivity extends Activity {
                     p.put("req0_trackName", value);
                     p.put("req0_hasSubtitles", "true");
                     sendLoungeCommand("setSubtitleTrack", p);
-                    notifyUser("💬 Subtitles Enabled");
+                    notifyUser("💬 Subtitles: " + value);
                 }
             } else if ("quality".equals(action)) {
+                String qParam = "auto";
+                if ("1080p".equalsIgnoreCase(value)) qParam = "hd1080";
+                else if ("720p".equalsIgnoreCase(value)) qParam = "hd720";
+                else if ("480p".equalsIgnoreCase(value)) qParam = "large";
+                else if ("360p".equalsIgnoreCase(value)) qParam = "medium";
+                else if ("240p".equalsIgnoreCase(value)) qParam = "small";
+                Map<String, String> p = new HashMap<>();
+                p.put("req0_playbackQuality", qParam);
+                sendLoungeCommand("setPlaybackQuality", p);
                 notifyUser("📺 Quality: " + value);
             }
             } catch (Exception ignored) {}
@@ -664,7 +672,6 @@ public class MainActivity extends Activity {
 
                 StringBuilder sb = new StringBuilder();
                 sb.append("count=1&req0__sc=").append(URLEncoder.encode(sc, "UTF-8"));
-                sb.append("&req0___sc=").append(URLEncoder.encode(sc, "UTF-8"));
                 if (extraParams != null) {
                     for (Map.Entry<String, String> entry : extraParams.entrySet()) {
                         sb.append("&").append(URLEncoder.encode(entry.getKey(), "UTF-8")).append("=").append(URLEncoder.encode(entry.getValue(), "UTF-8"));
@@ -886,6 +893,24 @@ public class MainActivity extends Activity {
         }
         // Retain Ad-Shield Proxy for all media (including YouTube and movie platforms) so headers/anti-bot are handled cleanly
         String type = (devType != null) ? devType.toLowerCase() : "";
+
+        // Extract YouTube ID if present in streamUrl so it never misclassifies as standard media
+        if (youtubeId == null || youtubeId.isEmpty()) {
+            if (streamUrl != null) {
+                String low = streamUrl.toLowerCase();
+                if (low.contains("youtube.com") || low.contains("youtu.be")) {
+                    int vIdx = streamUrl.indexOf("v=");
+                    if (vIdx != -1 && streamUrl.length() >= vIdx + 13) {
+                        youtubeId = streamUrl.substring(vIdx + 2, vIdx + 13);
+                    } else {
+                        int beIdx = streamUrl.indexOf("youtu.be/");
+                        if (beIdx != -1 && streamUrl.length() >= beIdx + 20) {
+                            youtubeId = streamUrl.substring(beIdx + 9, beIdx + 20);
+                        }
+                    }
+                }
+            }
+        }
 
         // 1. Wake TV from standby via direct local UDP magic packet
         sendWakeOnLanPacket();

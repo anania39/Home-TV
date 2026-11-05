@@ -319,8 +319,8 @@ class GoogleCastController:
                 'app': 'android-phone-13.14.55'
             }
             r2 = requests.post('https://www.youtube.com/api/lounge/bc/bind', params={'RID': 0, 'VER': 8, 'CVER': 1}, data=bind_data, headers=bind_headers, timeout=5)
-            m_sid = re.search(r'"c","(.*?)","', r2.text)
-            m_gsid = re.search(r'"S","(.*?)"\]', r2.text)
+            m_sid = re.search(r'\["c","(.*?)"', r2.text)
+            m_gsid = re.search(r'\["S","(.*?)"', r2.text)
             if not m_sid or not m_gsid:
                 return False
             sid = m_sid.group(1)
@@ -387,8 +387,8 @@ class GoogleCastController:
                 'app': 'android-phone-13.14.55'
             }
             r2 = requests.post('https://www.youtube.com/api/lounge/bc/bind', params={'RID': 0, 'VER': 8, 'CVER': 1}, data=bind_data, headers=bind_headers, timeout=4)
-            m_sid = re.search(r'"c","(.*?)","', r2.text)
-            m_gsid = re.search(r'"S","(.*?)"\]', r2.text)
+            m_sid = re.search(r'\["c","(.*?)"', r2.text)
+            m_gsid = re.search(r'\["S","(.*?)"', r2.text)
             if not m_sid or not m_gsid:
                 return False
             sid = m_sid.group(1)
