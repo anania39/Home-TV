@@ -71,8 +71,8 @@ cat << 'MANIFEST' > $BUILD_DIR/AndroidManifest.xml
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     package="com.tvhub.app"
-    android:versionCode="801"
-    android:versionName="8.0.1">
+    android:versionCode="802"
+    android:versionName="8.0.2">
 
     <uses-sdk android:minSdkVersion="26" android:targetSdkVersion="34" />
 
@@ -299,7 +299,7 @@ public class MainActivity extends Activity {
                 view.postDelayed(new Runnable() {
                     @Override
                     public void run() {
-                        view.loadUrl("https://tvhub.92.5.71.162.sslip.io?v=8.0.1");
+                        view.loadUrl("https://tvhub.92.5.71.162.sslip.io?v=8.0.2");
                     }
                 }, 2000);
             }
@@ -339,7 +339,7 @@ public class MainActivity extends Activity {
             }
         });
 
-        webView.loadUrl("https://tvhub.92.5.71.162.sslip.io?v=8.0.1");
+        webView.loadUrl("https://tvhub.92.5.71.162.sslip.io?v=8.0.2");
     }
 
     // --- Native Android Host Bridge Exposed to JavaScript ---
@@ -507,14 +507,12 @@ public class MainActivity extends Activity {
                 }
                 notifyUser("⏹️ Stopped YouTube Cast");
             } else if ("speed".equals(action) || "rate".equals(action)) {
-                Map<String, String> p = new HashMap<>();
-                p.put("req0_playbackRate", value);
-                p.put("req0_rate", value);
-                sendLoungeCommand("setPlaybackRate", p);
+                Map<String, String> p1 = new HashMap<>();
+                p1.put("req0_playbackRate", value);
+                sendLoungeCommand("setPlaybackRate", p1);
 
                 Map<String, String> p2 = new HashMap<>();
                 p2.put("req0_playbackSpeed", value);
-                p2.put("req0_speed", value);
                 sendLoungeCommand("setPlaybackSpeed", p2);
 
                 if (activeCastOut != null && currentTransportId != null) {
@@ -898,15 +896,11 @@ public class MainActivity extends Activity {
         if (youtubeId == null || youtubeId.isEmpty()) {
             if (streamUrl != null) {
                 String low = streamUrl.toLowerCase();
-                if (low.contains("youtube.com") || low.contains("youtu.be")) {
-                    int vIdx = streamUrl.indexOf("v=");
-                    if (vIdx != -1 && streamUrl.length() >= vIdx + 13) {
-                        youtubeId = streamUrl.substring(vIdx + 2, vIdx + 13);
-                    } else {
-                        int beIdx = streamUrl.indexOf("youtu.be/");
-                        if (beIdx != -1 && streamUrl.length() >= beIdx + 20) {
-                            youtubeId = streamUrl.substring(beIdx + 9, beIdx + 20);
-                        }
+                if (low.contains("youtube.com") || low.contains("youtu.be") || low.contains("googlevideo.com")) {
+                    java.util.regex.Pattern pt = java.util.regex.Pattern.compile("(?:youtu\\.be\\/|youtube\\.com\\/(?:embed\\/|v\\/|watch\\?v=|shorts\\/|live\\/)|docid=|video_id=)([a-zA-Z0-9_-]{11})");
+                    java.util.regex.Matcher mt = pt.matcher(streamUrl);
+                    if (mt.find()) {
+                        youtubeId = mt.group(1);
                     }
                 }
             }
@@ -1416,8 +1410,8 @@ public class MainActivity extends Activity {
             conn3.setRequestProperty("Content-Type", "application/x-www-form-urlencoded");
             conn3.setRequestProperty("X-YouTube-LoungeId-Token", loungeToken);
 
-            String playBody = "req0_videoId=" + URLEncoder.encode(videoId, "UTF-8") +
-                              "&req0_currentTime=0&req0_currentIndex=-1&req0_audioOnly=false&req0_listId=&count=1&req0__sc=setPlaylist";
+            String playBody = "count=1&req0__sc=setPlaylist&req0_videoId=" + URLEncoder.encode(videoId, "UTF-8") +
+                              "&req0_currentTime=0&req0_currentIndex=-1&req0_audioOnly=false&req0_listId=";
             conn3.getOutputStream().write(playBody.getBytes("UTF-8"));
 
             int playCode = conn3.getResponseCode();

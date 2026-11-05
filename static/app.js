@@ -1,4 +1,12 @@
 
+// Global speed selection lock
+try {
+  const _s = localStorage.getItem("tvhub_user_speed");
+  window._userSelectedSpeed = _s ? (parseFloat(_s) || 1.0) : 1.0;
+} catch (e) {
+  window._userSelectedSpeed = 1.0;
+}
+
 // Global synchronization bridge from native Android host to Cast Deck
 window.syncNativePlaybackState = function(currentTime, duration, playerState) {
   if (isScrubbing || Date.now() < (window._scrubLockUntil || 0)) {
@@ -1581,21 +1589,31 @@ async function executeUniversalCast(url, title = "") {
     const target = resolveSelectedTarget(state.currentTvId);
     showToast(`Casting to ${target.name}...`);
     const useProxy = castUseProxy ? castUseProxy.checked : true;
-    let targetCastUrl = makeCastPlayableUrl(playUrl);
-    const isYtStream = Boolean(ytId || url.includes("youtube.com") || url.includes("youtu.be") || targetCastUrl.includes("googlevideo.com") || resolvedInfo?.source_type === "youtube");
+        let targetCastUrl = makeCastPlayableUrl(playUrl);
+    let detectedYtId = ytId;
+    if (!detectedYtId && url) {
+      const ym = url.match(/(?:youtu\.be\/|youtube\.com\/(?:embed\/|v\/|watch\?v=|shorts\/|live\/))([a-zA-Z0-9_-]{11})/);
+      if (ym) detectedYtId = ym[1];
+    }
+    if (!detectedYtId && resolvedInfo?.youtube_id) {
+      detectedYtId = resolvedInfo.youtube_id;
+    }
+    const isYtStream = Boolean(detectedYtId || url.includes("youtube.com") || url.includes("youtu.be") || targetCastUrl.includes("googlevideo.com") || resolvedInfo?.source_type === "youtube");
     if (!isYtStream && useProxy && !targetCastUrl.includes("/proxy?url=") && (detectUrlType(url) === "movie" || resolvedInfo?.source_type === "movie_platform")) {
       targetCastUrl = `https://tvhub.92.5.71.162.sslip.io/proxy?url=${encodeURIComponent(targetCastUrl)}`;
     }
     if (detectUrlType(url) === "movie" || resolvedInfo?.source_type === "movie_platform") {
-      ytId = "";
+      detectedYtId = "";
     }
     state.currentStreamUrl = targetCastUrl;
     state.currentTitle = playTitle || resolvedInfo?.title || "Video Stream";
     state.playbackState = "PLAYING";
     state.playbackType = isYtStream ? "youtube" : (detectUrlType(url) === "movie" ? "movie" : "stream");
     // Maintain user's chosen playback speed across casts
-    if (window._userSelectedSpeed === undefined || window._userSelectedSpeed === null) { try { const s = localStorage.getItem('tvhub_user_speed'); if (s) window._userSelectedSpeed = parseFloat(s); } catch (e) {} }
-    window.TVHubAndroid.castToTv(target.ip, target.dev_type, targetCastUrl, state.currentTitle, mimeType, ytId);
+    if (window._userSelectedSpeed === undefined || window._userSelectedSpeed === null) {
+      try { const s = localStorage.getItem('tvhub_user_speed'); if (s) window._userSelectedSpeed = parseFloat(s); } catch (e) {}
+    }
+    window.TVHubAndroid.castToTv(target.ip, target.dev_type, targetCastUrl, state.currentTitle, mimeType, detectedYtId || "");
 
     const barTitle = document.getElementById("bar-title");
     if (barTitle) barTitle.textContent = state.currentTitle;
@@ -3285,7 +3303,8 @@ function updateActiveCastDeck(info) {
     : (parseFloat(info.speed) || state.speed || 1.0);
   state.speed = effectiveSpeed;
   document.querySelectorAll(".speed-pill").forEach(p => {
-    p.classList.toggle("active", parseFloat(p.dataset.speed) === effectiveSpeed);
+    const pSpd = parseFloat(p.dataset.speed) || 1.0;
+    p.classList.toggle("active", Math.abs(pSpd - effectiveSpeed) < 0.05);
   });
 
   const deckThumb = document.getElementById("deck-thumb");
@@ -3524,28 +3543,10 @@ function initActiveCastDeck() {
   const btnFwd30 = document.getElementById("btn-seek-fwd-30");
   if (btnFwd30) btnFwd30.onclick = () => sendSeek(30, "⏩ Forward 30s");
 
-  // 4. Scrub Slider (Touch & Click Seeking for Movies & YouTube)
+  // 4. Scrub Slider (Clean, single-action seeking for Movies & YouTube)
   if (scrubber) {
     let seekTimer = null;
-    const getSliderPct = (e) => {
-      const rect = scrubber.getBoundingClientRect();
-      if (!rect || rect.width <= 0) return parseFloat(scrubber.value) || 0;
-      let clientX = null;
-      if (e.touches && e.touches.length > 0) {
-        clientX = e.touches[0].clientX;
-      } else if (e.changedTouches && e.changedTouches.length > 0) {
-        clientX = e.changedTouches[0].clientX;
-      } else if (typeof e.clientX === "number") {
-        clientX = e.clientX;
-      }
-      if (clientX === null || isNaN(clientX)) {
-        return parseFloat(scrubber.value) || 0;
-      }
-      const clickX = clientX - rect.left;
-      return Math.max(0, Math.min(100, (clickX / rect.width) * 100));
-    };
-
-    const triggerSeek = (pct) => {
+    const triggerSeek = (pctVal) => {
       if (seekTimer) clearTimeout(seekTimer);
       seekTimer = setTimeout(async () => {
         let dur = (activeDeckDuration > 0) ? activeDeckDuration : (state.duration > 0 ? state.duration : 0);
@@ -3559,60 +3560,45 @@ function initActiveCastDeck() {
           isScrubbing = false;
           return;
         }
-        const targetSec = Math.min(dur, Math.max(0, Math.floor((pct / 100) * dur)));
+        const pct = Math.max(0, Math.min(100, parseFloat(pctVal) || 0));
+        const targetSec = Math.min(dur, Math.max(0, Math.round((pct / 100) * dur)));
         activeDeckCurrentTime = targetSec;
-        window._scrubLockUntil = Date.now() + 6000;
+        window._scrubLockUntil = Date.now() + 4500;
         isScrubbing = false;
         if (timeCur) timeCur.textContent = formatDeckTime(activeDeckCurrentTime);
         if (scrubber && dur > 0) {
           scrubber.value = Math.min(100, Math.max(0, (targetSec / dur) * 100));
         }
         showToast(`⏩ Jumped to ${formatDeckTime(targetSec)}`);
-        sendPlaybackAction("seek", targetSec.toString(), { is_absolute: true });
-      }, 30);
+        await sendPlaybackAction("seek", targetSec.toString(), { is_absolute: true });
+      }, 40);
     };
 
-    scrubber.ontouchstart = (e) => {
-      isScrubbing = true;
-      const pct = getSliderPct(e);
-      scrubber.value = pct;
-      const dur = (activeDeckDuration > 0) ? activeDeckDuration : (state.duration > 0 ? state.duration : 0);
-      if (dur > 0 && timeCur) timeCur.textContent = formatDeckTime((pct / 100) * dur);
-    };
-    scrubber.ontouchmove = (e) => {
-      isScrubbing = true;
-      const pct = getSliderPct(e);
-      scrubber.value = pct;
-      const dur = (activeDeckDuration > 0) ? activeDeckDuration : (state.duration > 0 ? state.duration : 0);
-      if (dur > 0 && timeCur) timeCur.textContent = formatDeckTime((pct / 100) * dur);
-    };
-    scrubber.ontouchend = (e) => {
-      const pct = getSliderPct(e);
-      scrubber.value = pct;
-      triggerSeek(pct);
-    };
-
-    scrubber.onmousedown = () => { isScrubbing = true; };
     scrubber.oninput = () => {
       isScrubbing = true;
       const dur = (activeDeckDuration > 0) ? activeDeckDuration : (state.duration > 0 ? state.duration : 0);
-      if (dur > 0 && timeCur) timeCur.textContent = formatDeckTime((parseFloat(scrubber.value) / 100) * dur);
+      const val = parseFloat(scrubber.value) || 0;
+      if (dur > 0 && timeCur) timeCur.textContent = formatDeckTime((val / 100) * dur);
     };
-    scrubber.onchange = (e) => {
-      triggerSeek(parseFloat(scrubber.value));
-    };
-    scrubber.onmouseup = (e) => {
-      triggerSeek(getSliderPct(e));
-    };
-    scrubber.onclick = (e) => {
-      const pct = getSliderPct(e);
-      scrubber.value = pct;
-      triggerSeek(pct);
+
+    scrubber.onchange = () => {
+      triggerSeek(scrubber.value);
     };
   }
 
   // 5. Playback Speed Selector Pills
   const speedPills = document.querySelectorAll(".speed-pill");
+  const updateSpeedPillsUi = (targetSpd) => {
+    const num = parseFloat(targetSpd) || 1.0;
+    speedPills.forEach(p => {
+      const pSpd = parseFloat(p.dataset.speed) || 1.0;
+      p.classList.toggle("active", Math.abs(pSpd - num) < 0.05);
+    });
+  };
+
+  // Synchronize UI immediately with user's selected speed
+  updateSpeedPillsUi(window._userSelectedSpeed || state.speed || 1.0);
+
   speedPills.forEach(pill => {
     pill.onclick = async (e) => {
       if (e) {
@@ -3625,9 +3611,9 @@ function initActiveCastDeck() {
       state.speed = spdNum;
       window._userSelectedSpeed = spdNum;
       try { localStorage.setItem("tvhub_user_speed", String(spdNum)); } catch (err) {}
-      speedPills.forEach(p => p.classList.toggle("active", parseFloat(p.dataset.speed) === spdNum));
+      updateSpeedPillsUi(spdNum);
       showToast(`⚡ Playback Speed: ${spd}x on TV`);
-      sendPlaybackAction("speed", spd);
+      await sendPlaybackAction("speed", spd);
     };
   });
 
