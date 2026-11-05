@@ -1221,6 +1221,7 @@ async def playback_action(req: PlaybackActionRequest):
                 rate = float(req.value)
                 await asyncio.to_thread(google_cast_controller.set_playback_rate, dev["ip"], rate)
                 ws_manager.update_state({"speed": rate})
+                await ws_manager.broadcast_to_controllers("playback_update", {"speed": rate})
             except Exception:
                 pass
         elif action == "subtitles":

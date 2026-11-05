@@ -1,6 +1,6 @@
 
 // Global synchronization bridge from native Android host to Cast Deck
-window.syncNativePlaybackState = function(currentTime, duration, playerState) {
+window.syncNativePlaybackState = function(currentTime, duration, playerState, speed) {
   if (typeof currentTime === "number" && !isNaN(currentTime)) {
     activeDeckCurrentTime = currentTime;
     if (duration && typeof duration === "number" && duration > 0) {
@@ -22,6 +22,13 @@ window.syncNativePlaybackState = function(currentTime, duration, playerState) {
     } else if (playerState === "PAUSED") {
       state.playbackState = "PAUSED";
       updatePlayPauseButton(false);
+    }
+    if (speed && typeof speed === "number" && speed > 0) {
+      state.speed = speed;
+      const spdStr = String(speed);
+      document.querySelectorAll(".speed-pill").forEach(p => {
+        p.classList.toggle("active", p.dataset.speed === spdStr || parseFloat(p.dataset.speed) === parseFloat(spdStr));
+      });
     }
   }
 };
@@ -341,7 +348,8 @@ let state = {
   activeStreamSlug: null,
   currentAudio: null,
   currentSubtitle: null,
-  duration: 0
+  duration: 0,
+  speed: 1.0
 };
 
 // Haptic feedback helper
@@ -1985,12 +1993,14 @@ function connectWebSocket() {
       if (msg.type === "tv_status_sync" || msg.type === "sync_state" || msg.type === "playback_update") {
         updateHardwareStatus(msg.data);
         if (msg.data && msg.data.speed) {
+          state.speed = parseFloat(msg.data.speed) || 1.0;
           const spdStr = String(msg.data.speed);
           document.querySelectorAll(".speed-pill").forEach(p => {
             p.classList.toggle("active", p.dataset.speed === spdStr || parseFloat(p.dataset.speed) === parseFloat(spdStr));
           });
         }
       } else if (msg.type === "playback_action" && msg.action === "speed" && msg.value) {
+        state.speed = parseFloat(msg.value) || 1.0;
         const spdStr = String(msg.value);
         document.querySelectorAll(".speed-pill").forEach(p => {
           p.classList.toggle("active", p.dataset.speed === spdStr || parseFloat(p.dataset.speed) === parseFloat(spdStr));
@@ -3193,7 +3203,8 @@ function startDeckProgressTicker() {
   if (deckTicker) clearInterval(deckTicker);
   deckTicker = setInterval(() => {
     if (state.playbackState === "PLAYING" && !isScrubbing && Date.now() > (window._scrubLockUntil || 0)) {
-      activeDeckCurrentTime += 1;
+      const step = (typeof state.speed === "number" && state.speed > 0) ? state.speed : 1.0;
+      activeDeckCurrentTime += step;
       if (activeDeckDuration > 0 && activeDeckCurrentTime > activeDeckDuration) {
         activeDeckCurrentTime = activeDeckDuration;
       }
@@ -3279,6 +3290,7 @@ function updateActiveCastDeck(info) {
   }
 
   if (info.speed) {
+    state.speed = parseFloat(info.speed) || 1.0;
     const spdStr = String(info.speed);
     document.querySelectorAll(".speed-pill").forEach(p => {
       p.classList.toggle("active", p.dataset.speed === spdStr || parseFloat(p.dataset.speed) === parseFloat(spdStr));
