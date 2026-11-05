@@ -3502,7 +3502,8 @@ function initActiveCastDeck() {
       scrubber.value = (activeDeckCurrentTime / activeDeckDuration) * 100;
     }
     showToast(label);
-    sendPlaybackAction("seek", target.toString(), {
+    const deltaStr = (deltaSec > 0 ? "+" : "") + deltaSec;
+    sendPlaybackAction("seek_relative", deltaStr, {
       delta: deltaSec.toString(),
       is_absolute: false
     });
@@ -3545,12 +3546,6 @@ function initActiveCastDeck() {
       if (seekTimer) clearTimeout(seekTimer);
       seekTimer = setTimeout(async () => {
         let dur = (activeDeckDuration > 0) ? activeDeckDuration : (state.duration > 0 ? state.duration : 0);
-        if (dur <= 0) {
-          try {
-            const saved = JSON.parse(localStorage.getItem("tvhub_active_cast") || "{}");
-            if (saved.duration > 0) dur = saved.duration;
-          } catch (e) {}
-        }
         if (dur <= 0 && window.activeResolvedData && window.activeResolvedData.duration > 0) {
           dur = window.activeResolvedData.duration;
         }
@@ -3640,13 +3635,9 @@ function initActiveCastDeck() {
         const found = activeDeckSubtitles.find(s => s.code === code);
         const vttUrl = found ? found.url : "";
         const langName = subsSelect.options[subsSelect.selectedIndex]?.text || code;
-        const trackId = parseInt(subsSelect.options[subsSelect.selectedIndex]?.dataset.trackId || "1");
+        const trackId = subsSelect.options[subsSelect.selectedIndex]?.dataset.trackId || "1";
         showToast(`Subtitles: ${langName}`);
-        await safeFetchWithRetry("/api/playback/action", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ action: "subtitles", value: vttUrl, lang: langName, track_id: trackId, device_id: state.currentTvId })
-        });
+        sendPlaybackAction("subtitles", trackId, { lang: langName });
       }
     };
   }
@@ -3666,9 +3657,8 @@ function initActiveCastDeck() {
         return;
       }
 
-      showToast(`📺 Stream Quality: ${displayInfo.tier} (${displayInfo.label})`);
-      const targetUrl = activeDeckQualityUrls[q] || null;
-      sendPlaybackAction("quality", q, { url: targetUrl });
+      showToast(`📺 Stream Quality: ${displayInfo.label}`);
+      sendPlaybackAction("quality", q);
     };
   }
 

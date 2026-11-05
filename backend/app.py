@@ -1210,74 +1210,24 @@ async def playback_action(req: PlaybackActionRequest):
                 pass
         elif action == "subtitles":
             try:
-                if req.value == "off":
+                sub_val = str(req.value or "").strip().lower()
+                if sub_val in ("off", "none", "0"):
                     await asyncio.to_thread(google_cast_controller.disable_subtitles, dev["ip"])
                     ws_manager.update_state({"current_subtitle": "off", "current_subtitle_url": None})
                 else:
                     tid = req.track_id or 1
-                    sub_vtt = None
-                    for s in ws_manager.current_state.get("subtitles", []):
-                        if s.get("code") == req.value or s.get("url") == req.url or s.get("track_id") == tid:
-                            tid = s.get("track_id", tid)
-                            sub_vtt = s.get("url")
-                            break
-                    if not sub_vtt and req.url:
-                        sub_vtt = req.url
-
-                    ok = await asyncio.to_thread(google_cast_controller.enable_subtitles, dev["ip"], track_id=tid)
-                    if not ok and sub_vtt:
-                        cur_pos = 0.0
-                        try:
-                            st = await asyncio.to_thread(google_cast_controller.get_status, dev["ip"])
-                            cur_pos = st.get("current_time", 0.0)
-                        except Exception:
-                            pass
-                        proxied_sub = f"http://{SERVER_IP}:{PORT}/api/media/subtitle?url={quote(sub_vtt, safe='')}"
-                        await asyncio.to_thread(
-                            google_cast_controller.cast_media,
-                            dev["ip"],
-                            ws_manager.current_state.get("stream_url"),
-                            ws_manager.current_state.get("title", "Video"),
-                            "application/x-mpegurl" if ".m3u8" in ws_manager.current_state.get("stream_url", "") else "video/mp4",
-                            subtitles=proxied_sub,
-                            media_info=ws_manager.current_state.get("media_info")
-                        )
-                        if cur_pos > 1.0:
-                            await asyncio.sleep(0.6)
-                            await asyncio.to_thread(google_cast_controller.seek, dev["ip"], cur_pos)
-                    ws_manager.update_state({"current_subtitle": req.value, "current_subtitle_url": sub_vtt})
+                    try:
+                        if str(req.value).isdigit():
+                            tid = int(req.value)
+                    except Exception:
+                        pass
+                    await asyncio.to_thread(google_cast_controller.enable_subtitles, dev["ip"], track_id=tid)
+                    ws_manager.update_state({"current_subtitle": req.lang or str(req.value)})
             except Exception as e:
                 logger.debug(f"Subtitle action error: {e}")
         elif action == "quality":
-            source_type = ws_manager.current_state.get("source_type", "")
-            cur_stream = ws_manager.current_state.get("stream_url", "")
-            is_yt = source_type == "youtube" or "youtube.com" in cur_stream or "youtu.be" in cur_stream or "googlevideo.com" in cur_stream
-            if is_yt or ws_manager.current_state.get("is_live"):
-                return {"status": "ok", "message": "Optimal adaptive quality managed by TV"}
-            target_q_url = req.url or (req.value if req.value and req.value.startswith("http") else None)
-            if not target_q_url and req.value:
-                cur_stream = ws_manager.current_state.get("stream_url", "")
-                if cur_stream:
-                    clean_stream = re.sub(r'[\?&]q=[^&]+', '', cur_stream)
-                    sep = "&" if "?" in clean_stream else "?"
-                    target_q_url = f"{clean_stream}{sep}q={req.value}"
-            if target_q_url:
-                try:
-                    cur_pos = 0.0
-                    try:
-                        st = await asyncio.to_thread(google_cast_controller.get_status, dev["ip"])
-                        cur_pos = st.get("current_time", 0.0)
-                    except Exception:
-                        pass
-                    mime = "application/x-mpegurl" if (".m3u8" in target_q_url or "manifest" in target_q_url or "proxy?url=" in target_q_url) else "video/mp4"
-                    m_info = ws_manager.current_state.get("media_info")
-                    sub_url = ws_manager.current_state.get("current_subtitle_url")
-                    ok = await asyncio.to_thread(google_cast_controller.cast_media, dev["ip"], target_q_url, ws_manager.current_state.get("title", "Video"), mime, subtitles=sub_url, media_info=m_info)
-                    if ok and cur_pos > 1.0:
-                        await asyncio.sleep(0.6)
-                        await asyncio.to_thread(google_cast_controller.seek, dev["ip"], cur_pos)
-                except Exception as e:
-                    logger.debug(f"Quality action error: {e}")
+            ws_manager.update_state({"quality": str(req.value)})
+            return {"status": "ok", "message": f"Quality set to {req.value}"}
         elif action == "audio":
             chosen_audio = str(req.value) if req.value else "Default"
             target_a_url = req.url

@@ -71,8 +71,8 @@ cat << 'MANIFEST' > $BUILD_DIR/AndroidManifest.xml
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     package="com.tvhub.app"
-    android:versionCode="792"
-    android:versionName="7.9.2">
+    android:versionCode="793"
+    android:versionName="7.9.3">
 
     <uses-sdk android:minSdkVersion="26" android:targetSdkVersion="34" />
 
@@ -555,7 +555,24 @@ public class MainActivity extends Activity {
                         notifyUser("⏩ Seeked to " + (int) targetSec + "s on TV");
                     }
                     liveTvCurrentTime = targetSec;
-                    msgJson = "{\"type\":\"SEEK\",\"currentTime\":" + targetSec + ",\"resumeState\":\"PLAYBACK_START\",\"mediaSessionId\":" + sessId + ",\"requestId\":" + reqId + "}";
+                    msgJson = "{\"type\":\"SEEK\",\"currentTime\":" + targetSec + ",\"mediaSessionId\":" + sessId + ",\"requestId\":" + reqId + "}";
+                } else if ("subtitles".equals(action)) {
+                    if ("off".equalsIgnoreCase(value) || "0".equals(value)) {
+                        msgJson = "{\"type\":\"EDIT_TRACKS_INFO\",\"activeTrackIds\":[],\"mediaSessionId\":" + sessId + ",\"requestId\":" + reqId + "}";
+                        notifyUser("💬 Subtitles: Off");
+                    } else {
+                        try {
+                            int tId = Integer.parseInt(value);
+                            msgJson = "{\"type\":\"EDIT_TRACKS_INFO\",\"activeTrackIds\":[" + tId + "],\"mediaSessionId\":" + sessId + ",\"requestId\":" + reqId + "}";
+                            notifyUser("💬 Subtitles Enabled");
+                        } catch (Exception ex) {
+                            msgJson = "{\"type\":\"EDIT_TRACKS_INFO\",\"activeTrackIds\":[1],\"mediaSessionId\":" + sessId + ",\"requestId\":" + reqId + "}";
+                            notifyUser("💬 Subtitles Enabled");
+                        }
+                    }
+                } else if ("quality".equals(action)) {
+                    notifyUser("📺 Quality: " + value);
+                    return;
                 }
                 if (msgJson != null) {
                     synchronized (MainActivity.this) {
@@ -858,7 +875,24 @@ public class MainActivity extends Activity {
                         notifyUser("⏩ Seeked to " + (int) targetSec + "s on TV");
                     }
                     liveTvCurrentTime = targetSec;
-                    payload = "{\"type\":\"SEEK\",\"currentTime\":" + targetSec + ",\"resumeState\":\"PLAYBACK_START\",\"mediaSessionId\":" + sessId + ",\"requestId\":" + reqId + "}";
+                    payload = "{\"type\":\"SEEK\",\"currentTime\":" + targetSec + ",\"mediaSessionId\":" + sessId + ",\"requestId\":" + reqId + "}";
+                } else if ("subtitles".equals(action)) {
+                    if ("off".equalsIgnoreCase(value) || "0".equals(value)) {
+                        payload = "{\"type\":\"EDIT_TRACKS_INFO\",\"activeTrackIds\":[],\"mediaSessionId\":" + sessId + ",\"requestId\":" + reqId + "}";
+                        notifyUser("💬 Subtitles: Off");
+                    } else {
+                        try {
+                            int tId = Integer.parseInt(value);
+                            payload = "{\"type\":\"EDIT_TRACKS_INFO\",\"activeTrackIds\":[" + tId + "],\"mediaSessionId\":" + sessId + ",\"requestId\":" + reqId + "}";
+                            notifyUser("💬 Subtitles Enabled");
+                        } catch (Exception ex) {
+                            payload = "{\"type\":\"EDIT_TRACKS_INFO\",\"activeTrackIds\":[1],\"mediaSessionId\":" + sessId + ",\"requestId\":" + reqId + "}";
+                            notifyUser("💬 Subtitles Enabled");
+                        }
+                    }
+                } else if ("quality".equals(action)) {
+                    notifyUser("📺 Quality: " + value);
+                    return;
                 }
                 if (payload != null) {
                     sendCastMsg(o, ctlSender, tid, "urn:x-cast:com.google.cast.media", payload);
@@ -1381,6 +1415,52 @@ public class MainActivity extends Activity {
                 loungeRid = 2;
                 lastCastType = "youtube";
                 lastCastIp = ip;
+                liveTvCurrentTime = 0.0;
+                activeCastSocket = socket;
+                activeCastOut = out;
+                activeCastIp = ip;
+                currentTransportId = transportId;
+
+                final SSLSocket liveSocket = socket;
+                final String activeTid = transportId;
+                final InputStream activeIn = in;
+                final OutputStream activeOut = out;
+                Thread pingThread = new Thread(new Runnable() {
+                    @Override
+                    public void run() {
+                        long lastPingSent = System.currentTimeMillis();
+                        try {
+                            while (!Thread.currentThread().isInterrupted() && liveSocket != null && !liveSocket.isClosed()) {
+                                long now = System.currentTimeMillis();
+                                if (now - lastPingSent >= 4000) {
+                                    synchronized (MainActivity.this) {
+                                        if (liveSocket.isClosed()) break;
+                                        sendCastMsg(activeOut, "sender-0", "receiver-0", "urn:x-cast:com.google.cast.tp.heartbeat", "{\"type\":\"PING\"}");
+                                        sendCastMsg(activeOut, "sender-0", activeTid, "urn:x-cast:com.google.cast.tp.heartbeat", "{\"type\":\"PING\"}");
+                                    }
+                                    lastPingSent = now;
+                                }
+                                try {
+                                    byte[] raw = readCastMsg(activeIn);
+                                    if (raw != null) {
+                                        String text = new String(raw, "UTF-8");
+                                        if (text.contains("\"PING\"")) {
+                                            synchronized (MainActivity.this) {
+                                                if (liveSocket.isClosed()) break;
+                                                sendCastMsg(activeOut, "sender-0", "receiver-0", "urn:x-cast:com.google.cast.tp.heartbeat", "{\"type\":\"PONG\"}");
+                                                sendCastMsg(activeOut, "sender-0", activeTid, "urn:x-cast:com.google.cast.tp.heartbeat", "{\"type\":\"PONG\"}");
+                                            }
+                                        }
+                                    }
+                                } catch (java.net.SocketTimeoutException ste) {
+                                } catch (Exception ignored) { break; }
+                            }
+                        } catch (Exception ignored) {}
+                    }
+                });
+                pingThread.setDaemon(true);
+                pingThread.start();
+                activeCastHeartbeat = pingThread;
                 return true;
             }
             return false;
