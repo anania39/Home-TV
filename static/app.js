@@ -39,6 +39,12 @@ window.syncNativePlaybackState = function(currentTime, duration, playerState) {
 
 // TV Hub Dynamic Backend & Permanent GitHub Pages Resolution
 let HUB_BASE = localStorage.getItem("tvhub_backend_url") || "";
+// When the UI is served by the phone itself, never use a cached VPS home-hub URL.
+const _isPhoneHost = /^(127\.|localhost$|tvhub\.local$|192\.168\.|10\.|172\.(1[6-9]|2\d|3[01])\.)/.test(window.location.hostname);
+if (_isPhoneHost) {
+  HUB_BASE = "";
+  try { localStorage.removeItem("tvhub_backend_url"); } catch (e) {}
+}
 let _activeHubType = "cloud"; // "local_wifi", "pc_tunnel", "cloud"
 let _cachedEndpointData = null;
 
@@ -75,7 +81,7 @@ function makePlayableUrl(rawUrl) {
   if (!rawUrl) return "";
   // If we are on HTTPS and the stream is HTTP, route through /proxy to ensure HTTPS + CORS
   if (window.location.protocol === "https:" && rawUrl.startsWith("http://")) {
-    const base = getHubBase() || CLOUD_FALLBACK_URL;
+    const base = getHubBase() || (_isPhoneHost ? window.location.origin : CLOUD_FALLBACK_URL);
     return `${base}/proxy?url=${encodeURIComponent(rawUrl)}`;
   }
   return rawUrl;
@@ -83,7 +89,7 @@ function makePlayableUrl(rawUrl) {
 
 function makeCastPlayableUrl(rawUrl) {
   if (!rawUrl) return "";
-  const cloudHost = "https://tvhub.92.5.71.162.sslip.io";
+  const cloudHost = _isPhoneHost ? window.location.origin : "https://tvhub.92.5.71.162.sslip.io";
   let full = rawUrl.trim();
   // YouTube and GoogleVideo streams are signed with client IP; TV fetches them directly from Google without VPS proxy
   if (full.includes("googlevideo.com")) {
@@ -245,6 +251,7 @@ async function autoDetectHub(forceRefresh = false) {
 
   if (!isGithubPages && !isCloudHost) {
     _activeHubType = "local_wifi";
+    setHubBase("");
     updateHubStatusBadge(true, `Wi-Fi Host (${hn})`);
     state.hubOnline = true;
     return true;
@@ -1163,13 +1170,32 @@ async function castChannel(channel) {
   const castUrl = makeCastPlayableUrl(rawStreamUrl);
 
   // Path 0: Native Android TV Hub App -> Cast directly to TV via phone local Wi-Fi!
-  if (window.TVHubAndroid && typeof window.TVHubAndroid.isNativeApp === "function" && window.TVHubAndroid.isNativeApp()) {
+  if (isNativeHostBridge()) {
     const target = resolveSelectedTarget(state.currentTvId);
     showToast(`Casting ${channel.name} to ${target.name}...`);
     window.TVHubAndroid.castToTv(target.ip, target.dev_type, castUrl, channel.name, "application/vnd.apple.mpegurl", "");
     state.currentTitle = channel.name;
+    state.playbackState = "PLAYING";
+    state.playbackType = "stream";
     const barTitle = document.getElementById("bar-title");
     if (barTitle) barTitle.textContent = channel.name;
+    activeDeckDuration = 0;
+    activeDeckCurrentTime = 0;
+    activeDeckQualityUrls = {};
+    activeDeckSubtitles = [];
+    activeDeckAudioTracks = [];
+    updateActiveCastDeck({
+      title: channel.name,
+      state: "PLAYING",
+      duration: 0,
+      duration_str: "Live",
+      quality_urls: {}
+    });
+    startDeckProgressTicker();
+    const chosenSpeed = parseFloat(window._userSelectedSpeed || "1");
+    if (chosenSpeed && Math.abs(chosenSpeed - 1) > 0.01) {
+      setTimeout(() => sendPlaybackAction("speed", String(chosenSpeed)), 2200);
+    }
     return;
   }
 
@@ -1303,17 +1329,47 @@ function initRemoteKeys() {
   });
 }
 
+function isNativeHostBridge() {
+  try {
+    return !!(window.TVHubAndroid && typeof window.TVHubAndroid.isNativeApp === "function" && window.TVHubAndroid.isNativeApp());
+  } catch (e) {
+    return false;
+  }
+}
+
 async function sendPlaybackAction(action, value = null, extra = {}) {
-  // 1. Direct native Android TV Hub host dispatch over local Wi-Fi
-  if (window.TVHubAndroid && typeof window.TVHubAndroid.controlPlayback === "function") {
+  // 1. Direct native Android TV Hub host dispatch over local Wi-Fi.
+  // When the APK owns the cast, the backend has no matching session, so do not
+  // forward the same command there: it would target a stale session and can
+  // overwrite the native deck state.
+  if (isNativeHostBridge() && typeof window.TVHubAndroid.controlPlayback === "function") {
     try {
-      window.TVHubAndroid.controlPlayback(action, String(value || ""));
+      const nativeValue = (value && typeof value === "object") ? JSON.stringify(value) : String(value ?? "");
+      window.TVHubAndroid.controlPlayback(action, nativeValue);
+      // Fallback safety: Android controlPlayback is fire-and-forget (void). We cannot
+      // detect a silent native failure from JS, but we keep an "ack" flag so that if
+      // the native side could not route the command (lounge/Cast session dead, no
+      // YouTube route), the backend still receives this action as a backup one-shot.
+      if (window.TVHubAndroid && typeof window.TVHubAndroid.wasLastControlAcked === "function") {
+        if (!window.TVHubAndroid.wasLastControlAcked()) {
+          console.warn("Native controlPlayback not acked, falling back to backend");
+        } else {
+          if (action === "play") updatePlayPauseButton(true);
+          if (action === "pause" || action === "stop") updatePlayPauseButton(false);
+          return true;
+        }
+      } else {
+        // No ack API available (older APK): native handled the command locally.
+        if (action === "play") updatePlayPauseButton(true);
+        if (action === "pause" || action === "stop") updatePlayPauseButton(false);
+        return true;
+      }
     } catch (e) {
       console.warn("Native controlPlayback notice:", e);
     }
   }
 
-  // 2. Also forward to backend for web / browser receiver synchronization & server-side fallback
+  // 2. Forward to backend for web / browser receiver synchronization
   try {
     const res = await safeFetchWithRetry("/api/playback/action", {
       method: "POST",
@@ -1538,6 +1594,18 @@ function hideCastProgress() {
 }
 
 async function executeUniversalCast(url, title = "") {
+  const backendUrl = (
+    _isPhoneHost ? window.location.origin : "https://tvhub.92.5.71.162.sslip.io"
+  ).replace(/\/proxy\?url=.*/, "");
+  const makePhoneProxyUrl = (rawUrl) => {
+    const base = backendUrl || (_isPhoneHost ? window.location.origin : "https://tvhub.92.5.71.162.sslip.io");
+    if (!rawUrl) return "";
+    if (rawUrl.includes("/proxy?url=")) {
+      const parts = rawUrl.split("/proxy?url=");
+      return `${base}/proxy?url=${encodeURIComponent(parts[1])}`;
+    }
+    return `${base}/proxy?url=${encodeURIComponent(rawUrl)}`;
+  };
   url = (url || "").trim();
   if (!url) {
     showToast("⚠️ Please enter a video or webpage link");
@@ -1582,14 +1650,12 @@ async function executeUniversalCast(url, title = "") {
       if (resolvedInfo.youtube_id) ytId = resolvedInfo.youtube_id;
       if (castTitleInput && resolvedInfo.title) castTitleInput.value = resolvedInfo.title;
     }
-  }
-
-  // Path 0: Native Android TV Hub App -> Cast directly to TV via phone local Wi-Fi!
-  if (window.TVHubAndroid && typeof window.TVHubAndroid.isNativeApp === "function" && window.TVHubAndroid.isNativeApp()) {
+  }  // Path 0: Native Android TV Hub App -> Cast directly to TV via phone local Wi-Fi!
+    if (window.TVHubAndroid && typeof window.TVHubAndroid.isNativeApp === "function" && window.TVHubAndroid.isNativeApp()) {
     const target = resolveSelectedTarget(state.currentTvId);
     showToast(`Casting to ${target.name}...`);
     const useProxy = castUseProxy ? castUseProxy.checked : true;
-        let targetCastUrl = makeCastPlayableUrl(playUrl);
+    let targetCastUrl = makeCastPlayableUrl(playUrl);
     let detectedYtId = ytId;
     if (!detectedYtId && url) {
       const ym = url.match(/(?:youtu\.be\/|youtube\.com\/(?:embed\/|v\/|watch\?v=|shorts\/|live\/))([a-zA-Z0-9_-]{11})/);
@@ -1599,8 +1665,20 @@ async function executeUniversalCast(url, title = "") {
       detectedYtId = resolvedInfo.youtube_id;
     }
     const isYtStream = Boolean(detectedYtId || url.includes("youtube.com") || url.includes("youtu.be") || targetCastUrl.includes("googlevideo.com") || resolvedInfo?.source_type === "youtube");
+    // YouTube: cast a signed googlevideo MP4 through our own Cast path so the TV media receiver
+    // (not the TV YouTube app) plays it; that is what playback controls, speed and subtitles need.
+    if (isYtStream && useProxy) {
+      // Resolve to a signed googlevideo URL first, then send that URL through the phone proxy so the proxy
+      // option is honoured but the streamed segment still has the correct per-segment Google tokens.
+      let signedUrl = targetCastUrl;
+      if (!detectedYtId && resolvedInfo?.stream_url && resolvedInfo.stream_url.includes("googlevideo.com")) signedUrl = resolvedInfo.stream_url;
+      if (signedUrl.includes("googlevideo.com")) {
+        targetCastUrl = makePhoneProxyUrl(signedUrl);
+      }
+    }
     if (!isYtStream && useProxy && !targetCastUrl.includes("/proxy?url=") && (detectUrlType(url) === "movie" || resolvedInfo?.source_type === "movie_platform")) {
-      targetCastUrl = `https://tvhub.92.5.71.162.sslip.io/proxy?url=${encodeURIComponent(targetCastUrl)}`;
+      const movieProxyBase = _isPhoneHost ? window.location.origin : CLOUD_FALLBACK_URL;
+      targetCastUrl = `${movieProxyBase}/proxy?url=${encodeURIComponent(targetCastUrl)}`;
     }
     if (detectUrlType(url) === "movie" || resolvedInfo?.source_type === "movie_platform") {
       detectedYtId = "";
@@ -1615,6 +1693,14 @@ async function executeUniversalCast(url, title = "") {
     }
     window.TVHubAndroid.castToTv(target.ip, target.dev_type, targetCastUrl, state.currentTitle, mimeType, detectedYtId || "");
 
+    const chosenSpeed = parseFloat(window._userSelectedSpeed || "1");
+    if (state.playbackType !== "youtube" && chosenSpeed && Math.abs(chosenSpeed - 1) > 0.01) {
+      setTimeout(() => sendPlaybackAction("speed", String(chosenSpeed)), 2200);
+    } else if (state.playbackType === "youtube" && chosenSpeed && Math.abs(chosenSpeed - 1) > 0.01) {
+      // Give the media receiver a moment to accept LOAD before we adjust playback rate.
+      setTimeout(() => sendPlaybackAction("speed", String(chosenSpeed)), 3400);
+    }
+
     const barTitle = document.getElementById("bar-title");
     if (barTitle) barTitle.textContent = state.currentTitle;
     updatePlayPauseButton(true);
@@ -1627,21 +1713,47 @@ async function executeUniversalCast(url, title = "") {
       state.duration = activeDur;
     }
 
+    function extractYtLangFromUrl(u) {
+      if (!u) return null;
+      try {
+        const p = new URL(u);
+        const hl = (p.searchParams.get('hl') || '').toLowerCase();
+        if (hl) return hl;
+        const lang = (p.searchParams.get('lang') || '').toLowerCase();
+        if (lang) return lang;
+        const fname = p.pathname.split('/').pop() || '';
+        const m = fname.match(/^([a-z]{2}(?:[_-][A-Z]{2})?)/);
+        if (m) return m[1].toLowerCase().replace('_', '-');
+      } catch (e) {}
+      return null;
+    }
+
+    // YouTube commonly ships subtitles as a VTT list rather than the HLS-style subtitle array, so build a
+    // unified subtitle list the deck can render for both the media-receiver and TV-Youtube paths.
+    const deckSubs = (resolvedInfo?.subtitles && resolvedInfo.subtitles.length)
+      ? resolvedInfo.subtitles
+      : (resolvedInfo?.vtt_urls && resolvedInfo.vtt_urls.length)
+        ? resolvedInfo.vtt_urls.map(u => ({ url: u, code: extractYtLangFromUrl(u) || "en", lang: extractYtLangFromUrl(u) || "English" }))
+        : [];
+    const deckQualities = (isYtStream && resolvedInfo?.qualities) ? resolvedInfo.qualities : (resolvedInfo?.qualities || ["Auto", "1080p", "720p", "480p", "360p"]);
+    const qualityUrls = {};
+    for (const [q, u] of Object.entries(resolvedInfo?.quality_urls || {})) {
+      qualityUrls[q] = u || targetCastUrl;
+    }
+
     updateActiveCastDeck({
       title: state.currentTitle,
       state: "PLAYING",
       duration: activeDur,
       duration_str: activeDurStr,
       thumbnail: resolvedInfo?.thumbnail || "",
-      subtitles: resolvedInfo?.subtitles || [],
-      qualities: resolvedInfo?.qualities || ["Auto", "1080p", "720p", "480p", "360p"],
-      quality_urls: resolvedInfo?.quality_urls || {}
+      subtitles: deckSubs,
+      qualities: deckQualities,
+      quality_urls: qualityUrls
     });
     startDeckProgressTicker();
     return;
-  }
-
-  if (ytMatch) {
+  }  if (ytMatch && !window.activeResolvedData) {
     showToast("⚡ Resolving YouTube stream...");
     try {
       const res = await safeFetchWithRetry(`/api/media/resolve?url=${encodeURIComponent(url)}`);
@@ -1652,6 +1764,9 @@ async function executeUniversalCast(url, title = "") {
           playUrl = data.stream_url;
           playTitle = data.title || playTitle;
           mimeType = data.mime_type || "application/x-mpegurl";
+          if (data.subtitles || data.qualities || data.vtt_urls || data.duration) {
+            window.activeResolvedData = { ...data };
+          }
         }
       }
     } catch (e) {
@@ -3591,24 +3706,12 @@ function initActiveCastDeck() {
     };
 
     // Support instant click / tap anywhere along the progress bar to jump
-    const handleScrubberTap = (e) => {
-      if (e && scrubber) {
-        const rect = scrubber.getBoundingClientRect();
-        if (rect && rect.width > 0) {
-          const clientX = e.clientX !== undefined ? e.clientX : (e.touches && e.touches[0] ? e.touches[0].clientX : null);
-          if (clientX !== null) {
-            const pct = Math.max(0, Math.min(100, ((clientX - rect.left) / rect.width) * 100));
-            scrubber.value = pct;
-            triggerSeek(pct);
-            return;
-          }
-        }
-      }
+    scrubber.onclick = () => {
       triggerSeek(scrubber.value);
     };
-
-    scrubber.onclick = handleScrubberTap;
-    scrubber.addEventListener("pointerup", handleScrubberTap);
+    scrubber.addEventListener("pointerup", () => {
+      triggerSeek(scrubber.value);
+    });
   }
 
   // 5. Playback Speed Selector Pills
@@ -3662,23 +3765,23 @@ function initActiveCastDeck() {
     };
   }
 
-  // 7. Quality Selector (Safe Adaptive Bitrate Guard - Zero Restart, No Blue Cast Screen)
+  // 7. Quality Selector
   const qSelect = document.getElementById("deck-quality-select");
   if (qSelect) {
     qSelect.onchange = async () => {
       vibrate(20);
       const q = qSelect.value;
       const displayInfo = formatQualityDisplay(q);
-      const qLabel = displayInfo.label.split(" ")[0];
+      const targetQUrl = activeDeckQualityUrls[q] || null;
 
-      if (state.playbackType === "youtube") {
-        showToast(`📺 YouTube Quality: ${qLabel}`);
-        sendPlaybackAction("quality", q);
-        return;
+      showToast(`📺 Quality: ${displayInfo.label}`);
+      if (isNativeHostBridge()) {
+        // The APK changes quality itself: it reloads the proxy variant at the
+        // current position. Send the label plus the resolved variant URL.
+        await sendPlaybackAction("quality", { label: q, url: targetQUrl });
+      } else {
+        await sendPlaybackAction("quality", q, { url: targetQUrl });
       }
-
-      showToast(`📺 Stream Quality: ${displayInfo.label}`);
-      sendPlaybackAction("quality", q);
     };
   }
 
@@ -3855,6 +3958,17 @@ window.__onGCastApiAvailable = function(isAvailable) {
 
 function initGoogleCastWebSdk() {
   if (gCastInitialized) return;
+  // The Cast sender SDK can be blocked or still loading when __onGCastApiAvailable fires.
+  // Guard instead of throwing a ReferenceError, and retry briefly so it still initialises.
+  if (typeof cast === "undefined" || !cast.framework || typeof chrome === "undefined" || !chrome.cast || !chrome.cast.media) {
+    initGoogleCastWebSdk._tries = (initGoogleCastWebSdk._tries || 0) + 1;
+    if (initGoogleCastWebSdk._tries <= 20) {
+      setTimeout(initGoogleCastWebSdk, 250);
+    } else {
+      console.warn("Google Cast SDK unavailable; direct Wi-Fi cast disabled in this browser.");
+    }
+    return;
+  }
   try {
     cast.framework.CastContext.getInstance().setOptions({
       receiverApplicationId: chrome.cast.media.DEFAULT_MEDIA_RECEIVER_APP_ID,
@@ -4021,11 +4135,17 @@ function openInAppPlayer(channel) {
   if (!modal || !video) return;
 
   activeInAppChannel = channel;
-  const streamUrl = (channel.sources && channel.sources[0]?.url) || channel.url || channel.stream_url;
-  if (!streamUrl) {
+  const rawStreamUrl = (channel.sources && channel.sources[0]?.url) || channel.url || channel.stream_url;
+  if (!rawStreamUrl) {
     showToast("⚠️ Stream URL unavailable for this channel");
     return;
   }
+  // Many IPTV sources are plain http://. An HTTPS page cannot load those directly (mixed
+  // content is blocked), so stream them through our own same-origin proxy instead.
+  const streamUrl =
+    window.location.protocol === "https:" && /^http:\/\//i.test(rawStreamUrl)
+      ? `${window.location.origin}/proxy?url=${encodeURIComponent(rawStreamUrl)}`
+      : rawStreamUrl;
 
   if (title) title.textContent = channel.name || channel.title || "Live Stream";
   modal.style.display = "flex";

@@ -1,5 +1,6 @@
 import time
 import re
+import json as _json
 import logging
 from typing import Dict, Any, Optional
 import pychromecast
@@ -10,6 +11,10 @@ class GoogleCastController:
     def __init__(self):
         self._casts: Dict[str, pychromecast.Chromecast] = {}
         self._last_cast_app: Dict[str, str] = {}
+        # Persistent YouTube Lounge session per TV: {ip: {screen_id, lounge_token, sid, gsessionid}}
+        # Rebinding on every control command was causing 404 "session not found" silent failures.
+        self._lounge_sessions: Dict[str, Dict[str, Any]] = {}
+        self._last_lounge_bind: Dict[str, Dict[str, Any]] = {}
 
     def get_cast(self, ip: str, name: str = "Google TV", force_refresh: bool = False) -> Optional[pychromecast.Chromecast]:
         """Retrieve an active Chromecast connection or establish a new one."""
@@ -275,7 +280,7 @@ class GoogleCastController:
                 try:
                     ns, pl = read_msg(s)
                     if pl and '233637DE' in pl:
-                        d = json.loads(pl)
+                        d = _json.loads(pl)
                         for a in d.get('status', {}).get('applications', []):
                             if a.get('appId') == '233637DE':
                                 transport_id = a.get('transportId')
@@ -298,7 +303,14 @@ class GoogleCastController:
                     ns, pl = read_msg(s)
                     if pl and 'screenId' in pl:
                         m = re.search(r'"screenId":"([^"]+)"', pl)
-                        if m: screen_id = m.group(1); break
+                        if m:
+                            screen_id = m.group(1)
+                            # Cache the REAL screenId for this TV so all later
+                            # Lounge control commands (seek/speed/play) go to the
+                            # right screen instead of a stale/hardcoded one.
+                            self._cached_screen_id = screen_id
+                            self._last_lounge_bind[ip] = {}
+                            break
                 except Exception:
                     break
 
@@ -358,52 +370,214 @@ class GoogleCastController:
                 except Exception: pass
 
     def _send_lounge_command(self, ip: str, sc: str, params: Optional[Dict[str, Any]] = None) -> bool:
-        """Send YouTube Lounge MDX command for instant playback/speed/seek control on official YouTube TV app."""
+        """Send YouTube Lounge MDX command for instant playback/speed/seek control on official YouTube TV app.
+
+        Uses a persistent, cached lounge session (SID + gsessionid + loungeToken) per TV.
+        Previously every control command re-fetched lounge token + re-bound, which is
+        slow AND creates a brand-new session on every click: the bind replies with the
+        CURRENT media status but YouTube frequently throttled/dropped rapid re-binds,
+        so seek/speed/play buttons silently failed during a cast.
+        """
+        for attempt in range(2):
+            try:
+                import requests
+                sess = self._lounge_sessions.get(ip)
+
+                if not sess:
+                    # Need to (re)build a lounge session for this TV.
+                    screen_id = getattr(self, "_cached_screen_id", None)
+                    if not screen_id:
+                        # Try to discover the real screenId live from the TV (no hardcoded fallback
+                        # unless discovery fails AND we have nothing cached).
+                        discovered = self._query_screen_id(ip)
+                        if discovered:
+                            screen_id = discovered
+                            self._cached_screen_id = screen_id
+                    if not screen_id:
+                        screen_id = "15e75b8ac2df0509ef8b499fc78eef3d76ae913654fb8c32a282ec6793ab2c33"
+
+                    headers = {'Origin': 'https://www.youtube.com', 'Content-Type': 'application/x-www-form-urlencoded'}
+                    r = requests.post('https://www.youtube.com/api/lounge/pairing/get_lounge_token_batch',
+                                      data={'screen_ids': screen_id}, headers=headers, timeout=4)
+                    if r.status_code != 200 or not r.json().get('screens'):
+                        logger.warning(f"Lounge token fetch failed for {ip} (screen={screen_id[:8]}...) status={r.status_code}")
+                        # Clear stale cached screenId so next attempt re-discovers
+                        if getattr(self, "_cached_screen_id", None) == screen_id:
+                            self._cached_screen_id = None
+                        return False
+                    lounge_token = r.json()['screens'][0]['loungeToken']
+
+                    bind_headers = dict(headers)
+                    bind_headers['X-YouTube-LoungeId-Token'] = lounge_token
+                    bind_data = {
+                        'device': 'REMOTE_CONTROL',
+                        'id': 'tvhubbackend_ctrl',
+                        'name': 'Android',
+                        'mdx-version': 3,
+                        'pairing_type': 'cast',
+                        'app': 'android-phone-13.14.55'
+                    }
+                    r2 = requests.post('https://www.youtube.com/api/lounge/bc/bind',
+                                       params={'RID': 0, 'VER': 8, 'CVER': 1},
+                                       data=bind_data, headers=bind_headers, timeout=4)
+                    m_sid = re.search(r'\["c","(.*?)"', r2.text)
+                    m_gsid = re.search(r'\["S","(.*?)"', r2.text)
+                    if not m_sid or not m_gsid:
+                        logger.warning(f"Lounge bind failed for {ip} (status={r2.status_code})")
+                        self._lounge_sessions.pop(ip, None)
+                        return False
+                    sess = {
+                        'screen_id': screen_id,
+                        'lounge_token': lounge_token,
+                        'sid': m_sid.group(1),
+                        'gsessionid': m_gsid.group(1),
+                        'rid': 1
+                    }
+                    self._lounge_sessions[ip] = sess
+                    logger.info(f"Established persistent YouTube Lounge session for {ip} (screen={screen_id[:8]}...)")
+
+                headers = {'Origin': 'https://www.youtube.com', 'Content-Type': 'application/x-www-form-urlencoded',
+                           'X-YouTube-LoungeId-Token': sess['lounge_token']}
+
+                body = {'count': 1, 'req0__sc': sc}
+                if params:
+                    for k, v in params.items():
+                        body[f'req0_{k}'] = str(v)
+
+                r_cmd = requests.post(
+                    'https://www.youtube.com/api/lounge/bc/bind',
+                    params={'SID': sess['sid'], 'gsessionid': sess['gsessionid'],
+                            'RID': sess['rid'], 'VER': 8, 'CVER': 1},
+                    data=body,
+                    headers=headers,
+                    timeout=4
+                )
+                sess['rid'] += 1
+                logger.info(f"YouTube Lounge command '{sc}' dispatched to {ip}: {r_cmd.status_code}")
+                if r_cmd.status_code == 200:
+                    return True
+                # Session expired (404/401 often when the TV's app was closed or session rotated):
+                # drop the cached session so the next attempt re-binds fresh.
+                if r_cmd.status_code in (400, 401, 404, 408, 500, 503):
+                    self._lounge_sessions.pop(ip, None)
+                    continue
+                return False
+            except Exception as e:
+                logger.warning(f"YouTube Lounge command notice on {ip}: {e}")
+                try:
+                    self._lounge_sessions.pop(ip, None)
+                except Exception:
+                    pass
+                break
+        return False
+
+    def _query_screen_id(self, ip: str) -> Optional[str]:
+        """Query the TV's live YouTube MDX screenId over Cast V2 (fast single-shot)."""
+        s = None
         try:
-            screen_id = getattr(self, "_cached_screen_id", None) or "15e75b8ac2df0509ef8b499fc78eef3d76ae913654fb8c32a282ec6793ab2c33"
+            import ssl, socket, struct
+            ctx = ssl.create_default_context()
+            ctx.check_hostname = False
+            ctx.verify_mode = ssl.CERT_NONE
+            s = ctx.wrap_socket(socket.socket())
+            s.settimeout(1.8)
+            s.connect((ip, 8009))
 
-            import requests
-            headers = {'Origin': 'https://www.youtube.com', 'Content-Type': 'application/x-www-form-urlencoded'}
-            r = requests.post('https://www.youtube.com/api/lounge/pairing/get_lounge_token_batch', data={'screen_ids': screen_id}, headers=headers, timeout=4)
-            if r.status_code != 200 or not r.json().get('screens'):
-                return False
-            lounge_token = r.json()['screens'][0]['loungeToken']
+            def send_msg(sock, src, dst, ns, payload):
+                b_src = src.encode('utf-8')
+                b_dst = dst.encode('utf-8')
+                b_ns = ns.encode('utf-8')
+                b_pl = payload.encode('utf-8')
+                def varint(n):
+                    res = bytearray()
+                    while (n & ~0x7F) != 0:
+                        res.append((n & 0x7F) | 0x80)
+                        n >>= 7
+                    res.append(n)
+                    return bytes(res)
+                msg = bytearray()
+                msg += b'\x08\x00'
+                msg += b'\x12' + varint(len(b_src)) + b_src
+                msg += b'\x1a' + varint(len(b_dst)) + b_dst
+                msg += b'\x22' + varint(len(b_ns)) + b_ns
+                msg += b'\x28\x00'
+                msg += b'\x32' + varint(len(b_pl)) + b_pl
+                sock.sendall(struct.pack('>I', len(msg)) + bytes(msg))
 
-            bind_headers = dict(headers)
-            bind_headers['X-YouTube-LoungeId-Token'] = lounge_token
-            bind_data = {
-                'device': 'REMOTE_CONTROL',
-                'id': 'tvhubbackend_ctrl',
-                'name': 'Android',
-                'mdx-version': 3,
-                'pairing_type': 'cast',
-                'app': 'android-phone-13.14.55'
-            }
-            r2 = requests.post('https://www.youtube.com/api/lounge/bc/bind', params={'RID': 0, 'VER': 8, 'CVER': 1}, data=bind_data, headers=bind_headers, timeout=4)
-            m_sid = re.search(r'\["c","(.*?)"', r2.text)
-            m_gsid = re.search(r'\["S","(.*?)"', r2.text)
-            if not m_sid or not m_gsid:
-                return False
-            sid = m_sid.group(1)
-            gsessionid = m_gsid.group(1)
+            def read_msg(sock):
+                raw_len = sock.recv(4)
+                if not raw_len: return None, None
+                l = struct.unpack('>I', raw_len)[0]
+                data = b''
+                while len(data) < l:
+                    chunk = sock.recv(l - len(data))
+                    if not chunk: break
+                    data += chunk
+                idx = 0
+                pl = None
+                while idx < len(data):
+                    tag = data[idx]
+                    idx += 1
+                    fn = tag >> 3
+                    wt = tag & 0x07
+                    if wt == 0:
+                        while data[idx] & 0x80: idx += 1
+                        idx += 1
+                    elif wt == 2:
+                        l_val = 0
+                        shift = 0
+                        while True:
+                            b = data[idx]
+                            idx += 1
+                            l_val |= (b & 0x7F) << shift
+                            shift += 7
+                            if not (b & 0x80): break
+                        val = data[idx:idx + l_val]
+                        idx += l_val
+                        if fn == 6: pl = val.decode('utf-8', 'ignore')
+                return None, pl
 
-            body = {'count': 1, 'req0__sc': sc}
-            if params:
-                for k, v in params.items():
-                    body[f'req0_{k}'] = str(v)
+            send_msg(s, 'sender-0', 'receiver-0', 'urn:x-cast:com.google.cast.tp.connection', '{"type":"CONNECT"}')
+            send_msg(s, 'sender-0', 'receiver-0', 'urn:x-cast:com.google.cast.receiver', '{"type":"GET_STATUS","requestId":1}')
+            transport_id = None
+            start = time.time()
+            while time.time() - start < 3.0:
+                try:
+                    _, pl = read_msg(s)
+                    if not pl:
+                        continue
+                    d = _json.loads(pl)
+                    for a in d.get('status', {}).get('applications', []):
+                        if a.get('appId') == '233637DE':
+                            transport_id = a.get('transportId')
+                            break
+                    if transport_id: break
+                except Exception:
+                    break
 
-            r_cmd = requests.post(
-                'https://www.youtube.com/api/lounge/bc/bind',
-                params={'SID': sid, 'gsessionid': gsessionid, 'RID': 1, 'VER': 8, 'CVER': 1},
-                data=body,
-                headers=bind_headers,
-                timeout=4
-            )
-            logger.info(f"YouTube Lounge command '{sc}' dispatched to {ip}: {r_cmd.status_code}")
-            return r_cmd.status_code == 200
+            if not transport_id:
+                return None
+
+            send_msg(s, 'sender-0', transport_id, 'urn:x-cast:com.google.cast.tp.connection', '{"type":"CONNECT"}')
+            send_msg(s, 'sender-0', transport_id, 'urn:x-cast:com.google.youtube.mdx', '{"type":"getMdxSessionStatus"}')
+            start = time.time()
+            while time.time() - start < 2.0:
+                try:
+                    _, pl = read_msg(s)
+                    if pl and 'screenId' in pl:
+                        m = re.search(r'"screenId":"([^"]+)"', pl)
+                        if m:
+                            return m.group(1)
+                except Exception:
+                    break
+            return None
         except Exception as e:
-            logger.warning(f"YouTube Lounge command notice on {ip}: {e}")
-            return False
+            logger.debug(f"_query_screen_id notice on {ip}: {e}")
+            return None
+        finally:
+            if s:
+                try: s.close()
+                except Exception: pass
 
     def play(self, ip: str) -> bool:
         try:

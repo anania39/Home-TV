@@ -1242,8 +1242,54 @@ async def playback_action(req: PlaybackActionRequest):
             except Exception as e:
                 logger.debug(f"Subtitle action error: {e}")
         elif action == "quality":
-            ws_manager.update_state({"quality": str(req.value)})
-            return {"status": "ok", "message": f"Quality set to {req.value}"}
+            # Real quality change: re-cast the SAME stream at the requested quality so the
+            # change actually takes effect on the TV (previously this only updated UI state
+            # and the TV kept playing the old quality, so the button appeared broken).
+            try:
+                chosen_q = str(req.value or "").strip()
+                state_q_urls = ws_manager.current_state.get("quality_urls") or {}
+                target_q_url = req.url or state_q_urls.get(chosen_q)
+                if not target_q_url:
+                    # Tolerate tier aliases (e.g. "1080p" vs "804p") when matching keys
+                    for k, v in state_q_urls.items():
+                        if k.lower() == chosen_q.lower():
+                            target_q_url = v
+                            break
+                if target_q_url:
+                    cur_pos = 0.0
+                    try:
+                        st = await asyncio.to_thread(google_cast_controller.get_status, dev["ip"])
+                        cur_pos = float(st.get("current_time", 0.0) or 0.0)
+                    except Exception:
+                        cur_pos = 0.0
+                    # Only non-YouTube (HLS/proxy) casts can switch quality via URL swap.
+                    # YouTube reacts to quality via its own Lounge path; re-casting would restart playback from 0.
+                    is_yt_cast = "youtube" in (ws_manager.current_state.get("stream_url") or "").lower() or \
+                                 (ws_manager.current_state.get("media_info") or {}).get("source_type") == "youtube"
+                    if not is_yt_cast:
+                        mime = "application/x-mpegurl" if (".m3u8" in target_q_url or "manifest" in target_q_url or "proxy?url=" in target_q_url) else "video/mp4"
+                        m_info = ws_manager.current_state.get("media_info")
+                        sub_url = ws_manager.current_state.get("current_subtitle_url")
+                        ok = await asyncio.to_thread(
+                            google_cast_controller.cast_media,
+                            dev["ip"],
+                            target_q_url,
+                            ws_manager.current_state.get("title", "Video"),
+                            mime,
+                            subtitles=sub_url,
+                            media_info=m_info
+                        )
+                        if ok and cur_pos > 1.0:
+                            await asyncio.sleep(0.6)
+                            await asyncio.to_thread(google_cast_controller.seek, dev["ip"], cur_pos)
+                        ws_manager.update_state({"quality": chosen_q, "stream_url": target_q_url})
+                        return {"status": "ok", "message": f"Quality set to {chosen_q} and re-cast to TV"}
+                ws_manager.update_state({"quality": chosen_q})
+                return {"status": "ok", "message": f"Quality set to {chosen_q}"}
+            except Exception as q_err:
+                logger.debug(f"Quality action error: {q_err}")
+                ws_manager.update_state({"quality": str(req.value)})
+                return {"status": "ok", "message": f"Quality set to {req.value}"}
         elif action == "audio":
             chosen_audio = str(req.value) if req.value else "Default"
             target_a_url = req.url
