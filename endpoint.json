@@ -1,11 +1,11 @@
 {
-  "hub_url": "https://precisely-collector-one-midlands.trycloudflare.com",
+  "hub_url": "https://simpsons-expires-web-reach.trycloudflare.com",
   "cloud_hub_url": "https://tvhub.92.5.71.162.sslip.io",
   "local_url": "http://192.168.50.250:8000",
   "local_ip": "192.168.50.250",
   "port": 8000,
   "github_pages_url": "https://anania39.github.io/Home-TV/",
   "status": "online",
-  "updated_at": 1794501431,
-  "time_str": "2026-11-12 20:37:11"
+  "updated_at": 1794509299,
+  "time_str": "2026-11-12 22:48:19"
 }
