@@ -1,11 +1,11 @@
 {
-  "hub_url": "https://handed-projectors-macro-probe.trycloudflare.com",
+  "hub_url": "https://roy-routing-favour-repository.trycloudflare.com",
   "cloud_hub_url": "https://tvhub.92.5.71.162.sslip.io",
   "local_url": "http://192.168.50.250:8000",
   "local_ip": "192.168.50.250",
   "port": 8000,
   "github_pages_url": "https://anania39.github.io/Home-TV/",
   "status": "online",
-  "updated_at": 1795280548,
-  "time_str": "2026-11-21 21:02:28"
+  "updated_at": 1795447517,
+  "time_str": "2026-11-23 19:25:17"
 }
