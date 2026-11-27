@@ -737,7 +737,10 @@ function populateDevicesList(devices, selectedId) {
   (devices || []).forEach(dev => {
     const opt = document.createElement("option");
     opt.value = dev.id;
-    if (dev.is_google_tv || dev.dev_type === "google_tv") opt.dataset.googleCast = "true";
+    if (dev.is_google_tv || dev.dev_type === "google_tv" || dev.type === "google_tv" ||
+        DEFAULT_HOUSEHOLD_DEVICES.some(known => known.id === dev.id && known.is_google_tv)) {
+      opt.dataset.googleCast = "true";
+    }
     let label = dev.name;
     if (dev.is_hisense && !label.includes("VIDAA")) {
       label += " (Hisense VIDAA)";
