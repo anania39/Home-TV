@@ -23,7 +23,7 @@
     <!-- Google Cast Web SDK & Hls.js for In-Browser Casting & Playback on ANY Wi-Fi -->
   <script src="https://cdn.jsdelivr.net/npm/hls.js@1.5.17"></script>
   <script src="https://www.gstatic.com/cv/js/sender/v1/cast_sender.js?loadCastFramework=1"></script>
-  <link rel="stylesheet" href="static/style.css?v=anania-web-4">
+  <link rel="stylesheet" href="static/style.css?v=anania-web-5">
   <script>
     if ('serviceWorker' in navigator) {
       navigator.serviceWorker.getRegistrations().then(regs => {
@@ -32,7 +32,7 @@
     }
   </script>
 </head>
-<body>
+<body data-screen="tab-youtube">
 
   <div class="app-container">
     <!-- Header -->
@@ -108,7 +108,7 @@
     </header>
 
     <!-- TAB 1: IPTV Channels & Live Guide -->
-    <main id="tab-iptv" class="tab-content active">
+    <main id="tab-iptv" class="tab-content">
       <div class="screen-heading screen-heading-row">
         <div><h2>Live channels</h2><p>Choose what to watch.</p></div>
         <button type="button" class="btn-secondary" data-open-tab="tab-sports">Live sports</button>
@@ -320,8 +320,11 @@
       </div>
     </section>
 
-    <main id="tab-youtube" class="tab-content">
-      <div class="screen-heading"><h2>YouTube</h2></div>
+    <main id="tab-youtube" class="tab-content active">
+      <div class="youtube-web-toolbar">
+        <h2>YouTube</h2>
+        <a class="btn-secondary" href="https://www.youtube.com/" target="_blank" rel="noopener noreferrer">Open YouTube</a>
+      </div>
       <div class="cast-card yt-search-card">
         <div class="yt-search-form">
           <input type="text" id="yt-search-input" class="form-input yt-input-field" placeholder="Search YouTube or paste a link">
@@ -343,42 +346,70 @@
 
     <!-- Browser -->
     <section id="tab-browser" class="tab-content">
-      <div class="screen-heading"><h2>Browser</h2></div>
-      <div class="cast-card universal-cast-card">
-        <div class="form-group">
-          <label for="cast-url-input" class="visually-hidden">Search or enter a link</label>
-          <div class="input-with-action">
-            <input type="text" id="cast-url-input" class="form-input" autocomplete="off" autocapitalize="none" spellcheck="false" placeholder="Search or enter a link">
-            <button type="button" id="btn-paste-cast-url" class="btn-input-action" title="Paste from clipboard">Paste</button>
-          </div>
-          <div id="cast-detected-badge" class="cast-detected-pill" style="display:none"></div>
-          <div id="cast-preview-box" class="cast-preview-box" style="display:none">
-            <img id="cast-preview-thumb" class="cast-preview-thumb" alt="" style="display:none">
-            <div class="cast-preview-info">
-              <div id="cast-preview-title" class="cast-preview-title"></div>
-              <div id="cast-preview-tag" class="cast-preview-tag">Video source available</div>
-            </div>
-          </div>
-        </div>
-        <div id="web-playback-actions" class="browser-actions">
-          <button type="button" id="btn-open-cast-page" class="btn-secondary">Open or search</button>
-          <button type="button" id="btn-watch-cast-link" class="btn-secondary">Play here</button>
-          <button type="button" id="btn-submit-cast" class="btn-primary"><span id="btn-cast-text">Cast to TV</span></button>
-        </div>
-        <div class="browser-tools">
-          <button type="button" id="btn-browser-bookmark" class="btn-secondary">Save link</button>
-          <a id="browser-download" class="btn-secondary" target="_blank" rel="noopener noreferrer" hidden>Open media file</a>
-          <details class="browser-options">
-            <summary>Playback options</summary>
-            <div class="form-group">
+      <div class="apk-browser-header">
+        <button type="button" class="apk-browser-icon" id="browser-home" aria-label="Browser home"><svg viewBox="0 0 24 24"><path d="m3 11 9-8 9 8M5 10v11h5v-6h4v6h5V10"/></svg></button>
+        <h2>Browser</h2>
+        <select id="browser-tv-select" aria-label="Choose casting TV"><option value="">Choose TV</option></select>
+      </div>
+      <div class="apk-browser-address">
+        <button type="button" class="apk-browser-icon" id="browser-focus-address" aria-label="Edit browser address"><svg viewBox="0 0 24 24"><circle cx="10" cy="10" r="5.5"/><path d="m14 14 6 6"/></svg></button>
+        <label for="cast-url-input" class="visually-hidden">Search or enter a link</label>
+        <input type="text" id="cast-url-input" class="form-input" autocomplete="off" autocapitalize="none" spellcheck="false" placeholder="Search or enter a link">
+        <button type="button" id="btn-open-cast-page" class="apk-browser-icon" aria-label="Open address or search"><svg viewBox="0 0 24 24"><path d="M5 12h14m-6-6 6 6-6 6"/></svg></button>
+        <details id="browser-menu" class="apk-browser-menu">
+          <summary class="apk-browser-icon" aria-label="Browser menu"><svg viewBox="0 0 24 24"><circle cx="12" cy="5" r="1"/><circle cx="12" cy="12" r="1"/><circle cx="12" cy="19" r="1"/></svg></summary>
+          <div class="apk-browser-menu-items">
+            <button type="button" id="btn-watch-cast-link" class="apk-browser-menu-item">Play here</button>
+            <button type="button" id="btn-browser-bookmark" class="apk-browser-menu-item">Save bookmark</button>
+            <a id="browser-download" class="apk-browser-menu-item" target="_blank" rel="noopener noreferrer" hidden>Open media file</a>
+            <details class="browser-options">
+              <summary>Cast connection mode</summary>
+              <label><input type="checkbox" id="web-low-bandwidth"> Weak connection</label>
+              <label><input type="checkbox" id="cast-use-proxy" checked> Use the Hub stream proxy</label>
               <label for="cast-title-input">Video title</label>
               <input type="text" id="cast-title-input" class="form-input" placeholder="Use the source title">
-            </div>
-            <label><input type="checkbox" id="web-low-bandwidth"> Lower bandwidth on supported streams</label>
-            <label><input type="checkbox" id="cast-use-proxy" checked> Use the Hub stream proxy</label>
-          </details>
+            </details>
+          </div>
+        </details>
+      </div>
+      <div id="browser-player-slot"></div>
+      <div id="browser-home-content" class="apk-browser-content">
+        <div class="apk-browser-start">
+          <h3>Start browsing</h3>
+          <p>Open a site or paste a video link to cast.</p>
+          <div class="apk-browser-tiles">
+            <button type="button" id="browser-search-web"><svg viewBox="0 0 24 24"><circle cx="10" cy="10" r="5.5"/><path d="m14 14 6 6"/></svg>Search web</button>
+            <button type="button" id="btn-paste-cast-url"><svg viewBox="0 0 24 24"><rect x="5" y="5" width="14" height="16" rx="2"/><path d="M9 5V3h6v2m-6 6h6m-6 4h6"/></svg>Paste link</button>
+          </div>
+        </div>
+        <div class="apk-browser-tiles">
+          <button type="button" id="browser-show-bookmarks"><svg viewBox="0 0 24 24"><path d="M6 3h12v18l-6-4-6 4z"/></svg>Bookmarks</button>
+          <button type="button" id="browser-show-downloads"><svg viewBox="0 0 24 24"><path d="M12 3v12m-5-5 5 5 5-5M4 16v5h16v-5"/></svg>Downloads</button>
+        </div>
+        <div class="apk-browser-recent-header"><h3>Recent pages</h3><button type="button" id="browser-show-history">History</button></div>
+        <ul id="browser-history-list" class="browser-links apk-browser-recent"></ul>
+        <div class="apk-browser-tiles">
+          <button type="button" id="browser-phone-video"><svg viewBox="0 0 24 24"><rect x="6" y="2" width="12" height="20" rx="3"/><path d="M11 18h2"/></svg>Phone video</button>
         </div>
       </div>
+      <div id="cast-detected-badge" class="cast-detected-pill" style="display:none" hidden></div>
+      <div id="cast-preview-box" style="display:none" hidden>
+        <img id="cast-preview-thumb" alt=""><span id="cast-preview-title"></span><span id="cast-preview-tag"></span>
+      </div>
+      <div class="apk-browser-cast">
+        <div id="browser-cast-dock" class="apk-browser-cast-dock" hidden>
+          <button type="button" id="browser-playback-title" aria-label="Open TV playback controls"></button>
+          <button type="button" id="browser-playback-toggle" class="apk-browser-icon" aria-label="Pause or resume TV">Ⅱ</button>
+          <button type="button" id="browser-playback-options" class="apk-browser-icon" aria-label="TV playback controls">☷</button>
+        </div>
+        <span id="browser-cast-status" role="status">Search or paste a video link</span>
+        <button type="button" id="btn-submit-cast" class="btn-primary"><svg viewBox="0 0 24 24"><path d="M3 8V5h18v14h-8M3 12a7 7 0 0 1 7 7m-7-3a3 3 0 0 1 3 3m-3 0h.01"/></svg><span id="btn-cast-text">Cast video</span></button>
+      </div>
+      <dialog id="browser-library-dialog" class="apk-browser-dialog">
+        <div class="apk-browser-recent-header"><h3 id="browser-library-title"></h3><form method="dialog"><button type="submit">Close</button></form></div>
+        <ul id="browser-library-list" class="browser-links apk-browser-recent"></ul>
+        <button type="button" id="browser-clear-history" class="btn-secondary" hidden>Clear history</button>
+      </dialog>
       <!-- Preparation & Casting Visual Progress Widget -->
       <div id="cast-progress-widget" class="cast-progress-card" style="display: none;">
         <div class="progress-glow-bg"></div>
@@ -531,17 +562,7 @@
         </div>
       </div>
 
-      <div class="browser-library">
-        <div class="cast-card">
-          <h3>Saved links</h3>
-          <ul id="browser-bookmarks-list" class="browser-links"></ul>
-        </div>
-        <div class="cast-card">
-          <div class="screen-heading-row"><h3>Recent links</h3><button id="browser-clear-history" type="button" class="btn-secondary">Clear</button></div>
-          <ul id="browser-history-list" class="browser-links"></ul>
-        </div>
-      </div>
-      <details class="cast-card browser-file">
+      <details id="browser-file-panel" class="cast-card browser-file" hidden>
         <summary>Cast a file from this device</summary>
         <h3>
           <svg viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
@@ -916,7 +937,7 @@
 
     <!-- Sleek Bottom Navigation Bar -->
     <nav class="bottom-nav" aria-label="Main navigation">
-      <button class="nav-item active" data-tab="tab-iptv">
+      <button class="nav-item" data-tab="tab-iptv">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="4" width="20" height="14" rx="3"/><polygon points="10 8.5 15.5 11 10 13.5 10 8.5" fill="currentColor" stroke="none"/><line x1="8" y1="21" x2="16" y2="21"/></svg>
         <span>Channels</span>
       </button>
@@ -924,7 +945,7 @@
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"><rect width="14" height="20" x="5" y="2" rx="3.5"/><circle cx="12" cy="13.5" r="3.2"/><path d="M12 6.5h.01"/></svg>
         <span>Remote</span>
       </button>
-      <button class="nav-item" data-tab="tab-youtube">
+      <button class="nav-item active" data-tab="tab-youtube" aria-current="page">
         <div class="nav-yt-badge">
           <svg viewBox="0 0 24 24"><path d="M22.54 6.42a2.78 2.78 0 0 0-1.94-2C18.88 4 12 4 12 4s-6.88 0-8.6.46a2.78 2.78 0 0 0-1.94 2A29 29 0 0 0 1 11.75a29 29 0 0 0 .46 5.33A2.78 2.78 0 0 0 3.4 19c1.72.46 8.6.46 8.6.46s6.88 0 8.6-.46a2.78 2.78 0 0 0 1.94-2 29 29 0 0 0 .46-5.25 29 29 0 0 0-.46-5.33z"/><polygon points="9.75 15.02 15.5 11.75 9.75 8.48 9.75 15.02" fill="currentColor"/></svg>
         </div>
@@ -1075,8 +1096,15 @@
         <button type="button" id="btn-player-pip" class="btn-secondary" hidden>Picture in picture</button>
       </div>
       <div style="display: flex; gap: 8px; justify-content: space-between; align-items: center;">
-        <span id="inapp-stream-status" style="font-size: 12px; color: var(--accent-cyan);">● Direct Stream (Ad-Free)</span>
+        <span id="inapp-stream-status" style="font-size: 12px; color: var(--accent-cyan);">Video ready</span>
         <button type="button" id="btn-inapp-switch-tv" class="btn-secondary" style="font-size: 12px; padding: 6px 12px; width: auto;">📺 Cast to TV Instead</button>
+      </div>
+      <div id="browser-inline-controls" class="browser-inline-controls" hidden>
+        <label id="browser-variant-label" hidden>Player <select id="browser-player-variants" class="deck-select"></select></label>
+        <label>Speed <select id="browser-player-speed" class="deck-select">
+          <option value="0.5">0.5×</option><option value="0.75">0.75×</option><option value="1">1×</option>
+          <option value="1.25">1.25×</option><option value="1.5">1.5×</option><option value="2">2×</option>
+        </select></label>
       </div>
     </div>
   </div>
@@ -1119,6 +1147,6 @@
     </div>
   </div>
 
-  <script src="static/app.js?v=anania-web-4"></script>
+  <script src="static/app.js?v=anania-web-5"></script>
 </body>
 </html>

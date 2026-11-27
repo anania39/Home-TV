@@ -547,6 +547,10 @@ function initTabs() {
       else item.removeAttribute("aria-current");
     });
     document.querySelectorAll(".tab-content").forEach(tab => tab.classList.toggle("active", tab === target));
+    if (IS_PUBLIC_PAGES && document.getElementById("browser-player-slot")) {
+      document.body.dataset.screen = targetId;
+      if (targetId === "tab-browser") syncBrowserTvSelect();
+    }
     if (targetId === "tab-cast" || targetId === "tab-browser") fetchHardwareStatus();
     if (targetId === "tab-devices") {
       initDevicesTab();
@@ -757,6 +761,17 @@ function populateDevicesList(devices, selectedId) {
     const infoTv = document.getElementById("info-active-tv");
     if (infoTv) infoTv.textContent = devices[0].name;
   }
+  syncBrowserTvSelect();
+}
+
+function syncBrowserTvSelect() {
+  const browser = document.getElementById("browser-tv-select");
+  const global = document.getElementById("tv-dropdown");
+  if (!browser || !global) return;
+  const options = Array.from(global.options, option => new Option(
+    option.textContent.replace(/\s+\(Google TV\)$/, ""), option.value));
+  browser.replaceChildren(new Option("Choose TV", ""), ...options);
+  browser.value = global.value || "";
 }
 
 // --- Device Discovery & Hardware Status ---
@@ -991,6 +1006,7 @@ function updateHardwareStatus(data, browserReceiver = false) {
     const sBadge = (data.source_index !== undefined && data.sources_total > 1) ? ` (S${data.source_index + 1})` : "";
     document.getElementById("bar-title").textContent = `${data.title}${sBadge}`;
   }
+  syncBrowserCastDock();
   if (data.volume !== undefined) {
     state.volume = data.volume;
   }
@@ -1552,7 +1568,10 @@ async function handleCastUrlInput(val) {
 }
 
 if (castUrlInput) {
-  castUrlInput.oninput = (e) => handleCastUrlInput(e.target.value);
+  castUrlInput.oninput = event => {
+    if (IS_PUBLIC_PAGES && castTitleInput) castTitleInput.value = "";
+    handleCastUrlInput(event.target.value);
+  };
   castUrlInput.onpaste = () => setTimeout(() => handleCastUrlInput(castUrlInput.value), 50);
 }
 
@@ -1998,15 +2017,61 @@ if (btnSubmitCast) {
     const url = castUrlInput ? castUrlInput.value.trim() : "";
     const title = castTitleInput ? castTitleInput.value.trim() : "";
     const original = IS_PUBLIC_PAGES ? browserAddress(url) : null;
+    if (IS_PUBLIC_PAGES && activeInAppChannel?.browserInput === original?.href && original) {
+      castOpenWebVideo();
+      return;
+    }
     if (original) rememberBrowserLink("history", original, title);
     executeUniversalCast(original?.href || url, title);
   });
 }
 
 if (IS_PUBLIC_PAGES) {
-  const playbackActions = document.getElementById("web-playback-actions");
-  if (playbackActions) playbackActions.hidden = false;
   document.getElementById("btn-watch-cast-link")?.addEventListener("click", watchCastLink);
+  document.getElementById("browser-home")?.addEventListener("click", () => {
+    if (document.getElementById("modal-inapp-player")?.classList.contains("browser-inline-player")) closeInAppPlayer();
+    castUrlInput.value = "";
+    if (castTitleInput) castTitleInput.value = "";
+    handleCastUrlInput("");
+    document.getElementById("browser-menu").open = false;
+    document.getElementById("browser-file-panel").hidden = true;
+    document.getElementById("tab-browser").classList.remove("browser-tv-controls-open");
+    window.scrollTo(0, 0);
+  });
+  for (const id of ["browser-focus-address", "browser-search-web"]) {
+    document.getElementById(id)?.addEventListener("click", () => { castUrlInput?.focus(); castUrlInput?.select(); });
+  }
+  document.getElementById("browser-tv-select")?.addEventListener("change", event => {
+    const global = document.getElementById("tv-dropdown");
+    if (global && event.target.value) {
+      global.value = event.target.value;
+      global.dispatchEvent(new Event("change", { bubbles: true }));
+    }
+  });
+  document.getElementById("tv-dropdown")?.addEventListener("change", syncBrowserTvSelect);
+  for (const id of ["browser-playback-title", "browser-playback-options"]) {
+    document.getElementById(id)?.addEventListener("click", () => {
+      document.getElementById("tab-browser").classList.add("browser-tv-controls-open");
+      updateActiveCastDeck({ title: state.currentTitle, state: state.playbackState, duration: state.duration });
+      document.getElementById("active-cast-deck")?.scrollIntoView({ block: "start" });
+    });
+  }
+  document.getElementById("browser-playback-toggle")?.addEventListener("click", () =>
+    sendPlaybackAction(state.playbackState === "PAUSED" ? "play" : "pause"));
+  for (const kind of ["bookmarks", "downloads", "history"]) {
+    document.getElementById("browser-show-" + kind)?.addEventListener("click", () => showBrowserLibrary(kind));
+  }
+  document.getElementById("browser-phone-video")?.addEventListener("click", () => {
+    const panel = document.getElementById("browser-file-panel");
+    if (!panel) return;
+    panel.hidden = false;
+    panel.open = true;
+    document.getElementById("media-file-input")?.click();
+  });
+  document.getElementById("browser-download")?.addEventListener("click", event => {
+    const source = webHttpUrl(event.currentTarget.href);
+    if (source) rememberBrowserLink("downloads", source, castTitleInput?.value);
+  });
   document.getElementById("btn-open-cast-page")?.addEventListener("click", openBrowserAddress);
   castUrlInput?.addEventListener("keydown", event => {
     if (event.key === "Enter") { event.preventDefault(); openBrowserAddress(); }
@@ -2020,6 +2085,7 @@ if (IS_PUBLIC_PAGES) {
   document.getElementById("browser-clear-history")?.addEventListener("click", () => {
     saveBrowserLinks("history", []);
     renderBrowserLinks("history");
+    renderBrowserLinks("history", document.getElementById("browser-library-list"));
   });
   const weakSetting = document.getElementById("web-low-bandwidth");
   if (weakSetting) {
@@ -2032,6 +2098,17 @@ if (IS_PUBLIC_PAGES) {
   renderBrowserLinks("history");
 }
 
+function syncBrowserCastDock() {
+  const dock = document.getElementById("browser-cast-dock");
+  if (!dock) return;
+  const status = state.playbackState;
+  dock.hidden = !["PLAYING", "PAUSED", "BUFFERING"].includes(status);
+  if (dock.hidden) return;
+  document.getElementById("browser-playback-title").textContent =
+    `${status === "PLAYING" ? "Playing" : status === "PAUSED" ? "Paused" : "Buffering"} · ${state.currentTitle || "TV video"}`;
+  document.getElementById("browser-playback-toggle").textContent = status === "PAUSED" ? "▶" : "Ⅱ";
+}
+
 function browserAddress(value) {
   const text = String(value || "").trim();
   if (/^[\w-]+(?:\.[\w-]+)+(?:[:/?#]|$)/.test(text)) return webHttpUrl("https://" + text);
@@ -2042,9 +2119,23 @@ function openBrowserAddress() {
   const text = castUrlInput?.value.trim();
   if (!text) { castUrlInput?.focus(); return; }
   const direct = browserAddress(text);
+  if (direct && webMediaType(direct.href)) {
+    watchCastLink();
+    return;
+  }
   const url = direct || webHttpUrl("https://duckduckgo.com/?q=" + encodeURIComponent(text));
   rememberBrowserLink("history", url, direct ? castTitleInput?.value : text);
   window.open(url.href, "_blank", "noopener,noreferrer");
+}
+
+function showBrowserLibrary(kind) {
+  const sheet = document.getElementById("browser-library-dialog");
+  if (!sheet || typeof sheet.showModal !== "function") return;
+  const title = document.getElementById("browser-library-title");
+  title.textContent = { bookmarks: "Bookmarks", downloads: "Download links", history: "History" }[kind];
+  document.getElementById("browser-clear-history").hidden = kind !== "history";
+  renderBrowserLinks(kind, document.getElementById("browser-library-list"));
+  sheet.showModal();
 }
 
 function readBrowserLinks(kind) {
@@ -2067,36 +2158,45 @@ function rememberBrowserLink(kind, url, title) {
   renderBrowserLinks(kind);
 }
 
-function renderBrowserLinks(kind) {
-  const list = document.getElementById(`browser-${kind}-list`);
+function renderBrowserLinks(kind, library = null) {
+  const list = library || document.getElementById(`browser-${kind}-list`);
   if (!list) return;
   const saved = readBrowserLinks(kind);
   list.replaceChildren();
   if (!saved.length) {
     const empty = document.createElement("li");
-    empty.textContent = kind === "history" ? "No recent links yet" : "No saved links yet";
+    empty.textContent = kind === "history" ? "Your recent pages will appear here." :
+      kind === "downloads" ? "No media file links opened yet." : "No bookmarks yet.";
     list.append(empty);
   }
-  for (const entry of saved.slice(0, 8)) {
+  for (const entry of saved.slice(0, library ? 50 : 4)) {
     const row = document.createElement("li");
     const open = document.createElement("button");
     open.className = "browser-link";
-    open.textContent = entry.title || webHttpUrl(entry.url).hostname;
+    const name = document.createElement("span");
+    const host = document.createElement("small");
+    host.textContent = webHttpUrl(entry.url).hostname;
+    name.textContent = entry.title || host.textContent;
+    name.append(host);
+    open.append(name);
     open.title = entry.url;
     open.onclick = () => {
       castUrlInput.value = entry.url;
       if (castTitleInput) castTitleInput.value = entry.title || "";
       handleCastUrlInput(entry.url);
-      castUrlInput.focus();
+      if (library) document.getElementById("browser-library-dialog").close();
+      openBrowserAddress();
     };
     const remove = document.createElement("button");
     remove.className = "browser-remove-link";
     remove.textContent = "Remove";
     remove.onclick = () => {
       saveBrowserLinks(kind, readBrowserLinks(kind).filter(item => item.url !== entry.url));
-      renderBrowserLinks(kind);
+      renderBrowserLinks(kind, library);
+      if (library) renderBrowserLinks(kind);
     };
-    row.append(open, remove);
+    row.append(open);
+    if (library) row.append(remove);
     list.append(row);
   }
 }
@@ -2106,6 +2206,8 @@ function updateBrowserFileLink(value) {
   if (!button) return;
   const url = browserAddress(value);
   const mime = url && webMediaType(url.href);
+  const status = document.getElementById("browser-cast-status");
+  if (status) status.textContent = mime ? "Video link ready to cast" : "Search or paste a video link";
   button.hidden = !mime || !mime.startsWith("video/");
   if (button.hidden) button.removeAttribute("href");
   else button.href = webPlaybackUrl(url.href);
@@ -2119,10 +2221,12 @@ async function watchCastLink() {
     return;
   }
   const title = castTitleInput?.value.trim();
+  const menu = document.getElementById("browser-menu");
+  if (menu) menu.open = false;
   rememberBrowserLink("history", original, title);
   const mime = webMediaType(original.href);
   if (mime) {
-    openInAppPlayer({ url: original.href, title: title || "Video", mime, directVideo: true });
+    openInAppPlayer({ url: original.href, title: title || "Video", mime, directVideo: true, browserInput: original.href });
     return;
   }
   showToast("Looking for a playable stream…");
@@ -2133,7 +2237,8 @@ async function watchCastLink() {
     if (data?.resolved && data.stream_url && webMediaType(data.stream_url, data.mime_type)) {
       openInAppPlayer({
         url: data.stream_url, title: title || data.title || "Video",
-        mime: webMediaType(data.stream_url, data.mime_type), directVideo: true
+        mime: webMediaType(data.stream_url, data.mime_type), directVideo: true, browserInput: original.href,
+        variants: data.quality_urls
       });
       return;
     }
@@ -3849,6 +3954,7 @@ function initActiveCastDeck() {
     btnStop.onclick = async () => {
       vibrate(30);
       state.playbackState = "STOPPED";
+      syncBrowserCastDock();
       if (deckTicker) {
         clearInterval(deckTicker);
         deckTicker = null;
@@ -4528,7 +4634,8 @@ function requestDirectWebMedia(media) {
   }
   if (!isIosAirPlaySupported() || media.mime === WEB_MEDIA_TYPES.mpd) return false;
   if (!media.useOpenPlayer) {
-    openInAppPlayer({ url: media.url, title: media.title, mime: media.mime, directVideo: true });
+    const browserInput = document.body.dataset.screen === "tab-browser" ? browserAddress(castUrlInput?.value)?.href : undefined;
+    openInAppPlayer({ url: media.url, title: media.title, mime: media.mime, directVideo: true, browserInput });
   }
   return triggerAirPlay(null, document.getElementById("inapp-video"));
 }
@@ -4540,6 +4647,27 @@ let dashLibraryLoad = null;
 let playerVersion = 0;
 let playerStartTimer = null;
 let activeInAppChannel = null;
+
+function configureBrowserPlayerControls(channel, video, inline) {
+  const controls = document.getElementById("browser-inline-controls");
+  if (!controls) return;
+  controls.hidden = !inline;
+  if (!inline) return;
+  const picker = document.getElementById("browser-player-variants");
+  const variants = Object.entries(channel.variants || {}).filter(([, url]) =>
+    typeof url === "string" && webMediaType(url, channel.mime));
+  picker.replaceChildren(new Option("Auto", channel.baseSource || channel.url),
+    ...variants.map(([label, url]) => new Option(label, url)));
+  picker.value = channel.url;
+  document.getElementById("browser-variant-label").hidden = !variants.length;
+  picker.onchange = () => openInAppPlayer({
+    ...channel, baseSource: channel.baseSource || channel.url, url: picker.value,
+    mime: webMediaType(picker.value) || channel.mime, position: video.currentTime, rate: video.playbackRate
+  });
+  const speed = document.getElementById("browser-player-speed");
+  speed.value = String(channel.rate || 1);
+  speed.onchange = () => { video.playbackRate = Number(speed.value); };
+}
 
 function updateBrowserPip(video) {
   const button = document.getElementById("btn-player-pip");
@@ -4595,6 +4723,14 @@ function openInAppPlayer(channel) {
   const video = document.getElementById("inapp-video");
   const title = document.getElementById("inapp-channel-name");
   if (!modal || !video) return;
+  const browserHome = document.getElementById("browser-home-content");
+  const slot = document.getElementById("browser-player-slot");
+  const inline = !!(IS_PUBLIC_PAGES && channel.browserInput && slot);
+  if (inline) slot.append(modal);
+  else if (modal.classList.contains("browser-inline-player")) document.body.append(modal);
+  modal.classList.toggle("browser-inline-player", inline);
+  if (browserHome) browserHome.hidden = inline;
+  configureBrowserPlayerControls(channel, video, inline);
 
   activeInAppChannel = channel;
   const version = ++playerVersion;
@@ -4653,7 +4789,13 @@ function openInAppPlayer(channel) {
     if (IS_PUBLIC_PAGES) {
       video.onerror = failed;
       video.onplaying = () => clearTimeout(playerStartTimer);
-      video.onloadedmetadata = () => updateBrowserPip(video);
+      video.onloadedmetadata = () => {
+        if (inline && channel.position > 0 && Number.isFinite(video.duration)) {
+          video.currentTime = Math.min(channel.position, video.duration);
+        }
+        if (inline) video.playbackRate = Number(document.getElementById("browser-player-speed").value) || 1;
+        updateBrowserPip(video);
+      };
       updateBrowserPip(video);
       playerStartTimer = setTimeout(failed, 18000);
     }
@@ -4728,6 +4870,8 @@ function closeInAppPlayer() {
   clearTimeout(playerStartTimer);
   activeInAppChannel = null;
   const modal = document.getElementById("modal-inapp-player");
+  const browserHome = document.getElementById("browser-home-content");
+  if (browserHome) browserHome.hidden = false;
   const video = document.getElementById("inapp-video");
   if (video) {
     try { video.pause(); } catch (e) {}
