@@ -482,6 +482,7 @@ document.addEventListener("DOMContentLoaded", async () => {
   initTabs();
   initHubModal();
   initActiveCastDeck();
+  initYouTubeSearch();
 
   // Instant 0ms restore of active cast deck from localStorage on page refresh
   try {
@@ -496,18 +497,6 @@ document.addEventListener("DOMContentLoaded", async () => {
 
   const initialTvId = getSavedTvId() || "tv_192_168_50_205";
   populateDevicesList(DEFAULT_HOUSEHOLD_DEVICES, initialTvId);
-  await autoDetectHub();
-  checkAuth();
-  fetchDevices();
-  fetchHardwareStatus();
-  fetchChannels();
-  fetchMediaFiles();
-  initRemoteKeys();
-  initFiltersAndSort();
-  initModals();
-  connectWebSocket();
-  initSportsAggregator();
-  initYouTubeSearch();
 
   // Web Cast & In-App Player listeners
   document.getElementById("btn-web-cast")?.addEventListener("click", () => {
@@ -530,6 +519,18 @@ document.addEventListener("DOMContentLoaded", async () => {
       castChannel(channel);
     }
   });
+
+  await autoDetectHub();
+  checkAuth();
+  fetchDevices();
+  fetchHardwareStatus();
+  fetchChannels();
+  fetchMediaFiles();
+  initRemoteKeys();
+  initFiltersAndSort();
+  initModals();
+  connectWebSocket();
+  initSportsAggregator();
 });
 
 // --- Tab Navigation ---
