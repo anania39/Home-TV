@@ -23,7 +23,7 @@
     <!-- Google Cast Web SDK & Hls.js for In-Browser Casting & Playback on ANY Wi-Fi -->
   <script src="https://cdn.jsdelivr.net/npm/hls.js@1.5.17"></script>
   <script src="https://www.gstatic.com/cv/js/sender/v1/cast_sender.js?loadCastFramework=1"></script>
-  <link rel="stylesheet" href="static/style.css?v=anania-web-6">
+  <link rel="stylesheet" href="static/style.css?v=anania-web-7">
   <script>
     if ('serviceWorker' in navigator) {
       navigator.serviceWorker.getRegistrations().then(regs => {
@@ -323,7 +323,10 @@
     <main id="tab-youtube" class="tab-content active">
       <div class="youtube-web-toolbar">
         <h2>YouTube</h2>
-        <a class="btn-secondary" href="https://www.youtube.com/" target="_blank" rel="noopener noreferrer">Open YouTube</a>
+        <div class="youtube-web-actions">
+          <select id="youtube-tv-select" aria-label="Choose casting TV"><option value="">Choose TV</option></select>
+          <a class="btn-secondary" href="https://www.youtube.com/" target="_blank" rel="noopener noreferrer">Open YouTube</a>
+        </div>
       </div>
       <div class="cast-card yt-search-card">
         <div class="yt-search-form">
@@ -382,13 +385,15 @@
             <button type="button" id="btn-paste-cast-url"><svg viewBox="0 0 24 24"><rect x="5" y="5" width="14" height="16" rx="2"/><path d="M9 5V3h6v2m-6 6h6m-6 4h6"/></svg>Paste link</button>
           </div>
         </div>
-        <div class="apk-browser-tiles">
+        <div class="apk-browser-tiles browser-library-tools">
           <button type="button" id="browser-show-bookmarks"><svg viewBox="0 0 24 24"><path d="M6 3h12v18l-6-4-6 4z"/></svg>Bookmarks</button>
           <button type="button" id="browser-show-downloads"><svg viewBox="0 0 24 24"><path d="M12 3v12m-5-5 5 5 5-5M4 16v5h16v-5"/></svg>Downloads</button>
         </div>
-        <div class="apk-browser-recent-header"><h3>Recent pages</h3><button type="button" id="browser-show-history">History</button></div>
-        <ul id="browser-history-list" class="browser-links apk-browser-recent"></ul>
-        <div class="apk-browser-tiles">
+        <section class="browser-recent-panel" aria-labelledby="browser-recent-title">
+          <div class="apk-browser-recent-header"><h3 id="browser-recent-title">Recent pages</h3><button type="button" id="browser-show-history">History</button></div>
+          <ul id="browser-history-list" class="browser-links apk-browser-recent"></ul>
+        </section>
+        <div class="apk-browser-tiles browser-phone-tools">
           <button type="button" id="browser-phone-video"><svg viewBox="0 0 24 24"><rect x="6" y="2" width="12" height="20" rx="3"/><path d="M11 18h2"/></svg>Phone video</button>
         </div>
       </div>
@@ -937,6 +942,10 @@
 
     <!-- Sleek Bottom Navigation Bar -->
     <nav class="bottom-nav" aria-label="Main navigation">
+      <div class="desktop-nav-brand">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="2" y="4" width="20" height="14" rx="4"/><path d="m10 8 5 3-5 3zM8 22h8"/></svg>
+        <strong>ANANIA</strong>
+      </div>
       <button class="nav-item" data-tab="tab-iptv">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="4" width="20" height="14" rx="3"/><polygon points="10 8.5 15.5 11 10 13.5 10 8.5" fill="currentColor" stroke="none"/><line x1="8" y1="21" x2="16" y2="21"/></svg>
         <span>Channels</span>
@@ -1147,6 +1156,6 @@
     </div>
   </div>
 
-  <script src="static/app.js?v=anania-web-6"></script>
+  <script src="static/app.js?v=anania-web-7"></script>
 </body>
 </html>

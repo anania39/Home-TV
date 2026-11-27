@@ -550,7 +550,7 @@ function initTabs() {
     document.querySelectorAll(".tab-content").forEach(tab => tab.classList.toggle("active", tab === target));
     if (IS_PUBLIC_PAGES && document.getElementById("browser-player-slot")) {
       document.body.dataset.screen = targetId;
-      if (targetId === "tab-browser") syncBrowserTvSelect();
+      if (targetId === "tab-browser" || targetId === "tab-youtube") syncMediaTvSelects();
     }
     if (targetId === "tab-cast" || targetId === "tab-browser") fetchHardwareStatus();
     if (targetId === "tab-devices") {
@@ -737,6 +737,7 @@ function populateDevicesList(devices, selectedId) {
   (devices || []).forEach(dev => {
     const opt = document.createElement("option");
     opt.value = dev.id;
+    if (dev.is_google_tv || dev.dev_type === "google_tv") opt.dataset.googleCast = "true";
     let label = dev.name;
     if (dev.is_hisense && !label.includes("VIDAA")) {
       label += " (Hisense VIDAA)";
@@ -762,17 +763,20 @@ function populateDevicesList(devices, selectedId) {
     const infoTv = document.getElementById("info-active-tv");
     if (infoTv) infoTv.textContent = devices[0].name;
   }
-  syncBrowserTvSelect();
+  syncMediaTvSelects();
 }
 
-function syncBrowserTvSelect() {
-  const browser = document.getElementById("browser-tv-select");
+function syncMediaTvSelects() {
   const global = document.getElementById("tv-dropdown");
-  if (!browser || !global) return;
-  const options = Array.from(global.options, option => new Option(
-    option.textContent.replace(/\s+\(Google TV\)$/, ""), option.value));
-  browser.replaceChildren(new Option("Choose TV", ""), ...options);
-  browser.value = global.value || "";
+  if (!global) return;
+  for (const id of ["browser-tv-select", "youtube-tv-select"]) {
+    const select = document.getElementById(id);
+    if (!select) continue;
+    const options = Array.from(global.options, option => new Option(
+      option.textContent.replace(/\s+\(Google TV\)$/, ""), option.value));
+    select.replaceChildren(new Option("Choose TV", ""), ...options);
+    select.value = global.value || "";
+  }
 }
 
 // --- Device Discovery & Hardware Status ---
@@ -944,6 +948,7 @@ function updateHardwareStatus(data, browserReceiver = false) {
       state.currentTvId = data.selected_device_id;
       const opt = dropdown.options[dropdown.selectedIndex];
       if (opt) state.currentTvName = opt.textContent;
+      syncMediaTvSelects();
     }
   }
 
@@ -1718,9 +1723,9 @@ async function executeUniversalCast(url, title = "") {
     showToast("Enter an HTTP or HTTPS video link.");
     return;
   }
-  if (IS_PUBLIC_PAGES && webMediaType(url) &&
-      (_activeHubType === "cloud" || isWebCastActive()) && state.currentTvId !== "web_receiver" &&
-      requestDirectWebMedia({ url, title: title || "Video", mime: webMediaType(url) })) return;
+  const directMime = IS_PUBLIC_PAGES ? webMediaType(url) : "";
+  if (directMime && (_activeHubType === "cloud" || isWebCastActive() || prefersDirectProgressiveCast(url, directMime)) &&
+      state.currentTvId !== "web_receiver" && requestDirectWebMedia({ url, title: title || "Video", mime: directMime })) return;
 
   let playUrl = url;
   let playTitle = title || "Video Stream";
@@ -1883,7 +1888,7 @@ async function executeUniversalCast(url, title = "") {
   }
 
   // Path A: Direct in-browser Google Cast is active -> Cast straight from Phone to TV over Wi-Fi
-  if (isWebCastActive()) {
+  if (isWebCastActive() && !(IS_PUBLIC_PAGES && ytId && youtubeVideoId(playUrl))) {
     showToast("Casting to TV via Direct Cast...");
     castViaWebCast(IS_PUBLIC_PAGES ? playUrl : url, playTitle, "", { mime: mimeType });
     return;
@@ -2042,14 +2047,18 @@ if (IS_PUBLIC_PAGES) {
   for (const id of ["browser-focus-address", "browser-search-web"]) {
     document.getElementById(id)?.addEventListener("click", () => { castUrlInput?.focus(); castUrlInput?.select(); });
   }
-  document.getElementById("browser-tv-select")?.addEventListener("change", event => {
-    const global = document.getElementById("tv-dropdown");
-    if (global && event.target.value) {
-      global.value = event.target.value;
-      global.dispatchEvent(new Event("change", { bubbles: true }));
-    }
-  });
-  document.getElementById("tv-dropdown")?.addEventListener("change", syncBrowserTvSelect);
+  for (const id of ["browser-tv-select", "youtube-tv-select"]) {
+    document.getElementById(id)?.addEventListener("change", event => {
+      const global = document.getElementById("tv-dropdown");
+      if (global && event.target.value) {
+        global.value = event.target.value;
+        global.dispatchEvent(new Event("change", { bubbles: true }));
+      } else {
+        syncMediaTvSelects();
+      }
+    });
+  }
+  document.getElementById("tv-dropdown")?.addEventListener("change", syncMediaTvSelects);
   for (const id of ["browser-playback-title", "browser-playback-options"]) {
     document.getElementById(id)?.addEventListener("click", () => {
       document.getElementById("tab-browser").classList.add("browser-tv-controls-open");
@@ -4610,7 +4619,7 @@ function castOpenWebVideo() {
   const url = webPlaybackUrl(source.url);
   const hubTarget = state.currentTvId === "web_receiver" ||
     (state.hubOnline && (_activeHubType === "local_wifi" || _activeHubType === "pc_tunnel"));
-  if (hubTarget && !isWebCastActive()) {
+  if (hubTarget && !isWebCastActive() && !prefersDirectProgressiveCast(url, source.mime || webMediaType(url))) {
     executeUniversalCast(url, source.title || "Video");
     return;
   }
@@ -4622,6 +4631,13 @@ function castOpenWebVideo() {
   })) {
     showToast("Use a Cast-enabled browser or select a TV through your connected TV Hub.");
   }
+}
+
+function prefersDirectProgressiveCast(url, mime) {
+  if (!gCastInitialized || !["video/mp4", "video/webm"].includes(mime) || webHttpUrl(url)?.protocol !== "https:") return false;
+  const options = document.getElementById("tv-dropdown")?.options;
+  const target = options && Array.from(options).find(option => option.value === state.currentTvId);
+  return target?.dataset.googleCast === "true";
 }
 
 function requestDirectWebMedia(media) {

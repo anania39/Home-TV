@@ -3843,7 +3843,7 @@ body:is([data-screen="tab-browser"], [data-screen="tab-youtube"]) .bottom-player
 }
 .apk-browser-header { display: flex; align-items: center; gap: 2px; margin-bottom: 5px; }
 .apk-browser-header h2 { flex: 1; color: var(--text-main); font-size: 20px; }
-#browser-tv-select {
+#browser-tv-select, #youtube-tv-select {
   min-height: 44px; max-width: 150px; text-overflow: ellipsis;
   border: 1px solid transparent; border-radius: 14px; background: var(--accent-soft); color: var(--accent-cyan);
   padding: 0 10px; font-size: 13px;
@@ -4336,4 +4336,95 @@ header .tv-status-banner { margin: 0; }
   .browser-library { grid-template-columns: minmax(0,1fr); }
   .screen-heading-row .btn-secondary { font-size: 12px; padding-inline: 8px; }
   .header-actions .btn-icon { width: 34px; }
+}
+
+.desktop-nav-brand { display: none; }
+.youtube-web-actions { display: flex; flex-wrap: wrap; justify-content: flex-end; align-items: center; gap: 8px; }
+
+@media (min-width: 980px) {
+  body[data-screen] {
+    --desktop-frame: 1500px;
+    --desktop-rail: 184px;
+    --desktop-edge: max(24px, (100% - var(--desktop-frame)) / 2);
+    --desktop-main: calc(var(--desktop-edge) + var(--desktop-rail) + 24px);
+  }
+  body[data-screen] .app-container {
+    max-width: none;
+    padding: 24px var(--desktop-edge) 96px var(--desktop-main);
+  }
+  body[data-screen] .bottom-nav {
+    inset: 24px auto 24px var(--desktop-edge);
+    width: var(--desktop-rail);
+    margin: 0;
+    padding: 14px !important;
+    gap: 5px;
+    align-items: stretch;
+    justify-content: flex-start;
+    flex-direction: column;
+    border: 1px solid var(--border-color) !important;
+    border-radius: 19px;
+    background: var(--bg-surface) !important;
+  }
+  .desktop-nav-brand {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 8px 20px;
+    color: var(--text-main);
+    font-size: 17px;
+  }
+  .desktop-nav-brand svg { width: 27px; height: 27px; stroke: var(--accent-cyan); fill: none; stroke-width: 1.7; }
+  body[data-screen] .bottom-nav .nav-item { flex: 0 0 auto; flex-direction: row; gap: 12px !important; padding: 0 12px; }
+  body[data-screen] .bottom-nav .nav-item span { font-size: 14px !important; }
+  body[data-screen] .app-container > header { border: 1px solid var(--border-color); border-radius: 19px; }
+  body[data-screen] .bottom-player-bar,
+  body[data-screen] .apk-browser-cast {
+    inset: auto var(--desktop-edge) 24px var(--desktop-main);
+    width: auto;
+    max-width: none;
+    margin: 0;
+    transform: none;
+  }
+  body[data-screen] .apk-browser-cast { padding: 8px 12px; border: 1px solid var(--border-color); border-radius: 16px; }
+  #tab-browser, #tab-youtube { padding: 0 0 36px; }
+  #tab-browser > *, #tab-youtube > * { max-width: none; }
+  .apk-browser-header, .youtube-web-toolbar { min-height: 52px; margin-bottom: 14px; }
+  .apk-browser-header h2, .youtube-web-toolbar h2 { font-size: 28px; }
+  #browser-tv-select, #youtube-tv-select { max-width: 240px; }
+  .apk-browser-content {
+    display: grid;
+    grid-template-columns: minmax(0,1.6fr) minmax(245px,1fr);
+    gap: 12px 16px;
+    padding: 18px 0 0;
+  }
+  .apk-browser-start { padding: 26px; margin: 0; }
+  .apk-browser-start h3 { font-size: 31px; }
+  .apk-browser-start p { font-size: 15px; margin-bottom: 22px; }
+  .browser-recent-panel {
+    grid-area: 1 / 2 / span 3;
+    min-width: 0;
+    padding: 14px 16px;
+    background: var(--bg-surface);
+    border: 1px solid var(--border-color);
+    border-radius: 20px;
+  }
+  .browser-recent-panel .apk-browser-recent-header { margin: 0; }
+  .browser-recent-panel .apk-browser-recent-header button { min-height: 38px; }
+  .browser-library-tools, .browser-phone-tools { grid-column: 1; }
+  #tab-youtube .yt-search-form, #tab-youtube .yt-selected-video {
+    padding: 16px;
+    background: var(--bg-surface);
+    border: 1px solid var(--border-color);
+    border-radius: 17px;
+  }
+  #tab-youtube .yt-selected-video iframe { max-width: 960px; max-height: 64vh; margin-inline: auto; }
+}
+
+@media (max-width: 600px) {
+  .apk-browser-address .form-input, #tab-youtube .yt-input-field { font-size: 16px; }
+  .apk-browser-cast .btn-primary { min-height: 44px; }
+}
+@media (max-width: 420px) {
+  #youtube-tv-select { max-width: min(144px, 34vw); }
+  .youtube-web-toolbar .btn-secondary { font-size: 12px; padding-inline: 8px; }
 }
