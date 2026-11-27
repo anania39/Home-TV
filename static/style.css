@@ -4131,6 +4131,8 @@ button:focus-visible, select:focus-visible, input:focus-visible {
 }
 
 :root { --app-width: 1220px; }
+.app-container button, .app-container input, .app-container select, .app-container textarea,
+.modal-overlay button, .modal-overlay input, .modal-overlay select { font-family: var(--font-stack); }
 .app-container { max-width: var(--app-width); }
 .bottom-nav { max-width: var(--app-width); height: auto; }
 .bottom-player-bar { max-width: calc(var(--app-width) - 32px); }
