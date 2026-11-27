@@ -7,7 +7,7 @@
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <meta name="apple-mobile-web-app-title" content="TV Hub">
   <meta name="theme-color" content="#070a13">
-  <link rel="manifest" href="static/manifest.json">
+  <link rel="manifest" href="./manifest.json">
   <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
   <meta http-equiv="Pragma" content="no-cache">
   <meta http-equiv="Expires" content="0">
@@ -457,16 +457,16 @@
             <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.5"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
             UNIVERSAL AD-FREE CASTING
           </div>
-          <h3>Cast Any Video, Movie &amp; YouTube Link</h3>
+          <h3>Play or cast a video link</h3>
           <p style="font-size: 13px; color: var(--text-muted); margin-bottom: 14px; line-height: 1.45;">
-            Paste any <strong>YouTube link</strong>, <strong>movie platform URL</strong>, web player page, or direct <strong>MP4 / HLS (.m3u8)</strong> stream. TV Hub automatically extracts the clean video stream and plays it on your TV with <strong>ZERO ADS</strong>.
+            Paste a direct video link or a page supported by your TV Hub. You can play it here, use AirPlay in Safari, or send it to a Google Cast receiver in a compatible browser.
           </p>
         </div>
 
         <div class="form-group">
           <label for="cast-url-input">Video or Webpage URL</label>
           <div class="input-with-action">
-            <input type="text" id="cast-url-input" class="form-input" placeholder="Paste YouTube link, movie platform URL, or MP4/HLS stream...">
+            <input type="url" id="cast-url-input" class="form-input" autocomplete="off" autocapitalize="none" spellcheck="false" placeholder="Paste a video or webpage link…">
             <button type="button" id="btn-paste-cast-url" class="btn-input-action" title="Paste from clipboard">📋 Paste</button>
           </div>
           <!-- Real-Time Platform Detection Badge -->
@@ -495,8 +495,15 @@
 
         <button id="btn-submit-cast" class="btn-primary" style="font-weight: 700;">
           <svg viewBox="0 0 24 24" style="width: 18px; height: 18px; stroke: #fff;"><path d="m22 2-7 20-4-9-9-4Z"/><path d="M22 2 11 13"/></svg>
-          <span id="btn-cast-text">Cast Ad-Free to TV</span>
+          <span id="btn-cast-text">Cast to TV</span>
         </button>
+        <div id="web-playback-actions" hidden style="margin-top: 9px;">
+          <button type="button" id="btn-watch-cast-link" class="btn-secondary">Play here</button>
+          <button type="button" id="btn-open-cast-page" class="btn-secondary">Open original page</button>
+          <label style="display: block; margin-top: 9px; color: var(--text-muted); font-size: 13px;">
+            <input type="checkbox" id="web-low-bandwidth"> Lower bandwidth on supported in-browser streams
+          </label>
+        </div>
       </div>
 
       <!-- YouTube 100% Ad-Free Search & Quick Cast -->
@@ -1100,6 +1107,6 @@
     </div>
   </div>
 
-  <script src="static/app.js?v=8.0.7"></script>
+  <script src="static/app.js?v=web-player-1"></script>
 </body>
 </html>

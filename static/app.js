@@ -49,6 +49,49 @@ let _activeHubType = "cloud"; // "local_wifi", "pc_tunnel", "cloud"
 let _cachedEndpointData = null;
 
 const CLOUD_FALLBACK_URL = "https://tvhub.92.5.71.162.sslip.io";
+const IS_PUBLIC_PAGES = window.location.hostname.endsWith(".github.io");
+
+function webHttpUrl(value, base) {
+  try {
+    const url = new URL(value, base);
+    return /^https?:$/.test(url.protocol) && !url.username && !url.password ? url : null;
+  } catch {
+    return null;
+  }
+}
+
+const WEB_MEDIA_TYPES = {
+  m3u8: "application/vnd.apple.mpegurl", mpd: "application/dash+xml",
+  mp4: "video/mp4", m4v: "video/mp4", webm: "video/webm",
+  mkv: "video/x-matroska", ogv: "video/ogg", ts: "video/mp2t"
+};
+
+function webMediaType(value, hint = "") {
+  const mime = String(hint || "").split(";")[0].trim().toLowerCase();
+  if (mime === "application/x-mpegurl" || mime === "audio/mpegurl") return WEB_MEDIA_TYPES.m3u8;
+  if (Object.values(WEB_MEDIA_TYPES).includes(mime)) return mime;
+  const url = webHttpUrl(value, getHubBase() || window.location.origin);
+  if (!url) return "";
+  const source = url.pathname === "/proxy" || url.pathname === "/api/stream/proxy"
+    ? webHttpUrl(url.searchParams.get("url")) || url : url;
+  return WEB_MEDIA_TYPES[source.pathname.split(".").pop().toLowerCase()] || "";
+}
+
+function webPlaybackUrl(value) {
+  const hub = webHttpUrl(getHubBase());
+  const secureHub = hub?.protocol === "https:" ? hub.href.replace(/\/+$/, "") : CLOUD_FALLBACK_URL;
+  const source = webHttpUrl(value, IS_PUBLIC_PAGES ? secureHub + "/" : window.location.href);
+  if (!source) return "";
+  if (IS_PUBLIC_PAGES && source.origin === window.location.origin &&
+      (source.pathname === "/proxy" || source.pathname === "/api/stream/proxy")) {
+    return secureHub + source.pathname + source.search;
+  }
+  if (window.location.protocol === "https:" && source.protocol === "http:") {
+    const base = IS_PUBLIC_PAGES ? secureHub : (getHubBase() || window.location.origin);
+    return `${base}/proxy?url=${encodeURIComponent(source.href)}`;
+  }
+  return source.href;
+}
 
 function getHubBase() {
   if (HUB_BASE && !HUB_BASE.includes("github.io")) return HUB_BASE.replace(/\/+$/, "");
@@ -79,6 +122,7 @@ function getApiUrl(path) {
 
 function makePlayableUrl(rawUrl) {
   if (!rawUrl) return "";
+  if (IS_PUBLIC_PAGES) return webPlaybackUrl(rawUrl);
   // If we are on HTTPS and the stream is HTTP, route through /proxy to ensure HTTPS + CORS
   if (window.location.protocol === "https:" && rawUrl.startsWith("http://")) {
     const base = getHubBase() || (_isPhoneHost ? window.location.origin : CLOUD_FALLBACK_URL);
@@ -89,6 +133,7 @@ function makePlayableUrl(rawUrl) {
 
 function makeCastPlayableUrl(rawUrl) {
   if (!rawUrl) return "";
+  if (IS_PUBLIC_PAGES) return webPlaybackUrl(rawUrl);
   const cloudHost = _isPhoneHost ? window.location.origin : "https://tvhub.92.5.71.162.sslip.io";
   let full = rawUrl.trim();
   // YouTube and GoogleVideo streams are signed with client IP; TV fetches them directly from Google without VPS proxy
@@ -112,6 +157,7 @@ function makeCastPlayableUrl(rawUrl) {
 
 function isDirectMediaUrl(u) {
   if (!u) return false;
+  if (IS_PUBLIC_PAGES) return !!webMediaType(u);
   const clean = u.split("?")[0].toLowerCase();
   return clean.endsWith(".m3u8") || clean.endsWith(".mp4") || clean.endsWith(".webm") || clean.endsWith(".mkv") || clean.endsWith(".ts") || u.includes(".m3u8");
 }
@@ -475,8 +521,13 @@ document.addEventListener("DOMContentLoaded", async () => {
   document.getElementById("btn-inapp-switch-tv")?.addEventListener("click", () => {
     vibrate(25);
     if (activeInAppChannel) {
+      if (IS_PUBLIC_PAGES && activeInAppChannel.directVideo) {
+        castOpenWebVideo();
+        return;
+      }
+      const channel = activeInAppChannel;
       closeInAppPlayer();
-      castChannel(activeInAppChannel);
+      castChannel(channel);
     }
   });
 });
@@ -1338,6 +1389,9 @@ function isNativeHostBridge() {
 }
 
 async function sendPlaybackAction(action, value = null, extra = {}) {
+  if (IS_PUBLIC_PAGES && isWebCastActive()) {
+    return controlWebCast(action, value);
+  }
   // 1. Direct native Android TV Hub host dispatch over local Wi-Fi.
   // When the APK owns the cast, the backend has no matching session, so do not
   // forward the same command there: it would target a stale session and can
@@ -1402,6 +1456,14 @@ function detectUrlType(val) {
   if (!val) return null;
   const low = val.toLowerCase();
   if (low.includes("youtube.com") || low.includes("youtu.be")) return "youtube";
+  if (IS_PUBLIC_PAGES) {
+    const mime = webMediaType(val);
+    if (mime === WEB_MEDIA_TYPES.mpd) return "dash";
+    if (mime === WEB_MEDIA_TYPES.webm) return "webm";
+    if (mime === WEB_MEDIA_TYPES.m3u8) return "hls";
+    if (mime === WEB_MEDIA_TYPES.mp4) return "mp4";
+    if (mime) return "video";
+  }
   if (low.endsWith(".m3u8") || low.includes(".m3u8?")) return "hls";
   if (low.endsWith(".mp4") || low.includes(".mp4?")) return "mp4";
   if (low.startsWith("http://") || low.startsWith("https://")) return "movie";
@@ -1411,6 +1473,7 @@ function detectUrlType(val) {
 async function handleCastUrlInput(val) {
   val = (val || "").trim();
   if (!castDetectedBadge) return;
+  clearTimeout(castResolveTimer);
 
   const type = detectUrlType(val);
   if (!type) {
@@ -1436,12 +1499,17 @@ async function handleCastUrlInput(val) {
   }
 
   // Pre-resolve stream info
+  if (IS_PUBLIC_PAGES && webMediaType(val)) {
+    if (castPreviewBox) castPreviewBox.style.display = "none";
+    return;
+  }
   clearTimeout(castResolveTimer);
   castResolveTimer = setTimeout(async () => {
     try {
       const res = await safeFetchWithRetry(`/api/media/resolve?url=${encodeURIComponent(val)}`);
-      if (res.ok) {
+      if (res?.ok) {
         const data = await res.json();
+        if (IS_PUBLIC_PAGES && castUrlInput?.value.trim() !== val) return;
         if (data.resolved) {
           window.activeResolvedData = data;
           if (castTitleInput && data.title) {
@@ -1613,6 +1681,13 @@ async function executeUniversalCast(url, title = "") {
     if (castInput) castInput.focus();
     return;
   }
+  if (IS_PUBLIC_PAGES && !webHttpUrl(url)) {
+    showToast("Enter an HTTP or HTTPS video link.");
+    return;
+  }
+  if (IS_PUBLIC_PAGES && webMediaType(url) &&
+      (_activeHubType === "cloud" || isWebCastActive()) && state.currentTvId !== "web_receiver" &&
+      requestDirectWebMedia({ url, title: title || "Video", mime: webMediaType(url) })) return;
 
   let playUrl = url;
   let playTitle = title || "Video Stream";
@@ -1777,7 +1852,7 @@ async function executeUniversalCast(url, title = "") {
   // Path A: Direct in-browser Google Cast is active -> Cast straight from Phone to TV over Wi-Fi
   if (isWebCastActive()) {
     showToast("Casting to TV via Direct Cast...");
-    castViaWebCast(url, title || "Video Stream");
+    castViaWebCast(IS_PUBLIC_PAGES ? playUrl : url, playTitle, "", { mime: mimeType });
     return;
   }
 
@@ -1901,7 +1976,7 @@ async function executeUniversalCast(url, title = "") {
     showCastError("Connection error: Unable to reach TV Hub server. Check your Wi-Fi or restart TV Hub.");
   } finally {
     if (btnSubmitCast) btnSubmitCast.classList.remove("loading");
-    if (btnCastText) btnCastText.textContent = "Cast Ad-Free to TV";
+    if (btnCastText) btnCastText.textContent = IS_PUBLIC_PAGES ? "Cast to TV" : "Cast Ad-Free to TV";
   }
 }
 
@@ -1911,6 +1986,46 @@ if (btnSubmitCast) {
     const title = castTitleInput ? castTitleInput.value.trim() : "";
     executeUniversalCast(url, title);
   });
+}
+
+if (IS_PUBLIC_PAGES) {
+  const playbackActions = document.getElementById("web-playback-actions");
+  if (playbackActions) playbackActions.hidden = false;
+  document.getElementById("btn-watch-cast-link")?.addEventListener("click", watchCastLink);
+  document.getElementById("btn-open-cast-page")?.addEventListener("click", () => {
+    const original = webHttpUrl(castUrlInput?.value.trim());
+    if (original) window.open(original.href, "_blank", "noopener,noreferrer");
+    else showToast("Enter an HTTP or HTTPS link first.");
+  });
+}
+
+async function watchCastLink() {
+  const input = castUrlInput?.value.trim();
+  const original = webHttpUrl(input);
+  if (!original) {
+    showToast("Enter an HTTP or HTTPS video link.");
+    return;
+  }
+  const title = castTitleInput?.value.trim();
+  const mime = webMediaType(original.href);
+  if (mime) {
+    openInAppPlayer({ url: original.href, title: title || "Video", mime, directVideo: true });
+    return;
+  }
+  showToast("Looking for a playable stream…");
+  try {
+    const response = await safeFetchWithRetry(`/api/media/resolve?url=${encodeURIComponent(original.href)}`);
+    const data = response?.ok ? await response.json() : null;
+    if (castUrlInput?.value.trim() !== input) return;
+    if (data?.resolved && data.stream_url && webMediaType(data.stream_url, data.mime_type)) {
+      openInAppPlayer({
+        url: data.stream_url, title: title || data.title || "Video",
+        mime: webMediaType(data.stream_url, data.mime_type), directVideo: true
+      });
+      return;
+    }
+  } catch {}
+  if (castUrlInput?.value.trim() === input) showToast("Use a direct video link or open the original page.");
 }
 
 const btnDismissCastErr = document.getElementById("btn-cast-dismiss-err");
@@ -4036,7 +4151,7 @@ function requestWebCastSession(pendingMedia = null) {
           if (pendingWebCastMedia) {
             const m = pendingWebCastMedia;
             pendingWebCastMedia = null;
-            castViaWebCast(m.url, m.title || "Live Stream", m.poster || "");
+            castViaWebCast(m.url, m.title || "Live Stream", m.poster || "", m);
           }
         },
         (err) => {
@@ -4082,30 +4197,73 @@ function isWebCastActive() {
   return false;
 }
 
-function castViaWebCast(url, title = "Video Stream", poster = "") {
+function controlWebCast(action, value) {
+  const session = cast.framework.CastContext.getInstance().getCurrentSession()?.getMediaSession();
+  if (!session) return Promise.resolve(false);
+  let request = null;
+  if (action === "seek") {
+    const position = Number(value);
+    if (!Number.isFinite(position) || position < 0) return Promise.resolve(false);
+    request = new chrome.cast.media.SeekRequest();
+    request.currentTime = position;
+  } else if (!["play", "pause", "stop"].includes(action)) {
+    showToast("This receiver does not expose that playback control.");
+    return Promise.resolve(false);
+  }
+  const failed = () => showToast("The receiver could not apply this playback command.");
+  return new Promise(resolve => {
+    session[action](request, () => resolve(true), () => { failed(); resolve(false); });
+  });
+}
+
+function castViaWebCast(url, title = "Video Stream", poster = "", options = {}) {
   try {
     const session = cast.framework.CastContext.getInstance().getCurrentSession();
     if (!session) return false;
     const playUrl = makeCastPlayableUrl(url);
-    const isM3u8 = playUrl.includes(".m3u8");
-    const mimeType = isM3u8 ? "application/x-mpegurl" : "video/mp4";
+    if (!playUrl) return false;
+    const inferred = IS_PUBLIC_PAGES ? webMediaType(playUrl, options.mime) : "";
+    const isM3u8 = inferred ? inferred === WEB_MEDIA_TYPES.m3u8 : playUrl.includes(".m3u8");
+    const mimeType = inferred || (isM3u8 ? "application/x-mpegurl" : "video/mp4");
     const mediaInfo = new chrome.cast.media.MediaInfo(playUrl, mimeType);
     mediaInfo.metadata = new chrome.cast.media.GenericMediaMetadata();
     mediaInfo.metadata.title = title;
     if (poster) {
       mediaInfo.metadata.images = [{ url: poster }];
     }
-    mediaInfo.streamType = isM3u8 ? chrome.cast.media.StreamType.LIVE : chrome.cast.media.StreamType.BUFFERED;
+    const live = IS_PUBLIC_PAGES ? options.isChannel === true || (options.isChannel == null && isM3u8) : isM3u8;
+    mediaInfo.streamType = live ? chrome.cast.media.StreamType.LIVE : chrome.cast.media.StreamType.BUFFERED;
     const request = new chrome.cast.media.LoadRequest(mediaInfo);
     request.autoplay = true;
+    if (IS_PUBLIC_PAGES && !live && Number.isFinite(options.position) && options.position > 0) {
+      request.currentTime = options.position;
+    }
     session.loadMedia(request).then(
       () => {
+        if (IS_PUBLIC_PAGES && options.complete) options.complete();
         showToast(`Playing ${title} on TV via Web Cast!`);
         state.currentTitle = title;
         state.playbackState = "PLAYING";
         const barTitle = document.getElementById("bar-title");
         if (barTitle) barTitle.textContent = title;
         updatePlayPauseButton(true);
+        if (IS_PUBLIC_PAGES) {
+          const remote = session.getMediaSession();
+          if (!remote) return;
+          const update = () => {
+            if (!isWebCastActive() || session.getMediaSession() !== remote) return;
+            state.playbackState = remote.playerState;
+            if (remote.playerState === "IDLE") return;
+            updateActiveCastDeck({
+              title, duration: remote.media?.duration || 0,
+              current_time: remote.getEstimatedTime(), state: remote.playerState,
+              qualities: ["Auto"], quality_urls: {}
+            });
+          };
+          remote.addUpdateListener(update);
+          update();
+          startDeckProgressTicker();
+        }
       },
       (err) => {
         console.error("Web Cast loadMedia failed:", err);
@@ -4119,9 +4277,69 @@ function castViaWebCast(url, title = "Video Stream", poster = "") {
   }
 }
 
+function castOpenWebVideo() {
+  const source = activeInAppChannel;
+  const video = document.getElementById("inapp-video");
+  if (!source || !video) return;
+  const url = webPlaybackUrl(source.url);
+  const completed = () => { if (activeInAppChannel === source) closeInAppPlayer(); };
+  if (!requestDirectWebMedia({
+    url, title: source.title || "Video", mime: source.mime,
+    position: video.currentTime, complete: completed, useOpenPlayer: true,
+    isChannel: Number.isFinite(video.duration) ? false : undefined
+  })) {
+    showToast("Use a Cast-enabled browser or select a TV through your connected TV Hub.");
+  }
+}
+
+function requestDirectWebMedia(media) {
+  if (isWebCastActive()) return castViaWebCast(media.url, media.title, "", media);
+  if (gCastInitialized) {
+    const context = cast.framework.CastContext.getInstance();
+    if (context.getCastState() !== cast.framework.CastState.NO_DEVICES_AVAILABLE) {
+      requestWebCastSession(media);
+      return true;
+    }
+  }
+  if (!isIosAirPlaySupported() || media.mime === WEB_MEDIA_TYPES.mpd) return false;
+  if (!media.useOpenPlayer) {
+    openInAppPlayer({ url: media.url, title: media.title, mime: media.mime, directVideo: true });
+  }
+  return triggerAirPlay(null, document.getElementById("inapp-video"));
+}
+
 // --- In-App Mobile Video Player (Play channels directly on phone without TV) ---
 let inAppHls = null;
+let inAppDash = null;
+let dashLibraryLoad = null;
+let playerVersion = 0;
 let activeInAppChannel = null;
+
+function loadDashLibrary() {
+  if (!dashLibraryLoad) {
+    dashLibraryLoad = new Promise((resolve, reject) => {
+      const script = document.createElement("script");
+      script.src = "https://cdn.jsdelivr.net/npm/shaka-player@4.16.56/dist/shaka-player.compiled.js";
+      script.onload = () => window.shaka ? resolve(window.shaka) : reject(new Error("DASH library unavailable"));
+      script.onerror = () => { script.remove(); reject(new Error("DASH library unavailable")); };
+      document.head.append(script);
+    }).catch(error => {
+      dashLibraryLoad = null;
+      throw error;
+    });
+  }
+  return dashLibraryLoad;
+}
+
+function releaseInAppEngines() {
+  if (inAppHls) {
+    try { inAppHls.destroy(); } catch {}
+    inAppHls = null;
+  }
+  const oldDash = inAppDash;
+  inAppDash = null;
+  return oldDash ? oldDash.destroy().catch(() => {}) : null;
+}
 
 function openInAppPlayer(channel) {
   if (window.TVHubAndroid && typeof window.TVHubAndroid.isNativeApp === "function" && window.TVHubAndroid.isNativeApp()) {
@@ -4135,6 +4353,7 @@ function openInAppPlayer(channel) {
   if (!modal || !video) return;
 
   activeInAppChannel = channel;
+  const version = ++playerVersion;
   const rawStreamUrl = (channel.sources && channel.sources[0]?.url) || channel.url || channel.stream_url;
   if (!rawStreamUrl) {
     showToast("⚠️ Stream URL unavailable for this channel");
@@ -4142,34 +4361,76 @@ function openInAppPlayer(channel) {
   }
   // Many IPTV sources are plain http://. An HTTPS page cannot load those directly (mixed
   // content is blocked), so stream them through our own same-origin proxy instead.
-  const streamUrl =
-    window.location.protocol === "https:" && /^http:\/\//i.test(rawStreamUrl)
-      ? `${window.location.origin}/proxy?url=${encodeURIComponent(rawStreamUrl)}`
-      : rawStreamUrl;
+  const streamUrl = makePlayableUrl(rawStreamUrl);
+  if (!streamUrl) { showToast("This video link is unavailable."); return; }
 
   if (title) title.textContent = channel.name || channel.title || "Live Stream";
   modal.style.display = "flex";
-  const btnAirPlay = document.getElementById("btn-inapp-airplay");
-  if (btnAirPlay) {
-    btnAirPlay.style.display = isIosAirPlaySupported() ? "inline-flex" : "none";
-    btnAirPlay.onclick = () => triggerAirPlay(streamUrl);
-  }
-
-  if (inAppHls) {
-    try { inAppHls.destroy(); } catch (e) {}
-    inAppHls = null;
-  }
-
-  const isM3u8 = streamUrl.includes(".m3u8");
-  if (isM3u8 && typeof Hls !== "undefined" && Hls.isSupported()) {
-    inAppHls = new Hls({ enableWorker: true, lowLatencyMode: true });
+  const mediaMime = IS_PUBLIC_PAGES ? webMediaType(rawStreamUrl, channel.mime) : "";
+  const isM3u8 = mediaMime === WEB_MEDIA_TYPES.m3u8 || (!mediaMime && streamUrl.includes(".m3u8"));
+  const nativeHls = IS_PUBLIC_PAGES && !!video.canPlayType(WEB_MEDIA_TYPES.m3u8);
+  const weak = IS_PUBLIC_PAGES && document.getElementById("web-low-bandwidth")?.checked;
+  const oldEngine = releaseInAppEngines();
+  const play = () => video.play().catch(() => {});
+  const failed = () => {
+    if (playerVersion === version) showToast("Playback interrupted. Check the connection or try another source.");
+  };
+  const begin = () => {
+    if (version !== playerVersion) return;
+    const btnAirPlay = document.getElementById("btn-inapp-airplay");
+    if (btnAirPlay) {
+      const available = isIosAirPlaySupported() &&
+        (!IS_PUBLIC_PAGES || (mediaMime !== WEB_MEDIA_TYPES.mpd && (!isM3u8 || nativeHls)));
+      btnAirPlay.style.display = available ? "inline-flex" : "none";
+      btnAirPlay.onclick = available ? () => IS_PUBLIC_PAGES ? triggerAirPlay(null, video) : triggerAirPlay(streamUrl) : null;
+    }
+    if (IS_PUBLIC_PAGES) video.onerror = failed;
+    if (mediaMime === WEB_MEDIA_TYPES.mpd) {
+      loadDashLibrary().then(async library => {
+        if (version !== playerVersion) return;
+        library.polyfill.installAll();
+        if (!library.Player.isBrowserSupported()) throw new Error("DASH unsupported");
+        const player = new library.Player();
+        inAppDash = player;
+        await player.attach(video);
+        if (version !== playerVersion) return;
+        if (weak) player.configure({
+          abr: { defaultBandwidthEstimate: 500000, restrictions: { maxBandwidth: 1200000 } },
+          streaming: { bufferingGoal: 30, retryParameters: { maxAttempts: 4 } }
+        });
+        player.addEventListener("error", failed);
+        await player.load(streamUrl, null, mediaMime);
+        if (version === playerVersion) play();
+      }).catch(failed);
+      return;
+    }
+    if (!isM3u8 || nativeHls || typeof Hls === "undefined" || !Hls.isSupported()) {
+      video.src = streamUrl;
+      play();
+      return;
+    }
+    const configuration = weak
+      ? { enableWorker: true, lowLatencyMode: false, maxBufferLength: 35, startLevel: 0 }
+      : { enableWorker: true, lowLatencyMode: true };
+    const hls = new Hls(configuration);
+    inAppHls = hls;
+    let recoveries = 0;
     inAppHls.loadSource(streamUrl);
     inAppHls.attachMedia(video);
     inAppHls.on(Hls.Events.MANIFEST_PARSED, () => {
-      video.play().catch(() => {});
+      if (weak && hls.levels.length) {
+        const supported = hls.levels.map((level, index) => level.bitrate <= 1200000 ? index : -1);
+        hls.autoLevelCapping = Math.max(0, ...supported);
+      }
+      play();
     });
     inAppHls.on(Hls.Events.ERROR, (event, data) => {
       if (data.fatal) {
+        if (IS_PUBLIC_PAGES && recoveries++ >= 2) {
+          if (inAppHls === hls) releaseInAppEngines();
+          failed();
+          return;
+        }
         if (data.type === Hls.ErrorTypes.NETWORK_ERROR) {
           inAppHls.startLoad();
         } else if (data.type === Hls.ErrorTypes.MEDIA_ERROR) {
@@ -4179,23 +4440,23 @@ function openInAppPlayer(channel) {
         }
       }
     });
-  } else {
-    video.src = streamUrl;
-    video.play().catch(() => {});
-  }
+  };
+  if (oldEngine) oldEngine.then(begin);
+  else begin();
 }
 
 function closeInAppPlayer() {
+  ++playerVersion;
+  activeInAppChannel = null;
   const modal = document.getElementById("modal-inapp-player");
   const video = document.getElementById("inapp-video");
   if (video) {
     try { video.pause(); } catch (e) {}
-    video.src = "";
+    video.onerror = null;
+    video.removeAttribute("src");
+    video.load();
   }
-  if (inAppHls) {
-    try { inAppHls.destroy(); } catch (e) {}
-    inAppHls = null;
-  }
+  releaseInAppEngines();
   if (modal) modal.style.display = "none";
 }
 
@@ -4242,8 +4503,8 @@ window.addEventListener('appinstalled', () => {
 let airPlayAvailable = false;
 
 function isIosAirPlaySupported() {
-  const v = document.getElementById("airplay-cast-video") || document.getElementById("inapp-video");
-  return !!(v && window.WebKitPlaybackTargetAvailabilityEvent);
+  const video = document.getElementById("inapp-video") || document.getElementById("airplay-cast-video");
+  return typeof video?.webkitShowPlaybackTargetPicker === "function";
 }
 
 function initAirPlay() {
@@ -4257,8 +4518,8 @@ function initAirPlay() {
   });
 }
 
-function triggerAirPlay(streamUrl) {
-  const v = document.getElementById("airplay-cast-video") || document.getElementById("inapp-video");
+function triggerAirPlay(streamUrl, player = null) {
+  const v = player || document.getElementById("airplay-cast-video") || document.getElementById("inapp-video");
   if (v && v.webkitShowPlaybackTargetPicker) {
     if (streamUrl) {
       v.src = streamUrl;
@@ -4301,3 +4562,4 @@ function checkPendingSharedUrl() {
   }
 }
 setTimeout(checkPendingSharedUrl, 600);
+if (IS_PUBLIC_PAGES && window.chrome?.cast?.isAvailable) initGoogleCastWebSdk();

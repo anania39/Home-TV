@@ -1,5 +1,5 @@
 // TV Hub Progressive Web App (PWA) Service Worker v7.1.0
-const CACHE_NAME = 'tvhub-pwa-v8.0.5';
+const CACHE_NAME = 'tvhub-pwa-web-player-1';
 
 self.addEventListener('install', (event) => {
   self.skipWaiting();
@@ -10,7 +10,7 @@ self.addEventListener('activate', (event) => {
     caches.keys().then((keys) => {
       return Promise.all(
         keys.map((key) => {
-          if (key !== CACHE_NAME) {
+          if (key.startsWith('tvhub-pwa-') && key !== CACHE_NAME) {
             return caches.delete(key);
           }
         })
@@ -24,12 +24,13 @@ self.addEventListener('fetch', (event) => {
 
   // Bypass cache for APIs, WebSockets, video streams, and APK downloads
   if (
+    url.origin !== self.location.origin ||
+    event.request.headers.has('Range') ||
+    ['video', 'audio'].includes(event.request.destination) ||
     url.pathname.startsWith('/api/') ||
     url.pathname.startsWith('/proxy') ||
     url.pathname.startsWith('/ws') ||
-    url.pathname.endsWith('.m3u8') ||
-    url.pathname.endsWith('.ts') ||
-    url.pathname.endsWith('.apk') ||
+    /\.(m3u8|mpd|ts|m4s|mp4|webm|mkv|ogv|apk)$/i.test(url.pathname) ||
     event.request.method !== 'GET'
   ) {
     return;
@@ -45,6 +46,6 @@ self.addEventListener('fetch', (event) => {
         }
         return networkRes;
       })
-      .catch(() => caches.match(event.request))
+      .catch(async () => (await caches.match(event.request, { cacheName: CACHE_NAME })) || Response.error())
   );
 });
