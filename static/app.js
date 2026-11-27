@@ -4282,6 +4282,12 @@ function castOpenWebVideo() {
   const video = document.getElementById("inapp-video");
   if (!source || !video) return;
   const url = webPlaybackUrl(source.url);
+  const hubTarget = state.currentTvId === "web_receiver" ||
+    (state.hubOnline && (_activeHubType === "local_wifi" || _activeHubType === "pc_tunnel"));
+  if (hubTarget && !isWebCastActive()) {
+    executeUniversalCast(url, source.title || "Video");
+    return;
+  }
   const completed = () => { if (activeInAppChannel === source) closeInAppPlayer(); };
   if (!requestDirectWebMedia({
     url, title: source.title || "Video", mime: source.mime,
@@ -4368,7 +4374,8 @@ function openInAppPlayer(channel) {
   modal.style.display = "flex";
   const mediaMime = IS_PUBLIC_PAGES ? webMediaType(rawStreamUrl, channel.mime) : "";
   const isM3u8 = mediaMime === WEB_MEDIA_TYPES.m3u8 || (!mediaMime && streamUrl.includes(".m3u8"));
-  const nativeHls = IS_PUBLIC_PAGES && !!video.canPlayType(WEB_MEDIA_TYPES.m3u8);
+  const nativeHls = IS_PUBLIC_PAGES &&
+    !!(video.canPlayType(WEB_MEDIA_TYPES.m3u8) || video.canPlayType("application/x-mpegurl"));
   const weak = IS_PUBLIC_PAGES && document.getElementById("web-low-bandwidth")?.checked;
   const oldEngine = releaseInAppEngines();
   const play = () => video.play().catch(() => {});
@@ -4404,7 +4411,12 @@ function openInAppPlayer(channel) {
       }).catch(failed);
       return;
     }
-    if (!isM3u8 || nativeHls || typeof Hls === "undefined" || !Hls.isSupported()) {
+    const hasHlsEngine = typeof Hls !== "undefined" && Hls.isSupported();
+    if (IS_PUBLIC_PAGES && isM3u8 && !nativeHls && !hasHlsEngine) {
+      showToast("This browser cannot play HLS. Try an MP4 link or open the original page.");
+      return;
+    }
+    if (!isM3u8 || nativeHls || !hasHlsEngine) {
       video.src = streamUrl;
       play();
       return;
