@@ -1,12 +1,12 @@
 {
-  "name": "TV Hub Controller",
-  "short_name": "TV Hub",
+  "name": "ANANIA — Smart TV & Media",
+  "short_name": "ANANIA",
   "description": "Smart TV Cast & Live IPTV Remote Controller",
   "start_url": "./",
   "scope": "./",
   "display": "standalone",
-  "background_color": "#090d16",
-  "theme_color": "#0f172a",
+  "background_color": "#101017",
+  "theme_color": "#101017",
   "orientation": "portrait",
   "icons": [
     {

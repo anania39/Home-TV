@@ -535,32 +535,31 @@ document.addEventListener("DOMContentLoaded", async () => {
 // --- Tab Navigation ---
 function initTabs() {
   const navItems = document.querySelectorAll(".nav-item");
-  navItems.forEach(item => {
-    item.addEventListener("click", () => {
-      vibrate(15);
-      const targetId = item.getAttribute("data-tab");
-
-      navItems.forEach(n => n.classList.remove("active"));
-      document.querySelectorAll(".tab-content").forEach(tc => tc.classList.remove("active"));
-
-      item.classList.add("active");
-      const targetTab = document.getElementById(targetId);
-      if (targetTab) {
-        targetTab.classList.add("active");
-        if (targetId === "tab-cast") {
-          fetchHardwareStatus();
-        } else if (targetId === "tab-devices") {
-          initDevicesTab();
-          if (!adblockPollingTimer) {
-            adblockPollingTimer = setInterval(loadAdblockStatus, 6000);
-          }
-        } else if (adblockPollingTimer) {
-          clearInterval(adblockPollingTimer);
-          adblockPollingTimer = null;
-        }
-      }
+  const openTab = targetId => {
+    const target = document.getElementById(targetId);
+    if (!target) return;
+    vibrate(15);
+    const selected = targetId === "tab-sports" && document.getElementById("tab-youtube") ? "tab-iptv" : targetId;
+    navItems.forEach(item => {
+      const active = item.dataset.tab === selected;
+      item.classList.toggle("active", active);
+      if (active) item.setAttribute("aria-current", "page");
+      else item.removeAttribute("aria-current");
     });
-  });
+    document.querySelectorAll(".tab-content").forEach(tab => tab.classList.toggle("active", tab === target));
+    if (targetId === "tab-cast" || targetId === "tab-browser") fetchHardwareStatus();
+    if (targetId === "tab-devices") {
+      initDevicesTab();
+      if (!adblockPollingTimer) adblockPollingTimer = setInterval(loadAdblockStatus, 6000);
+    } else if (adblockPollingTimer) {
+      clearInterval(adblockPollingTimer);
+      adblockPollingTimer = null;
+    }
+    if (IS_PUBLIC_PAGES) window.scrollTo(0, 0);
+  };
+  navItems.forEach(item => item.addEventListener("click", () => openTab(item.dataset.tab)));
+  document.querySelectorAll("[data-open-tab]").forEach(item =>
+    item.addEventListener("click", () => openTab(item.dataset.openTab)));
 }
 
 // --- Screen Wake Lock & Background Resilience (Android & iOS) ---
@@ -608,7 +607,9 @@ async function checkAuth() {
           if (barDot) barDot.style.background = "var(--accent-green)";
           if (barStatus) barStatus.textContent = `${state.currentTvName || "TCL Smart TV Pro"} Ready`;
         } else {
-          badge.innerHTML = `<span style="color: var(--accent-green); cursor: pointer;" title="Hub Connected. Click to configure">🟢 Connected (${data.client_ip})</span>`;
+          badge.textContent = "Hub connected";
+          badge.style.color = "var(--accent-green)";
+          badge.title = "Hub connected";
         }
       }
       const srvIp = document.getElementById("info-server-ip");
@@ -889,8 +890,10 @@ async function sendWakeOnLan() {
 document.getElementById("btn-quick-wake")?.addEventListener("click", sendWakeOnLan);
 
 // Update Real Hardware Status UI
-function updateHardwareStatus(data) {
+function updateHardwareStatus(data, browserReceiver = false) {
   if (!data) return;
+  if (IS_PUBLIC_PAGES && !browserReceiver && (isWebCastActive() || !data.selected_device_id ||
+      (state.currentTvId && data.selected_device_id !== state.currentTvId))) return;
 
   const isNativeHost = (window.TVHubAndroid && typeof window.TVHubAndroid.isNativeApp === "function" && window.TVHubAndroid.isNativeApp());
 
@@ -1207,6 +1210,12 @@ function renderChannels() {
 }
 
 let castAbortController = null;
+function browserChannelSources(channel) {
+  const sources = (Array.isArray(channel.sources) ? channel.sources : [])
+    .map(source => typeof source === "string" ? source : source?.url);
+  return [...new Set([...sources, channel.url, channel.stream_url].filter(Boolean))].slice(0, 3);
+}
+
 async function castChannel(channel) {
   if (castAbortController) {
     try { castAbortController.abort(); } catch (e) {}
@@ -1215,7 +1224,8 @@ async function castChannel(channel) {
   const signal = castAbortController.signal;
 
   vibrate(35);
-  const rawStreamUrl = (channel.sources && channel.sources[0]?.url) || channel.url;
+  const candidates = IS_PUBLIC_PAGES ? browserChannelSources(channel) : [];
+  const rawStreamUrl = candidates[0] || (channel.sources && channel.sources[0]?.url) || channel.url;
   const streamUrl = makePlayableUrl(rawStreamUrl);
 
   const castUrl = makeCastPlayableUrl(rawStreamUrl);
@@ -1253,7 +1263,7 @@ async function castChannel(channel) {
   // Path 1: Direct in-browser Google Cast is active -> Cast straight from Phone to TV over Wi-Fi
   if (isWebCastActive()) {
     showToast(`Casting ${channel.name} to TV via Direct Cast...`);
-    castViaWebCast(castUrl, channel.name, channel.logo || "");
+    castViaWebCast(castUrl, channel.name, channel.logo || "", { isChannel: true, candidates });
     return;
   }
 
@@ -1296,6 +1306,7 @@ async function castChannel(channel) {
             title: channel.name,
             poster: channel.logo || "",
             isChannel: true,
+            candidates,
             channel: channel
           });
           return;
@@ -1321,6 +1332,7 @@ async function castChannel(channel) {
       title: channel.name,
       poster: channel.logo || "",
       isChannel: true,
+      candidates,
       channel: channel
     });
     return;
@@ -1476,6 +1488,7 @@ async function handleCastUrlInput(val) {
   clearTimeout(castResolveTimer);
 
   const type = detectUrlType(val);
+  if (IS_PUBLIC_PAGES) updateBrowserFileLink(val);
   if (!type) {
     castDetectedBadge.style.display = "none";
     if (castPreviewBox) castPreviewBox.style.display = "none";
@@ -1489,10 +1502,10 @@ async function handleCastUrlInput(val) {
   castDetectedBadge.style.display = "flex";
   if (type === "youtube") {
     castDetectedBadge.className = "cast-detected-pill youtube";
-    castDetectedBadge.innerHTML = `<span style="font-size: 14px;">🔴</span> <span>YouTube Detected • Auto-Extracting 100% Ad-Free Video</span>`;
+    castDetectedBadge.textContent = "YouTube link";
   } else if (type === "movie") {
     castDetectedBadge.className = "cast-detected-pill movie";
-    castDetectedBadge.innerHTML = `<span style="font-size: 14px;">🎬</span> <span>Movie Platform / Web Player Detected • Resolving Direct Clean Stream</span>`;
+    castDetectedBadge.textContent = "Web page link";
   } else {
     castDetectedBadge.className = "cast-detected-pill";
     castDetectedBadge.innerHTML = `<span style="font-size: 14px;">⚡</span> <span>Direct Media Stream Detected (${type.toUpperCase()})</span>`;
@@ -1984,7 +1997,9 @@ if (btnSubmitCast) {
   btnSubmitCast.addEventListener("click", () => {
     const url = castUrlInput ? castUrlInput.value.trim() : "";
     const title = castTitleInput ? castTitleInput.value.trim() : "";
-    executeUniversalCast(url, title);
+    const original = IS_PUBLIC_PAGES ? browserAddress(url) : null;
+    if (original) rememberBrowserLink("history", original, title);
+    executeUniversalCast(original?.href || url, title);
   });
 }
 
@@ -1992,21 +2007,119 @@ if (IS_PUBLIC_PAGES) {
   const playbackActions = document.getElementById("web-playback-actions");
   if (playbackActions) playbackActions.hidden = false;
   document.getElementById("btn-watch-cast-link")?.addEventListener("click", watchCastLink);
-  document.getElementById("btn-open-cast-page")?.addEventListener("click", () => {
-    const original = webHttpUrl(castUrlInput?.value.trim());
-    if (original) window.open(original.href, "_blank", "noopener,noreferrer");
-    else showToast("Enter an HTTP or HTTPS link first.");
+  document.getElementById("btn-open-cast-page")?.addEventListener("click", openBrowserAddress);
+  castUrlInput?.addEventListener("keydown", event => {
+    if (event.key === "Enter") { event.preventDefault(); openBrowserAddress(); }
   });
+  document.getElementById("btn-browser-bookmark")?.addEventListener("click", () => {
+    const source = browserAddress(castUrlInput?.value);
+    if (!source) { showToast("Enter a link to save."); return; }
+    rememberBrowserLink("bookmarks", source, castTitleInput?.value);
+    showToast("Link saved");
+  });
+  document.getElementById("browser-clear-history")?.addEventListener("click", () => {
+    saveBrowserLinks("history", []);
+    renderBrowserLinks("history");
+  });
+  const weakSetting = document.getElementById("web-low-bandwidth");
+  if (weakSetting) {
+    try { weakSetting.checked = localStorage.getItem("anania_web_weak_connection") === "1"; } catch {}
+    weakSetting.addEventListener("change", () => {
+      try { localStorage.setItem("anania_web_weak_connection", weakSetting.checked ? "1" : "0"); } catch {}
+    });
+  }
+  renderBrowserLinks("bookmarks");
+  renderBrowserLinks("history");
+}
+
+function browserAddress(value) {
+  const text = String(value || "").trim();
+  if (/^[\w-]+(?:\.[\w-]+)+(?:[:/?#]|$)/.test(text)) return webHttpUrl("https://" + text);
+  return webHttpUrl(text);
+}
+
+function openBrowserAddress() {
+  const text = castUrlInput?.value.trim();
+  if (!text) { castUrlInput?.focus(); return; }
+  const direct = browserAddress(text);
+  const url = direct || webHttpUrl("https://duckduckgo.com/?q=" + encodeURIComponent(text));
+  rememberBrowserLink("history", url, direct ? castTitleInput?.value : text);
+  window.open(url.href, "_blank", "noopener,noreferrer");
+}
+
+function readBrowserLinks(kind) {
+  try {
+    const saved = JSON.parse(localStorage.getItem("anania_browser_" + kind) || "[]");
+    return Array.isArray(saved) ? saved.filter(item => item && webHttpUrl(item.url)) : [];
+  } catch { return []; }
+}
+
+function saveBrowserLinks(kind, rows) {
+  try { localStorage.setItem("anania_browser_" + kind, JSON.stringify(rows)); }
+  catch { return false; }
+  return true;
+}
+
+function rememberBrowserLink(kind, url, title) {
+  const saved = readBrowserLinks(kind).filter(item => item.url !== url.href);
+  saved.unshift({ url: url.href, title: String(title || "").trim().slice(0, 140) || url.hostname });
+  saveBrowserLinks(kind, saved.slice(0, 50));
+  renderBrowserLinks(kind);
+}
+
+function renderBrowserLinks(kind) {
+  const list = document.getElementById(`browser-${kind}-list`);
+  if (!list) return;
+  const saved = readBrowserLinks(kind);
+  list.replaceChildren();
+  if (!saved.length) {
+    const empty = document.createElement("li");
+    empty.textContent = kind === "history" ? "No recent links yet" : "No saved links yet";
+    list.append(empty);
+  }
+  for (const entry of saved.slice(0, 8)) {
+    const row = document.createElement("li");
+    const open = document.createElement("button");
+    open.className = "browser-link";
+    open.textContent = entry.title || webHttpUrl(entry.url).hostname;
+    open.title = entry.url;
+    open.onclick = () => {
+      castUrlInput.value = entry.url;
+      if (castTitleInput) castTitleInput.value = entry.title || "";
+      handleCastUrlInput(entry.url);
+      castUrlInput.focus();
+    };
+    const remove = document.createElement("button");
+    remove.className = "browser-remove-link";
+    remove.textContent = "Remove";
+    remove.onclick = () => {
+      saveBrowserLinks(kind, readBrowserLinks(kind).filter(item => item.url !== entry.url));
+      renderBrowserLinks(kind);
+    };
+    row.append(open, remove);
+    list.append(row);
+  }
+}
+
+function updateBrowserFileLink(value) {
+  const button = document.getElementById("browser-download");
+  if (!button) return;
+  const url = browserAddress(value);
+  const mime = url && webMediaType(url.href);
+  button.hidden = !mime || !mime.startsWith("video/");
+  if (button.hidden) button.removeAttribute("href");
+  else button.href = webPlaybackUrl(url.href);
 }
 
 async function watchCastLink() {
   const input = castUrlInput?.value.trim();
-  const original = webHttpUrl(input);
+  const original = browserAddress(input);
   if (!original) {
     showToast("Enter an HTTP or HTTPS video link.");
     return;
   }
   const title = castTitleInput?.value.trim();
+  rememberBrowserLink("history", original, title);
   const mime = webMediaType(original.href);
   if (mime) {
     openInAppPlayer({ url: original.href, title: title || "Video", mime, directVideo: true });
@@ -3529,7 +3642,7 @@ function updateActiveCastDeck(info) {
   if (deckTarget) {
     const sel = document.getElementById("tv-dropdown");
     const tvName = sel ? sel.options[sel.selectedIndex]?.text : "Smart TV";
-    deckTarget.textContent = `${tvName} • 100% Ad-Free`;
+    deckTarget.textContent = IS_PUBLIC_PAGES ? (state.currentTvName || tvName || "TV") : `${tvName} • 100% Ad-Free`;
   }
 
   const effectiveSpeed = (window._userSelectedSpeed !== null && window._userSelectedSpeed !== undefined)
@@ -3957,6 +4070,56 @@ function initActiveCastDeck() {
 // ---------------------------------------------------------------------------
 // YouTube Inline 100% Ad-Free Search & Quick Cast
 // ---------------------------------------------------------------------------
+function youtubeVideoId(link) {
+  const url = webHttpUrl(link);
+  if (!url) return "";
+  const short = url.hostname === "youtu.be";
+  if (!short && url.hostname !== "youtube.com" && !url.hostname.endsWith(".youtube.com")) return "";
+  const [, page, id] = url.pathname.split("/");
+  const value = short ? page : url.searchParams.get("v") || (["shorts", "embed", "live"].includes(page) ? id : "");
+  return /^[\w-]{11}$/.test(value || "") ? value : "";
+}
+
+function showWebYouTubeVideo(id, title = "YouTube video") {
+  const panel = document.getElementById("yt-selected-video");
+  if (!panel || !/^[\w-]{11}$/.test(id)) return;
+  const url = "https://www.youtube.com/watch?v=" + id;
+  const heading = document.createElement("h3");
+  heading.textContent = title;
+  const actions = document.createElement("div");
+  actions.className = "yt-result-actions";
+  const watch = document.createElement("button");
+  watch.type = "button";
+  watch.className = "btn-secondary";
+  watch.textContent = "Watch here";
+  watch.onclick = () => {
+    if (panel.querySelector("iframe")) return;
+    const iframe = document.createElement("iframe");
+    iframe.title = title;
+    iframe.src = "https://www.youtube-nocookie.com/embed/" + id + "?playsinline=1";
+    iframe.allow = "encrypted-media; picture-in-picture; fullscreen";
+    iframe.allowFullscreen = true;
+    panel.append(iframe);
+  };
+  const send = document.createElement("button");
+  send.type = "button";
+  send.className = "btn-secondary";
+  send.textContent = "Cast to TV";
+  send.onclick = () => {
+    window.activeResolvedData = null;
+    executeUniversalCast(url, title);
+  };
+  const external = document.createElement("a");
+  external.className = "btn-secondary";
+  external.href = url;
+  external.target = "_blank";
+  external.rel = "noopener noreferrer";
+  external.textContent = "Open on YouTube";
+  actions.append(watch, send, external);
+  panel.replaceChildren(heading, actions);
+  panel.hidden = false;
+}
+
 function initYouTubeSearch() {
   const searchInput = document.getElementById("yt-search-input");
   const btnSearch = document.getElementById("btn-yt-search");
@@ -3964,6 +4127,7 @@ function initYouTubeSearch() {
   const resultsGrid = document.getElementById("yt-search-results");
   if (!searchInput || !btnSearch || !resultsGrid) return;
 
+  const webLibrary = IS_PUBLIC_PAGES && document.getElementById("yt-selected-video");
   if (btnPaste) {
     btnPaste.onclick = async () => {
       vibrate(20);
@@ -3972,7 +4136,9 @@ function initYouTubeSearch() {
         if (clipText) {
           searchInput.value = clipText.trim();
           showToast("Pasted from clipboard");
-          if (clipText.includes("youtube.com") || clipText.includes("youtu.be")) {
+          if (webLibrary && youtubeVideoId(clipText.trim())) {
+            showWebYouTubeVideo(youtubeVideoId(clipText.trim()));
+          } else if (!webLibrary && (clipText.includes("youtube.com") || clipText.includes("youtu.be"))) {
             executeUniversalCast(clipText.trim());
           }
         }
@@ -3992,7 +4158,17 @@ function initYouTubeSearch() {
     }
 
     // Direct YouTube link detection
+    if (webLibrary && youtubeVideoId(q)) {
+      resultsGrid.style.display = "none";
+      showWebYouTubeVideo(youtubeVideoId(q));
+      return;
+    }
+    if (webLibrary) {
+      webLibrary.hidden = true;
+      webLibrary.replaceChildren();
+    }
     if (q.includes("youtube.com") || q.includes("youtu.be")) {
+      if (webLibrary) { showToast("Paste a link to an individual YouTube video."); return; }
       resultsGrid.style.display = "none";
       executeUniversalCast(q);
       return;
@@ -4002,7 +4178,7 @@ function initYouTubeSearch() {
     vibrate(20);
     btnSearch.textContent = "Searching...";
     resultsGrid.style.display = "block";
-    resultsGrid.innerHTML = `<div style="text-align: center; padding: 20px; color: var(--text-muted); font-size: 13px;">🔍 Searching YouTube ad-free for <strong>"${escapeHtml(q)}"</strong>...</div>`;
+    resultsGrid.textContent = "Searching YouTube…";
 
     try {
       const res = await safeFetchWithRetry(`/api/youtube/search?q=${encodeURIComponent(q)}`);
@@ -4016,6 +4192,8 @@ function initYouTubeSearch() {
 
         resultsGrid.innerHTML = "";
         items.forEach(item => {
+          const videoId = youtubeVideoId(item.url);
+          if (webLibrary && !videoId) return;
           const card = document.createElement("div");
           card.className = "yt-result-item";
           card.innerHTML = `
@@ -4028,7 +4206,7 @@ function initYouTubeSearch() {
               <div class="yt-result-channel">${escapeHtml(item.channel || "YouTube")}</div>
             </div>
             <button type="button" class="yt-result-cast-btn">
-              ⚡ Cast Ad-Free
+              ${webLibrary ? "Select video" : "Cast video"}
             </button>
           `;
 
@@ -4036,7 +4214,8 @@ function initYouTubeSearch() {
           castBtn.onclick = (e) => {
             e.stopPropagation();
             vibrate(35);
-            executeUniversalCast(item.url, item.title);
+            if (webLibrary) showWebYouTubeVideo(videoId, item.title || "YouTube video");
+            else executeUniversalCast(item.url, item.title);
           };
 
           card.onclick = () => castBtn.click();
@@ -4048,7 +4227,7 @@ function initYouTubeSearch() {
     } catch (e) {
       resultsGrid.innerHTML = `<div style="text-align: center; padding: 20px; color: var(--text-muted); font-size: 13px;">Search error. Check TV Hub connection.</div>`;
     } finally {
-      btnSearch.textContent = "⚡ Cast / Search";
+      btnSearch.textContent = webLibrary ? "Search" : "Cast / Search";
     }
   };
 
@@ -4124,8 +4303,8 @@ function handleWebCastStateChange(castState) {
         updateHardwareStatus({
           tv_online: true,
           state: "READY",
-          status_text: `${devName} Connected (Direct Wi-Fi Cast)`
-        });
+          status_text: `${devName} connected`
+        }, true);
       }
     } catch (e) {}
   } else {
@@ -4197,8 +4376,11 @@ function isWebCastActive() {
   return false;
 }
 
+let webCastGeneration = 0;
+
 function controlWebCast(action, value) {
   const session = cast.framework.CastContext.getInstance().getCurrentSession()?.getMediaSession();
+  if (action === "stop") webCastGeneration++;
   if (!session) return Promise.resolve(false);
   let request = null;
   if (action === "seek") {
@@ -4216,30 +4398,62 @@ function controlWebCast(action, value) {
   });
 }
 
+async function waitForWebCastPlayback(session, url, generation) {
+  const deadline = performance.now() + 10000;
+  while (generation === webCastGeneration && isWebCastActive() && performance.now() < deadline) {
+    const remote = session.getMediaSession();
+    if (remote && (!remote.media?.contentId || remote.media.contentId === url)) {
+      if (["PLAYING", "PAUSED"].includes(remote.playerState)) return true;
+      if (remote.playerState === "IDLE" && remote.idleReason === "ERROR") return false;
+    }
+    await new Promise(resolve => setTimeout(resolve, 250));
+  }
+  return false;
+}
+
 function castViaWebCast(url, title = "Video Stream", poster = "", options = {}) {
   try {
     const session = cast.framework.CastContext.getInstance().getCurrentSession();
     if (!session) return false;
     const playUrl = makeCastPlayableUrl(url);
     if (!playUrl) return false;
-    const inferred = IS_PUBLIC_PAGES ? webMediaType(playUrl, options.mime) : "";
-    const isM3u8 = inferred ? inferred === WEB_MEDIA_TYPES.m3u8 : playUrl.includes(".m3u8");
-    const mimeType = inferred || (isM3u8 ? "application/x-mpegurl" : "video/mp4");
-    const mediaInfo = new chrome.cast.media.MediaInfo(playUrl, mimeType);
-    mediaInfo.metadata = new chrome.cast.media.GenericMediaMetadata();
-    mediaInfo.metadata.title = title;
-    if (poster) {
-      mediaInfo.metadata.images = [{ url: poster }];
-    }
-    const live = IS_PUBLIC_PAGES ? options.isChannel === true || (options.isChannel == null && isM3u8) : isM3u8;
-    mediaInfo.streamType = live ? chrome.cast.media.StreamType.LIVE : chrome.cast.media.StreamType.BUFFERED;
-    const request = new chrome.cast.media.LoadRequest(mediaInfo);
-    request.autoplay = true;
-    if (IS_PUBLIC_PAGES && !live && Number.isFinite(options.position) && options.position > 0) {
-      request.currentTime = options.position;
-    }
-    session.loadMedia(request).then(
-      () => {
+    const generation = ++webCastGeneration;
+    const load = source => {
+      const inferred = IS_PUBLIC_PAGES ? webMediaType(source, options.mime) : "";
+      const isM3u8 = inferred ? inferred === WEB_MEDIA_TYPES.m3u8 : source.includes(".m3u8");
+      const mimeType = inferred || (isM3u8 ? "application/x-mpegurl" : "video/mp4");
+      const info = new chrome.cast.media.MediaInfo(source, mimeType);
+      info.metadata = new chrome.cast.media.GenericMediaMetadata();
+      info.metadata.title = title;
+      if (poster) info.metadata.images = [{ url: poster }];
+      const live = IS_PUBLIC_PAGES ? options.isChannel === true || (options.isChannel == null && isM3u8) : isM3u8;
+      info.streamType = live ? chrome.cast.media.StreamType.LIVE : chrome.cast.media.StreamType.BUFFERED;
+      const request = new chrome.cast.media.LoadRequest(info);
+      request.autoplay = true;
+      if (IS_PUBLIC_PAGES && !live && Number.isFinite(options.position) && options.position > 0) {
+        request.currentTime = options.position;
+      }
+      return session.loadMedia(request);
+    };
+    const playVerified = async () => {
+      const candidates = [playUrl, ...(options.candidates || []).map(makeCastPlayableUrl)].filter(Boolean);
+      for (const source of [...new Set(candidates)].slice(0, 3)) {
+        if (generation !== webCastGeneration || !isWebCastActive()) return false;
+        try {
+          await load(source);
+          if (await waitForWebCastPlayback(session, source, generation)) return true;
+        } catch { /* Continue to the next source supplied with this channel. */ }
+      }
+      return false;
+    };
+    const started = IS_PUBLIC_PAGES ? playVerified() : load(playUrl).then(() => true);
+    started.then(
+      playing => {
+        if (generation !== webCastGeneration) return;
+        if (!playing) {
+          showToast("The TV could not start this stream. Try another source or Play here.");
+          return;
+        }
         if (IS_PUBLIC_PAGES && options.complete) options.complete();
         showToast(`Playing ${title} on TV via Web Cast!`);
         state.currentTitle = title;
@@ -4251,8 +4465,13 @@ function castViaWebCast(url, title = "Video Stream", poster = "", options = {}) 
           const remote = session.getMediaSession();
           if (!remote) return;
           const update = () => {
-            if (!isWebCastActive() || session.getMediaSession() !== remote) return;
+            if (generation !== webCastGeneration || !isWebCastActive() || session.getMediaSession() !== remote) return;
+            const receiver = session.getCastDevice()?.friendlyName || "TV";
             state.playbackState = remote.playerState;
+            updateHardwareStatus({
+              tv_online: true, state: remote.playerState,
+              status_text: remote.playerState === "PLAYING" ? `Playing on ${receiver}` : `${receiver} connected`
+            }, true);
             if (remote.playerState === "IDLE") return;
             updateActiveCastDeck({
               title, duration: remote.media?.duration || 0,
@@ -4319,7 +4538,26 @@ let inAppHls = null;
 let inAppDash = null;
 let dashLibraryLoad = null;
 let playerVersion = 0;
+let playerStartTimer = null;
 let activeInAppChannel = null;
+
+function updateBrowserPip(video) {
+  const button = document.getElementById("btn-player-pip");
+  if (!button) return;
+  const standard = document.pictureInPictureEnabled && typeof video.requestPictureInPicture === "function";
+  const safari = video.webkitSupportsPresentationMode?.("picture-in-picture");
+  button.hidden = !standard && !safari;
+  button.onclick = async () => {
+    try {
+      if (standard) {
+        if (document.pictureInPictureElement === video) await document.exitPictureInPicture();
+        else await video.requestPictureInPicture();
+      } else if (safari) {
+        video.webkitSetPresentationMode(video.webkitPresentationMode === "picture-in-picture" ? "inline" : "picture-in-picture");
+      }
+    } catch { showToast("Start the video before opening picture in picture."); }
+  };
+}
 
 function loadDashLibrary() {
   if (!dashLibraryLoad) {
@@ -4360,7 +4598,10 @@ function openInAppPlayer(channel) {
 
   activeInAppChannel = channel;
   const version = ++playerVersion;
-  const rawStreamUrl = (channel.sources && channel.sources[0]?.url) || channel.url || channel.stream_url;
+  clearTimeout(playerStartTimer);
+  const candidates = IS_PUBLIC_PAGES && !channel.directVideo ? browserChannelSources(channel) : [];
+  const sourceIndex = channel.sourceIndex || 0;
+  const rawStreamUrl = candidates[sourceIndex] || (channel.sources && channel.sources[0]?.url) || channel.url || channel.stream_url;
   if (!rawStreamUrl) {
     showToast("⚠️ Stream URL unavailable for this channel");
     return;
@@ -4377,10 +4618,28 @@ function openInAppPlayer(channel) {
   const nativeHls = IS_PUBLIC_PAGES &&
     !!(video.canPlayType(WEB_MEDIA_TYPES.m3u8) || video.canPlayType("application/x-mpegurl"));
   const weak = IS_PUBLIC_PAGES && document.getElementById("web-low-bandwidth")?.checked;
+  if (IS_PUBLIC_PAGES && !channel.directVideo) {
+    activeInAppChannel = {
+      ...channel, url: rawStreamUrl, sourceIndex: 0,
+      sources: [rawStreamUrl, ...candidates.filter(url => url !== rawStreamUrl)].map(url => ({ url }))
+    };
+  }
   const oldEngine = releaseInAppEngines();
-  const play = () => video.play().catch(() => {});
+  const play = () => video.play().catch(error => {
+    if (IS_PUBLIC_PAGES && version === playerVersion && error?.name === "NotAllowedError") {
+      clearTimeout(playerStartTimer);
+      showToast("Press Play in the video player.");
+    }
+  });
   const failed = () => {
-    if (playerVersion === version) showToast("Playback interrupted. Check the connection or try another source.");
+    if (playerVersion !== version) return;
+    clearTimeout(playerStartTimer);
+    if (candidates[sourceIndex + 1]) {
+      showToast("Trying the next channel source…");
+      openInAppPlayer({ ...channel, sourceIndex: sourceIndex + 1 });
+      return;
+    }
+    showToast("Playback interrupted. Check the connection or try another source.");
   };
   const begin = () => {
     if (version !== playerVersion) return;
@@ -4391,7 +4650,13 @@ function openInAppPlayer(channel) {
       btnAirPlay.style.display = available ? "inline-flex" : "none";
       btnAirPlay.onclick = available ? () => IS_PUBLIC_PAGES ? triggerAirPlay(null, video) : triggerAirPlay(streamUrl) : null;
     }
-    if (IS_PUBLIC_PAGES) video.onerror = failed;
+    if (IS_PUBLIC_PAGES) {
+      video.onerror = failed;
+      video.onplaying = () => clearTimeout(playerStartTimer);
+      video.onloadedmetadata = () => updateBrowserPip(video);
+      updateBrowserPip(video);
+      playerStartTimer = setTimeout(failed, 18000);
+    }
     if (mediaMime === WEB_MEDIA_TYPES.mpd) {
       loadDashLibrary().then(async library => {
         if (version !== playerVersion) return;
@@ -4413,6 +4678,7 @@ function openInAppPlayer(channel) {
     }
     const hasHlsEngine = typeof Hls !== "undefined" && Hls.isSupported();
     if (IS_PUBLIC_PAGES && isM3u8 && !nativeHls && !hasHlsEngine) {
+      clearTimeout(playerStartTimer);
       showToast("This browser cannot play HLS. Try an MP4 link or open the original page.");
       return;
     }
@@ -4459,12 +4725,15 @@ function openInAppPlayer(channel) {
 
 function closeInAppPlayer() {
   ++playerVersion;
+  clearTimeout(playerStartTimer);
   activeInAppChannel = null;
   const modal = document.getElementById("modal-inapp-player");
   const video = document.getElementById("inapp-video");
   if (video) {
     try { video.pause(); } catch (e) {}
     video.onerror = null;
+    video.onplaying = null;
+    video.onloadedmetadata = null;
     video.removeAttribute("src");
     video.load();
   }

@@ -5,13 +5,13 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-  <meta name="apple-mobile-web-app-title" content="TV Hub">
+  <meta name="apple-mobile-web-app-title" content="ANANIA">
   <meta name="theme-color" content="#070a13">
   <link rel="manifest" href="./manifest.json">
   <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
   <meta http-equiv="Pragma" content="no-cache">
   <meta http-equiv="Expires" content="0">
-  <title>TV Hub — Smart TV Remote & Cast</title>
+  <title>ANANIA — Smart TV & Media</title>
   <!-- Preconnect & DNS-Prefetch for real channel logo CDNs -->
   <link rel="preconnect" href="https://upload.wikimedia.org" crossorigin>
   <link rel="preconnect" href="https://i.imgur.com" crossorigin>
@@ -23,7 +23,7 @@
     <!-- Google Cast Web SDK & Hls.js for In-Browser Casting & Playback on ANY Wi-Fi -->
   <script src="https://cdn.jsdelivr.net/npm/hls.js@1.5.17"></script>
   <script src="https://www.gstatic.com/cv/js/sender/v1/cast_sender.js?loadCastFramework=1"></script>
-  <link rel="stylesheet" href="static/style.css?v=8.0.4">
+  <link rel="stylesheet" href="static/style.css?v=anania-web-3">
   <script>
     if ('serviceWorker' in navigator) {
       navigator.serviceWorker.getRegistrations().then(regs => {
@@ -39,12 +39,30 @@
     <header>
       <div class="header-top">
         <div class="brand">
-          <div class="brand-icon">
-            <svg viewBox="0 0 24 24"><rect width="20" height="15" x="2" y="7" rx="2" ry="2"/><polyline points="17 2 12 7 7 2"/></svg>
+          <div class="brand-icon" title="ANANIA Smart TV Studio">
+            <svg viewBox="0 0 36 36" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <defs>
+                <linearGradient id="ananiaLogoGrad" x1="4" y1="4" x2="32" y2="32" gradientUnits="userSpaceOnUse">
+                  <stop offset="0%" stop-color="#ffffff"/>
+                  <stop offset="55%" stop-color="#bae6fd"/>
+                  <stop offset="100%" stop-color="#818cf8"/>
+                </linearGradient>
+                <linearGradient id="ananiaPlayGrad" x1="14" y1="16" x2="23" y2="23" gradientUnits="userSpaceOnUse">
+                  <stop offset="0%" stop-color="#38bdf8"/>
+                  <stop offset="100%" stop-color="#ffffff"/>
+                </linearGradient>
+              </defs>
+              <rect x="3.5" y="4.5" width="29" height="24" rx="6.5" stroke="rgba(255,255,255,0.28)" stroke-width="1.5"/>
+              <path d="M18 8.2L9.6 25.5H13.4L15.1 21.6H20.9L22.6 25.5H26.4L18 8.2ZM16.3 18.6L18 14.5L19.7 18.6H16.3Z" fill="url(#ananiaLogoGrad)"/>
+              <polygon points="15.8,17.2 21.8,20.4 15.8,23.6" fill="url(#ananiaPlayGrad)"/>
+              <path d="M24.2 10.2C26.1 10.8 27.6 12.3 28.2 14.2" stroke="#7dd3fc" stroke-width="1.7" stroke-linecap="round"/>
+              <path d="M23.5 12.6C24.6 13.0 25.4 13.8 25.8 14.9" stroke="#bae6fd" stroke-width="1.6" stroke-linecap="round"/>
+              <line x1="13" y1="31.2" x2="23" y2="31.2" stroke="#38bdf8" stroke-width="2" stroke-linecap="round"/>
+            </svg>
           </div>
           <div class="brand-text">
-            <h1>TV Hub</h1>
-            <p id="network-badge-text">Local Network</p>
+            <h1>ANANIA</h1>
+            <p id="network-badge-text">Connecting to Hub</p>
           </div>
         </div>
         <div class="header-actions" style="display: flex; gap: 8px; align-items: center;">
@@ -70,8 +88,8 @@
       <!-- Real Hardware TV Status Banner -->
       <div class="tv-status-banner active" id="tv-status-banner">
         <div class="status-indicator">
-          <span class="status-dot green" id="tv-status-dot"></span>
-          <span id="tv-status-text">Hisense VIDAA TV (Living Room) Ready</span>
+          <span class="status-dot" id="tv-status-dot"></span>
+          <span id="tv-status-text">Choose a TV to cast</span>
         </div>
         <button id="btn-quick-wake" class="btn-wake-quick" style="display: none;" title="Send Wake-on-LAN power packet">
           ⚡ Turn On TV
@@ -91,6 +109,10 @@
 
     <!-- TAB 1: IPTV Channels & Live Guide -->
     <main id="tab-iptv" class="tab-content active">
+      <div class="screen-heading screen-heading-row">
+        <div><h2>Live channels</h2><p>Choose what to watch.</p></div>
+        <button type="button" class="btn-secondary" data-open-tab="tab-sports">Live sports</button>
+      </div>
       <!-- Search & Sort Bar -->
       <div class="search-sort-bar">
         <div class="search-input-wrapper">
@@ -98,10 +120,10 @@
           <input type="text" id="iptv-search" class="search-input" placeholder="Search channels...">
         </div>
         <select id="sort-dropdown" class="sort-dropdown" aria-label="Sort channels">
-          <option value="popularity">🔥 Most Popular</option>
-          <option value="genre">📂 By Category</option>
-          <option value="name">🔤 Name (A-Z)</option>
-          <option value="least_popular">📉 Less Popular</option>
+          <option value="popularity">Popular</option>
+          <option value="genre">Category</option>
+          <option value="name">Name A–Z</option>
+          <option value="least_popular">Less popular</option>
         </select>
         <button id="btn-open-import" class="btn-icon" title="Import M3U Playlist">
           <svg viewBox="0 0 24 24"><path d="M4 14.899A7 7 0 1 1 15.71 8h1.79a4.5 4.5 0 0 1 2.5 8.242"/><path d="M12 12v9"/><path d="m16 16-4-4-4 4"/></svg>
@@ -142,6 +164,7 @@
 
     <!-- TAB 2: Live Sports Streams (FBStream Aggregator) -->
     <main id="tab-sports" class="tab-content">
+      <button type="button" class="btn-secondary back-to-channels" data-open-tab="tab-iptv">← Channels</button>
       <!-- Sports Header & Live Tbilisi Clock -->
       <div class="sports-header-banner">
         <div class="sports-header-left">
@@ -297,8 +320,65 @@
       </div>
     </section>
 
-    <!-- TAB 3: Universal Ad-Free Cast -->
-    <section id="tab-cast" class="tab-content">
+    <main id="tab-youtube" class="tab-content">
+      <div class="screen-heading"><h2>YouTube</h2></div>
+      <div class="cast-card yt-search-card">
+        <div class="yt-search-form">
+          <input type="text" id="yt-search-input" class="form-input yt-input-field" placeholder="Search YouTube or paste a link">
+          <div class="yt-action-buttons">
+            <button type="button" id="btn-yt-paste" class="btn-yt-paste" title="Paste link from clipboard">
+              Paste link
+            </button>
+            <button type="button" id="btn-yt-search" class="btn-primary btn-yt-search">
+              Search
+            </button>
+          </div>
+        </div>
+
+        <div id="yt-selected-video" class="yt-selected-video" hidden></div>
+        <div id="yt-search-results" class="yt-results-grid" style="display: none; margin-top: 14px;"></div>
+      </div>
+
+    </main>
+
+    <!-- Browser -->
+    <section id="tab-browser" class="tab-content">
+      <div class="screen-heading"><h2>Browser</h2></div>
+      <div class="cast-card universal-cast-card">
+        <div class="form-group">
+          <label for="cast-url-input" class="visually-hidden">Search or enter a link</label>
+          <div class="input-with-action">
+            <input type="text" id="cast-url-input" class="form-input" autocomplete="off" autocapitalize="none" spellcheck="false" placeholder="Search or enter a link">
+            <button type="button" id="btn-paste-cast-url" class="btn-input-action" title="Paste from clipboard">Paste</button>
+          </div>
+          <div id="cast-detected-badge" class="cast-detected-pill" style="display:none"></div>
+          <div id="cast-preview-box" class="cast-preview-box" style="display:none">
+            <img id="cast-preview-thumb" class="cast-preview-thumb" alt="" style="display:none">
+            <div class="cast-preview-info">
+              <div id="cast-preview-title" class="cast-preview-title"></div>
+              <div id="cast-preview-tag" class="cast-preview-tag">Video source available</div>
+            </div>
+          </div>
+        </div>
+        <div id="web-playback-actions" class="browser-actions">
+          <button type="button" id="btn-open-cast-page" class="btn-secondary">Open or search</button>
+          <button type="button" id="btn-watch-cast-link" class="btn-secondary">Play here</button>
+          <button type="button" id="btn-submit-cast" class="btn-primary"><span id="btn-cast-text">Cast to TV</span></button>
+        </div>
+        <div class="browser-tools">
+          <button type="button" id="btn-browser-bookmark" class="btn-secondary">Save link</button>
+          <a id="browser-download" class="btn-secondary" target="_blank" rel="noopener noreferrer" hidden>Open media file</a>
+          <details class="browser-options">
+            <summary>Playback options</summary>
+            <div class="form-group">
+              <label for="cast-title-input">Video title</label>
+              <input type="text" id="cast-title-input" class="form-input" placeholder="Use the source title">
+            </div>
+            <label><input type="checkbox" id="web-low-bandwidth"> Lower bandwidth on supported streams</label>
+            <label><input type="checkbox" id="cast-use-proxy" checked> Use the Hub stream proxy</label>
+          </details>
+        </div>
+      </div>
       <!-- Preparation & Casting Visual Progress Widget -->
       <div id="cast-progress-widget" class="cast-progress-card" style="display: none;">
         <div class="progress-glow-bg"></div>
@@ -451,89 +531,18 @@
         </div>
       </div>
 
-      <div class="cast-card universal-cast-card">
-        <div class="cast-card-header">
-          <div class="cast-badge-highlight">
-            <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.5"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
-            UNIVERSAL AD-FREE CASTING
-          </div>
-          <h3>Play or cast a video link</h3>
-          <p style="font-size: 13px; color: var(--text-muted); margin-bottom: 14px; line-height: 1.45;">
-            Paste a direct video link or a page supported by your TV Hub. You can play it here, use AirPlay in Safari, or send it to a Google Cast receiver in a compatible browser.
-          </p>
+      <div class="browser-library">
+        <div class="cast-card">
+          <h3>Saved links</h3>
+          <ul id="browser-bookmarks-list" class="browser-links"></ul>
         </div>
-
-        <div class="form-group">
-          <label for="cast-url-input">Video or Webpage URL</label>
-          <div class="input-with-action">
-            <input type="url" id="cast-url-input" class="form-input" autocomplete="off" autocapitalize="none" spellcheck="false" placeholder="Paste a video or webpage link…">
-            <button type="button" id="btn-paste-cast-url" class="btn-input-action" title="Paste from clipboard">📋 Paste</button>
-          </div>
-          <!-- Real-Time Platform Detection Badge -->
-          <div id="cast-detected-badge" class="cast-detected-pill" style="display: none;"></div>
-          <!-- Live Resolved Preview Card -->
-          <div id="cast-preview-box" class="cast-preview-box" style="display: none;">
-            <img id="cast-preview-thumb" class="cast-preview-thumb" src="" alt="Thumbnail" style="display: none;">
-            <div class="cast-preview-info">
-              <div id="cast-preview-title" class="cast-preview-title">Detected Video</div>
-              <div class="cast-preview-tag" id="cast-preview-tag">✓ Clean Ad-Free Stream Ready</div>
-            </div>
-          </div>
-        </div>
-
-        <div class="form-group">
-          <label for="cast-title-input">Title (Auto-detected from video if blank)</label>
-          <input type="text" id="cast-title-input" class="form-input" placeholder="Auto-detected from YouTube / movie platform">
-        </div>
-
-        <div style="margin-bottom: 14px; display: flex; align-items: center; gap: 8px;">
-          <input type="checkbox" id="cast-use-proxy" checked>
-          <label for="cast-use-proxy" style="font-size: 13px; color: var(--text-muted); margin: 0; cursor: pointer;">
-            Enable Ad-Shield Stream Proxy (Strips stream ads &amp; optimizes for TV hardware)
-          </label>
-        </div>
-
-        <button id="btn-submit-cast" class="btn-primary" style="font-weight: 700;">
-          <svg viewBox="0 0 24 24" style="width: 18px; height: 18px; stroke: #fff;"><path d="m22 2-7 20-4-9-9-4Z"/><path d="M22 2 11 13"/></svg>
-          <span id="btn-cast-text">Cast to TV</span>
-        </button>
-        <div id="web-playback-actions" hidden style="margin-top: 9px;">
-          <button type="button" id="btn-watch-cast-link" class="btn-secondary">Play here</button>
-          <button type="button" id="btn-open-cast-page" class="btn-secondary">Open original page</button>
-          <label style="display: block; margin-top: 9px; color: var(--text-muted); font-size: 13px;">
-            <input type="checkbox" id="web-low-bandwidth"> Lower bandwidth on supported in-browser streams
-          </label>
+        <div class="cast-card">
+          <div class="screen-heading-row"><h3>Recent links</h3><button id="browser-clear-history" type="button" class="btn-secondary">Clear</button></div>
+          <ul id="browser-history-list" class="browser-links"></ul>
         </div>
       </div>
-
-      <!-- YouTube 100% Ad-Free Search & Quick Cast -->
-      <div class="cast-card yt-search-card">
-        <div class="cast-card-header">
-          <div class="cast-badge-highlight" style="background: rgba(239, 68, 68, 0.15); color: #f87171; border-color: rgba(239, 68, 68, 0.3);">
-            ⚡ YOUTUBE ZERO-ADS
-          </div>
-          <h3>Play or Search Any YouTube Video Without Ads</h3>
-          <p style="font-size: 13px; color: var(--text-muted); margin-bottom: 12px; line-height: 1.45;">
-            Paste any YouTube video or short URL, or search keywords. TV Hub strips all ads and plays it directly on your TV.
-          </p>
-        </div>
-
-        <div class="yt-search-form">
-          <input type="text" id="yt-search-input" class="form-input yt-input-field" placeholder="Paste YouTube link or type search keyword...">
-          <div class="yt-action-buttons">
-            <button type="button" id="btn-yt-paste" class="btn-yt-paste" title="Paste link from clipboard">
-              📋 Paste Link
-            </button>
-            <button type="button" id="btn-yt-search" class="btn-primary btn-yt-search">
-              ⚡ Cast / Search
-            </button>
-          </div>
-        </div>
-
-        <div id="yt-search-results" class="yt-results-grid" style="display: none; margin-top: 14px;"></div>
-      </div>
-
-      <div class="cast-card">
+      <details class="cast-card browser-file">
+        <summary>Cast a file from this device</summary>
         <h3>
           <svg viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
           Cast Local Video / Audio File
@@ -548,7 +557,7 @@
           Upload & Play on TV
         </button>
         <div id="media-files-list" style="margin-top: 14px;"></div>
-      </div>
+      </details>
     </section>
 
         <!-- TAB 4: Connected Devices & Network-Wide DNS Ad-Blocker -->
@@ -576,6 +585,40 @@
             <svg class="scan-radar-svg" viewBox="0 0 24 24"><path d="M12 2a10 10 0 1 0 10 10A10 10 0 0 0 12 2zm0 18a8 8 0 1 1 8-8 8 8 0 0 1-8 8z"/><path d="M12 6a6 6 0 1 0 6 6 6 6 0 0 0-6-6zm0 10a4 4 0 1 1 4-4 4 4 0 0 1-4 4z"/><circle cx="12" cy="12" r="2"/></svg>
             <span id="scan-btn-text">Scan Network</span>
           </button>
+        </div>
+
+        <div class="connected-devices-panel">
+        <!-- 3. Devices Section & Category Filter Bar -->
+        <div class="devices-section-head">
+          <div class="section-title-wrap">
+            <span class="section-heading">Connected Network Devices</span>
+            <span class="section-caption">Toggle ad blocking individually for any device on your Wi-Fi</span>
+          </div>
+
+          <!-- Category Filter Pills -->
+          <div class="devices-filter-bar">
+            <button class="device-filter-pill active" data-filter="all">All Devices</button>
+            <button class="device-filter-pill" data-filter="tv">Smart TVs</button>
+            <button class="device-filter-pill" data-filter="phone">Phones</button>
+            <button class="device-filter-pill" data-filter="computer">Computers</button>
+            <button class="device-filter-pill" data-filter="router">Router</button>
+          </div>
+        </div>
+
+        <!-- Search Bar -->
+        <div class="device-search-wrapper">
+          <svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+          <input type="text" id="input-device-search" placeholder="Search devices by name, IP or vendor..." autocomplete="off">
+          <button id="btn-clear-device-search" class="btn-clear-search" style="display: none;">✕</button>
+        </div>
+
+        <!-- Device Cards Container -->
+        <div id="network-devices-list" class="cyber-devices-grid">
+          <div class="devices-loading-placeholder" style="text-align: center; padding: 24px; color: var(--text-muted);">
+            <span>Discovering network devices...</span>
+          </div>
+        </div>
+
         </div>
 
         <!-- 1. Master Wi-Fi Ad Shield Card (Cyber Hero Widget) -->
@@ -809,37 +852,6 @@
           </div>
         </div>
 
-        <!-- 3. Devices Section & Category Filter Bar -->
-        <div class="devices-section-head">
-          <div class="section-title-wrap">
-            <span class="section-heading">Connected Network Devices</span>
-            <span class="section-caption">Toggle ad blocking individually for any device on your Wi-Fi</span>
-          </div>
-          
-          <!-- Category Filter Pills -->
-          <div class="devices-filter-bar">
-            <button class="device-filter-pill active" data-filter="all">All Devices</button>
-            <button class="device-filter-pill" data-filter="tv">Smart TVs</button>
-            <button class="device-filter-pill" data-filter="phone">Phones</button>
-            <button class="device-filter-pill" data-filter="computer">Computers</button>
-            <button class="device-filter-pill" data-filter="router">Router</button>
-          </div>
-        </div>
-
-        <!-- Search Bar -->
-        <div class="device-search-wrapper">
-          <svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
-          <input type="text" id="input-device-search" placeholder="Search devices by name, IP or vendor..." autocomplete="off">
-          <button id="btn-clear-device-search" class="btn-clear-search" style="display: none;">✕</button>
-        </div>
-
-        <!-- Device Cards Container -->
-        <div id="network-devices-list" class="cyber-devices-grid">
-          <div class="devices-loading-placeholder" style="text-align: center; padding: 24px; color: var(--text-muted);">
-            <span>Discovering network devices...</span>
-          </div>
-        </div>
-
         <!-- 4. Real-Time Ad-Block Activity Feed -->
         <div class="cyber-feed-card">
           <div class="feed-header">
@@ -886,10 +898,10 @@
       </div>
 
       <div class="player-info" id="player-info-click" style="cursor: pointer;">
-        <div class="player-title" id="bar-title">TV Hub Ready</div>
+        <div class="player-title" id="bar-title">ANANIA</div>
         <div class="player-subtitle">
           <span class="status-dot green" id="bar-status-dot" style="width: 6px; height: 6px;"></span>
-          <span id="bar-tv-status">Hisense TV Idle</span>
+          <span id="bar-tv-status">No active cast</span>
         </div>
       </div>
       <div class="player-controls">
@@ -903,29 +915,28 @@
     </aside>
 
     <!-- Sleek Bottom Navigation Bar -->
-    <nav class="bottom-nav">
+    <nav class="bottom-nav" aria-label="Main navigation">
       <button class="nav-item active" data-tab="tab-iptv">
-        <svg viewBox="0 0 24 24"><rect width="20" height="15" x="2" y="7" rx="2" ry="2"/><polyline points="17 2 12 7 7 2"/></svg>
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="4" width="20" height="14" rx="3"/><polygon points="10 8.5 15.5 11 10 13.5 10 8.5" fill="currentColor" stroke="none"/><line x1="8" y1="21" x2="16" y2="21"/></svg>
         <span>Channels</span>
       </button>
       <button class="nav-item" data-tab="tab-remote">
-        <svg viewBox="0 0 24 24"><rect width="14" height="20" x="5" y="2" rx="2"/><circle cx="12" cy="14" r="3"/><circle cx="12" cy="7" r="1"/></svg>
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"><rect width="14" height="20" x="5" y="2" rx="3.5"/><circle cx="12" cy="13.5" r="3.2"/><path d="M12 6.5h.01"/></svg>
         <span>Remote</span>
       </button>
-      <button class="nav-item" data-tab="tab-cast">
-        <svg viewBox="0 0 24 24"><path d="M2 16.1A5 5 0 0 1 5.9 20M2 12.05A9 9 0 0 1 9.95 20M2 8V6a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2h-6"/><line x1="2" y1="20" x2="2.01" y2="20"/></svg>
-        <span>Cast</span>
+      <button class="nav-item" data-tab="tab-youtube">
+        <div class="nav-yt-badge">
+          <svg viewBox="0 0 24 24"><path d="M22.54 6.42a2.78 2.78 0 0 0-1.94-2C18.88 4 12 4 12 4s-6.88 0-8.6.46a2.78 2.78 0 0 0-1.94 2A29 29 0 0 0 1 11.75a29 29 0 0 0 .46 5.33A2.78 2.78 0 0 0 3.4 19c1.72.46 8.6.46 8.6.46s6.88 0 8.6-.46a2.78 2.78 0 0 0 1.94-2 29 29 0 0 0 .46-5.25 29 29 0 0 0-.46-5.33z"/><polygon points="9.75 15.02 15.5 11.75 9.75 8.48 9.75 15.02" fill="currentColor"/></svg>
+        </div>
+        <span>YouTube</span>
+      </button>
+      <button class="nav-item" data-tab="tab-browser">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3c5 5 5 13 0 18-5-5-5-13 0-18"/></svg>
+        <span>Browser</span>
       </button>
       <button class="nav-item" data-tab="tab-devices">
-        <svg viewBox="0 0 24 24"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><path d="m9 12 2 2 4-4"/></svg>
         <span>Devices</span>
-      </button>
-      <button class="nav-item" data-tab="tab-sports">
-        <div style="position: relative; display: inline-flex; align-items: center; justify-content: center;">
-          <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="m4.93 4.93 4.24 4.24M14.83 9.17l4.24-4.24M14.83 14.83l4.24 4.24M9.17 14.83l-4.24 4.24"/><circle cx="12" cy="12" r="4"/></svg>
-          <span class="live-dot-nav" id="sports-nav-live-dot" style="display: none;"></span>
-        </div>
-        <span>Sports</span>
       </button>
     </nav>
   </div>
@@ -1061,6 +1072,7 @@
       </div>
       <div class="video-container" style="position: relative; width: 100%; background: #000; border-radius: 12px; overflow: hidden; margin: 12px 0;">
         <video id="inapp-video" x-webkit-airplay="allow" airplay="allow" playsinline controls style="width: 100%; max-height: 280px; display: block;"></video>
+        <button type="button" id="btn-player-pip" class="btn-secondary" hidden>Picture in picture</button>
       </div>
       <div style="display: flex; gap: 8px; justify-content: space-between; align-items: center;">
         <span id="inapp-stream-status" style="font-size: 12px; color: var(--accent-cyan);">● Direct Stream (Ad-Free)</span>
@@ -1107,6 +1119,6 @@
     </div>
   </div>
 
-  <script src="static/app.js?v=web-player-2"></script>
+  <script src="static/app.js?v=anania-web-3"></script>
 </body>
 </html>

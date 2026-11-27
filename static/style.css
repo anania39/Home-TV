@@ -3902,3 +3902,315 @@ header {
   border-color: rgba(56, 189, 248, 0.4);
   box-shadow: 0 0 10px rgba(56, 189, 248, 0.3);
 }
+
+/* ANANIA's APK palette and controls, with a responsive Pages layout. */
+:root {
+  color-scheme: dark;
+  --bg-primary: #101017;
+  --bg-surface: #171722;
+  --bg-card: #1d1d2a;
+  --bg-card-hover: #262637;
+  --border-color: #353547;
+  --text-main: #f3f1fb;
+  --text-muted: #b7b4ca;
+  --text-dim: #9b98b0;
+  --accent-cyan: #c7baff;
+  --accent-blue: #a997f4;
+  --accent-purple: #b098ff;
+  --accent-green: #81d8b5;
+  --accent-red: #ffa5ac;
+  --accent-amber: #edcb87;
+  --accent-ink: #211638;
+  --accent-soft: #302746;
+  --nav-size: 58px;
+  --font-stack: Roboto, system-ui, sans-serif;
+}
+
+body { background: var(--bg-primary); }
+.app-container { padding-bottom: calc(var(--nav-size) + 79px + env(safe-area-inset-bottom, 0px)); }
+header {
+  position: relative;
+  background: var(--bg-primary) !important;
+  backdrop-filter: none;
+  border-bottom: 1px solid var(--border-color);
+  padding: 12px 16px;
+}
+.header-top { gap: 8px; margin-bottom: 8px; flex-wrap: nowrap; }
+.header-actions { gap: 4px !important; flex-shrink: 0; }
+.brand, .brand-text { min-width: 0; }
+.brand-icon {
+  width: 40px !important;
+  height: 40px !important;
+  border-radius: 13px !important;
+  background: var(--accent-soft) !important;
+  animation: none;
+  box-shadow: none !important;
+}
+.brand h1 { color: var(--text-main) !important; letter-spacing: .06em; }
+.brand-pro-pill { display: none; }
+.brand-text p { color: var(--text-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+#btn-apk-download { display: none !important; }
+.header-actions .btn-icon { min-width: 36px; min-height: 38px; }
+.tv-selector-bar { margin-top: 6px; }
+.selector-dropdown, .sort-dropdown, .search-input-wrapper, .device-search-wrapper, .form-input,
+.deck-select, .manual-ip-row {
+  color: var(--text-main) !important;
+  background: var(--bg-card) !important;
+  border: 1px solid var(--border-color) !important;
+  border-radius: 13px !important;
+  box-shadow: none !important;
+}
+.selector-dropdown, .sort-dropdown, .search-input-wrapper { min-height: 44px; }
+.tv-status-banner { background: var(--bg-surface) !important; box-shadow: none !important; border-color: var(--border-color) !important; }
+.status-dot.green, .channel-live-dot { background: var(--accent-green) !important; box-shadow: none; }
+.search-input-wrapper:focus-within, .device-search-wrapper:focus-within,
+button:focus-visible, select:focus-visible, input:focus-visible {
+  outline: 2px solid var(--accent-cyan);
+  outline-offset: 2px;
+}
+.screen-heading { margin: 3px 0 15px; }
+.screen-heading h2, .devices-title-text, .remote-tv-title {
+  color: var(--text-main) !important;
+  font-size: 25px !important;
+  line-height: 1.2;
+  letter-spacing: -.02em;
+  font-weight: 750;
+}
+.screen-heading p { margin-top: 5px; color: var(--text-muted); font-size: 13px; }
+
+#tab-iptv { padding: 16px; }
+.search-sort-bar { display: grid; grid-template-columns: minmax(0,1fr) auto 44px; gap: 7px; }
+.search-sort-bar .sort-dropdown { max-width: 100px; min-width: 0; }
+.search-input-wrapper .search-input, .device-search-wrapper input {
+  background: transparent !important;
+  border: 0 !important;
+  box-shadow: none !important;
+  outline: none;
+  min-width: 0;
+}
+.filter-title { color: var(--text-muted); font-size: 11px; letter-spacing: .04em; }
+.pills-scroll, .devices-filter-bar { scroll-padding-inline: 4px; }
+.filter-pill, .device-filter-pill, .speed-pill {
+  min-height: 36px;
+  border-radius: 999px !important;
+  background: var(--bg-surface) !important;
+  border: 1px solid var(--border-color) !important;
+  color: var(--text-muted) !important;
+  box-shadow: none !important;
+}
+.filter-pill.active, .device-filter-pill.active, .speed-pill.active {
+  color: var(--accent-cyan) !important;
+  background: var(--accent-soft) !important;
+  border-color: #675483 !important;
+}
+.channels-grid { grid-template-columns: repeat(3,minmax(0,1fr)); gap: 9px; }
+.channels-grid .channel-card {
+  min-width: 0;
+  padding: 11px 6px;
+  border: 1px solid var(--border-color) !important;
+  border-radius: 16px !important;
+  box-shadow: none !important;
+  background: var(--bg-card) !important;
+  transform: none !important;
+  animation: none !important;
+}
+.channel-card::before, .channel-card-glow { display: none; }
+.channels-grid .channel-card:active { background: var(--bg-card-hover) !important; transform: scale(.98) !important; }
+.channel-card .channel-logo-container {
+  width: min(70px,100%) !important;
+  height: 66px !important;
+  background: var(--bg-surface) !important;
+  border-color: transparent !important;
+  box-shadow: none !important;
+  border-radius: 12px !important;
+}
+.channel-card .channel-logo { filter: none; transform: none !important; }
+.channel-card .monogram-fallback { background: var(--accent-soft); color: var(--accent-cyan); text-shadow: none; box-shadow: none; }
+.channel-card .monogram-sub { display: none; }
+.channel-name { color: var(--text-main) !important; font-size: 12px !important; line-height: 1.35; }
+.channel-badge-row { gap: 3px; }
+.channel-card .tag-hd { color: var(--accent-green); background: #22362f; }
+.channel-card .tag-genre { color: var(--text-muted); background: var(--bg-surface); }
+.channel-card .channel-phone-btn { background: #1d1d2a !important; box-shadow: none; }
+
+.remote-shell { padding: 0; gap: 13px; }
+.remote-header-card, .remote-rocker-card, .remote-pill-btn, .device-card, .modal-card,
+.devices-header-hero, .cyber-shield-card, .community-repos-card, .mobile-setup-card,
+.youtube-shield-card, .cyber-feed-card, .cyber-stat-card, .cyber-device-card,
+.active-cast-deck, .vanced-top-card {
+  color: var(--text-main);
+  background: var(--bg-card) !important;
+  border: 1px solid var(--border-color) !important;
+  border-radius: 17px !important;
+  box-shadow: none !important;
+  backdrop-filter: none;
+}
+.remote-badge, .section-caption, .remote-tv-sub { color: var(--text-muted) !important; }
+.remote-badge { border-color: var(--border-color); background: var(--accent-soft); }
+.remote-shell > .screen-heading { margin-bottom: 1px; }
+.remote-quick-row, .remote-bottom-controls { gap: 8px; }
+.remote-pill-btn svg, .devices-title-text svg { stroke: var(--accent-cyan); }
+.remote-pill-btn { min-height: 46px; padding: 8px 5px; }
+.remote-dpad { background: var(--bg-card); border-color: var(--border-color); box-shadow: none; }
+.remote-dpad::before { border-color: var(--border-color); border-style: solid; }
+.dpad-dir { color: var(--text-main); }
+.dpad-dir:active { color: var(--accent-cyan); background: var(--accent-soft); }
+.dpad-ok, .remote-key-btn.primary, .btn-primary, .play-pause-btn, .btn-deck-playpause {
+  background: var(--accent-cyan) !important;
+  color: var(--accent-ink) !important;
+  box-shadow: none !important;
+  border-color: transparent !important;
+  animation: none !important;
+}
+.play-pause-btn svg, .btn-deck-playpause svg { fill: currentColor; }
+.btn-icon, .remote-key-btn, .btn-cyber-scan, .btn-sync-repos, .btn-copy-ip, .btn-mini-reset {
+  background: var(--bg-surface);
+  color: var(--text-main);
+  border-color: var(--border-color);
+  box-shadow: none;
+  border-radius: 12px;
+}
+.btn-cyber-scan, .btn-sync-repos { color: var(--accent-cyan); min-height: 44px; }
+.remote-power-btn { background: #392631; color: var(--accent-red); box-shadow: none; }
+.shield-card-glow-bg, .cyber-shield-card::before { display: none; }
+.devices-header-hero { gap: 9px; flex-wrap: wrap; padding: 13px; }
+.devices-title-text { white-space: normal; }
+.connected-devices-panel { display: grid; grid-template-columns: minmax(0,1fr); gap: 9px; min-width: 0; }
+.connected-devices-panel > *, .connected-devices-panel .devices-filter-bar { min-width: 0; max-width: 100%; }
+.connected-devices-panel .devices-filter-bar { overflow-x: auto; }
+.devices-section-head { margin-top: 0; }
+.devices-title-text, .section-heading, .shield-headline { text-shadow: none; }
+.device-avatar-box, .router-model-badge, .subnet-badge, .devices-count-pill {
+  color: var(--accent-cyan);
+  background: var(--accent-soft);
+  border-color: var(--border-color);
+  box-shadow: none;
+}
+.cyber-switch input:checked + span, .device-toggle-switch input:checked + span { background: var(--accent-cyan); box-shadow: none; }
+.deck-scrub-slider::-webkit-slider-thumb, .deck-vol-slider::-webkit-slider-thumb { background: var(--accent-cyan); box-shadow: none; }
+.modal-overlay { background: #08080dc7; }
+
+.bottom-nav {
+  min-height: var(--nav-size) !important;
+  background: var(--bg-primary) !important;
+  border-top: 1px solid var(--border-color) !important;
+  backdrop-filter: none !important;
+  padding: 4px 8px calc(4px + env(safe-area-inset-bottom, 0px)) !important;
+}
+.bottom-nav .nav-item {
+  color: var(--text-muted) !important;
+  min-height: 48px !important;
+  border-radius: 13px !important;
+  gap: 4px !important;
+}
+.bottom-nav .nav-item svg { width: 20px !important; height: 20px !important; transform: none !important; }
+.bottom-nav .nav-item span { font-size: 10px !important; }
+.bottom-nav .nav-item.active, .bottom-nav .nav-item[data-tab="tab-sports"].active {
+  color: var(--accent-cyan) !important;
+  background: var(--accent-soft) !important;
+}
+.bottom-nav .nav-item.active::before, .bottom-nav .nav-item.active::after { display: none; }
+.bottom-nav .nav-item[data-tab="tab-sports"].active .nav-yt-badge { filter: none; transform: none; }
+.bottom-player-bar {
+  bottom: calc(var(--nav-size) + 6px + env(safe-area-inset-bottom, 0px));
+  background: var(--bg-card);
+  border: 1px solid var(--border-color);
+  border-radius: 17px;
+  padding: 7px 10px;
+  box-shadow: 0 4px 16px #0004;
+}
+.player-title { color: var(--text-main); }
+.player-subtitle { color: var(--text-muted); }
+.tab-content.active { animation: none; }
+@media (max-width: 345px) {
+  #tab-iptv { padding-inline: 10px; }
+  .channels-grid { grid-template-columns: repeat(2,minmax(0,1fr)); }
+  .search-sort-bar .sort-dropdown { max-width: 84px; }
+  .header-actions .btn-icon { min-width: 34px; }
+  .brand-icon { width: 34px !important; height: 34px !important; flex: 0 0 34px; }
+}
+
+:root { --app-width: 1220px; }
+.app-container { max-width: var(--app-width); }
+.bottom-nav { max-width: var(--app-width); height: auto; }
+.bottom-player-bar { max-width: calc(var(--app-width) - 32px); }
+.brand-icon svg { width: 31px; height: 31px; }
+.brand-text p { font-size: 11px; }
+.header-actions .cast-launcher-native { display: none !important; }
+header .tv-status-banner { margin: 0; }
+.tv-selector-bar { min-width: 0; }
+.screen-heading-row { display: flex; gap: 12px; align-items: center; justify-content: space-between; }
+.screen-heading-row > div { min-width: 0; }
+.screen-heading-row .btn-secondary { flex-shrink: 0; }
+.tab-content { min-width: 0; }
+.back-to-channels { margin-bottom: 12px; }
+
+.cast-card, .cast-progress-card, .yt-result-item, .sports-header-banner {
+  background: var(--bg-card) !important;
+  border: 1px solid var(--border-color) !important;
+  box-shadow: none !important;
+  border-radius: 17px !important;
+  color: var(--text-main);
+}
+.btn-secondary, .btn-input-action, .btn-yt-paste, .yt-result-cast-btn {
+  min-height: 40px;
+  color: var(--text-main);
+  background: var(--bg-surface);
+  border: 1px solid var(--border-color);
+  border-radius: 12px;
+  box-shadow: none;
+}
+.universal-cast-card::after, .universal-cast-card::before { display: none; }
+.btn-secondary:hover, .btn-yt-paste:hover, .browser-links button:hover { background: var(--bg-card-hover); }
+.browser-actions { display: grid; grid-template-columns: repeat(3,minmax(0,1fr)); gap: 8px; }
+.browser-actions button { padding: 8px 5px; min-height: 44px; font-size: 13px; }
+.browser-tools { display: flex; align-items: center; flex-wrap: wrap; gap: 9px; margin-top: 12px; }
+.browser-options { flex: 1 1 auto; }
+.browser-options[open] { flex-basis: 100%; }
+.browser-options summary, .browser-file summary { cursor: pointer; color: var(--accent-cyan); min-height: 36px; padding: 8px 0; }
+.browser-options label { display: block; margin-top: 8px; color: var(--text-muted); font-size: 13px; }
+.browser-options input[type="checkbox"] { accent-color: var(--accent-cyan); }
+.browser-library { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 12px; }
+.browser-library .cast-card { min-width: 0; }
+.browser-library h3 { font-size: 16px; margin: 0; }
+.browser-library .btn-secondary { min-height: 32px; padding: 4px 8px; }
+.browser-links { margin: 12px 0 0; padding: 0; list-style: none; color: var(--text-muted); }
+.browser-links li { display: flex; align-items: center; gap: 6px; padding: 7px 0; border-top: 1px solid var(--border-color); overflow-wrap: anywhere; }
+.browser-links button { text-align: left; color: var(--text-main); background: none; border: 0; font: inherit; cursor: pointer; padding: 6px; border-radius: 7px; }
+.browser-links .browser-link { flex: 1; min-width: 0; text-overflow: ellipsis; overflow: hidden; white-space: nowrap; }
+.browser-links .browser-remove-link { color: var(--text-muted); }
+.browser-tools a { text-decoration: none; padding: 8px 12px; }
+.yt-result-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+.yt-result-actions a { display: inline-flex; align-items: center; padding: 6px 10px; text-decoration: none; }
+.yt-selected-video { margin-top: 16px; }
+.yt-selected-video h3 { margin: 0 0 10px; }
+.yt-selected-video iframe {
+  width: 100%; aspect-ratio: 16 / 9; display: block;
+  border: 0; border-radius: 12px; background: #08080d; margin-top: 12px;
+}
+.yt-search-form > * { min-width: 0; }
+.yt-search-card { max-width: none; }
+.visually-hidden { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+[hidden] { display: none !important; }
+#modal-inapp-player .modal-card { width: min(94vw, 860px); max-width: none; }
+#inapp-video { max-height: min(58vh, 590px) !important; }
+
+@media (min-width: 760px) {
+  header { display: grid; grid-template-columns: 1fr 1fr; gap: 10px 16px; padding: 18px 24px; }
+  .header-top { grid-column: 1 / -1; }
+  header .tv-selector-bar { margin: 0; }
+  .tab-content, #tab-iptv { padding: 24px; }
+  .channels-grid { grid-template-columns: repeat(5,minmax(0,1fr)); gap: 13px; }
+  .channels-grid .channel-card { padding: 15px 10px; }
+  .channel-name { font-size: 14px !important; }
+  .bottom-nav { padding-inline: 20px !important; }
+  #tab-browser > *, #tab-youtube > * { max-width: 930px; margin-inline: auto; }
+}
+@media (min-width: 1060px) {
+  .channels-grid { grid-template-columns: repeat(6,minmax(0,1fr)); }
+}
+@media (max-width: 500px) {
+  .browser-library { grid-template-columns: minmax(0,1fr); }
+  .screen-heading-row .btn-secondary { font-size: 12px; padding-inline: 8px; }
+  .header-actions .btn-icon { width: 34px; }
+}
