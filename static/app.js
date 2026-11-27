@@ -1985,7 +1985,7 @@ async function executeUniversalCast(url, title = "") {
       if (barTitle) barTitle.textContent = finalTitle;
       updatePlayPauseButton(true);
       vibrate(50);
-      showToast(`🎉 Now Playing on ${targetTv} (100% Ad-Free)!`);
+      showToast(IS_PUBLIC_PAGES ? `Cast sent to ${targetTv}.` : `🎉 Now Playing on ${targetTv} (100% Ad-Free)!`);
 
       setTimeout(() => {
         hideCastProgress();
@@ -2014,7 +2014,7 @@ async function executeUniversalCast(url, title = "") {
     showCastError("Connection error: Unable to reach TV Hub server. Check your Wi-Fi or restart TV Hub.");
   } finally {
     if (btnSubmitCast) btnSubmitCast.classList.remove("loading");
-    if (btnCastText) btnCastText.textContent = IS_PUBLIC_PAGES ? "Cast to TV" : "Cast Ad-Free to TV";
+    if (btnCastText) btnCastText.textContent = IS_PUBLIC_PAGES ? "Cast video" : "Cast Ad-Free to TV";
   }
 }
 
